@@ -19,6 +19,8 @@ const MenuMain = lazy(() => import("../pages/Manager/Restaurant/Menu/MenuMain/in
 const MenuSeasonal = lazy(() => import("../pages/Manager/Restaurant/Menu/MenuSeasonal/index"));
 
 const Rooms = lazy(() => import("../pages/Manager/Hotel/Rooms/index"));
+const RoomTypes = lazy(() => import("../pages/Manager/Hotel/RoomTypes/index"));
+const Bookings = lazy(() => import("../pages/Manager/Hotel/Bookings/index"));
 
 const routes = [
     {
@@ -46,11 +48,19 @@ const routes = [
             { path: "/restaurant/services", element: <PaymentRestaurant /> },
             { path: "/restaurant/reservations", element: <Reservation /> },
             { path: "/restaurant/promotions", element: <Promotion /> },
-            { path: "restaurant/menus-main", element: <MenuMain /> },
-            { path: "restaurant/menus-seasonal", element: <MenuSeasonal /> },
+            { path: "/restaurant/menus-main", element: <MenuMain /> },
+            { path: "/restaurant/menus-seasonal", element: <MenuSeasonal /> },
             {
-                path: "hotel/rooms",
+                path: "/hotel/rooms",
                 element: <Rooms />,
+            },
+            {
+                path: "/hotel/room-types",
+                element: <RoomTypes />,
+            },
+            {
+                path: "/hotel/bookings",
+                element: <Bookings />,
             },
         ],
     },

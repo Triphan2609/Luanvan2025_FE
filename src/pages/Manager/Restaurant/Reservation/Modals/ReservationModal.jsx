@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 import { Modal, Form, Input, DatePicker, TimePicker, InputNumber, Select } from "antd";
-import dayjs from "dayjs"; // ✅ THÊM dòng này
+import dayjs from "dayjs";
 
 const { TextArea } = Input;
 
@@ -17,7 +17,7 @@ const tableOptions = [
 ];
 
 export default function ReservationModal({ open, onCancel, onSave, initialData }) {
-    const [form] = Form.useForm(); // ✅ Tạo form instance
+    const [form] = Form.useForm();
 
     useEffect(() => {
         if (initialData) {

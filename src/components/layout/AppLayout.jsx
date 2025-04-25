@@ -133,17 +133,17 @@ const items = [
             {
                 key: "room-types",
                 icon: <AppstoreOutlined />,
-                label: <Link to="/hotel/room-types">Loại phòng</Link>,
+                label: <Link to="/hotel/room-types">Quản lý loại phòng</Link>,
             },
             {
                 key: "bookings",
                 icon: <ScheduleOutlined />,
-                label: <Link to="/hotel/bookings">Đặt phòng</Link>,
-            },
+                label: <Link to="/hotel/bookings">Quản lý đặt phòng</Link>,
+            }, //
             {
-                key: "services",
+                key: "stuff",
                 icon: <OrderedListOutlined />,
-                label: <Link to="/hotel/services">Dịch vụ</Link>,
+                label: <Link to="/hotel/stuffs">Quản lý vật dụng</Link>,
             },
         ],
     },
