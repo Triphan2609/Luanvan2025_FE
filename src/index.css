@@ -1,0 +1,46 @@
+@import "tailwindcss";
+/* Responsive adjustments */
+.ant-layout-sider-trigger {
+    background: #4096ff !important;
+    margin-top: 16px !important;
+}
+@media (max-width: 768px) {
+    .ant-layout-sider {
+        position: fixed;
+        height: 100vh;
+        z-index: 100;
+    }
+
+    .ant-layout {
+        margin-left: 0 !important;
+    }
+
+    .ant-table {
+        width: 100%;
+        overflow-x: auto;
+    }
+
+    .ant-card-extra {
+        margin-top: 16px;
+        width: 100%;
+    }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}

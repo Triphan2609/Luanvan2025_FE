@@ -1,0 +1,14 @@
+/* src/pages/Dashboard/dashboard.css */
+.dashboard-container {
+    padding: 24px;
+}
+
+@media (max-width: 768px) {
+    .dashboard-container {
+        padding: 12px;
+    }
+
+    .ant-card {
+        margin-bottom: 16px;
+    }
+}

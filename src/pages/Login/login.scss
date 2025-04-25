@@ -1,0 +1,27 @@
+.login-container {
+    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+}
+
+.login-card {
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.login-form-forgot {
+    float: right;
+}
+
+.login-form-button {
+    width: 100%;
+}
+
+@media (max-width: 576px) {
+    .login-card {
+        width: 100%;
+        margin: 0 16px;
+    }
+
+    .login-form {
+        padding: 0 8px;
+    }
+}
