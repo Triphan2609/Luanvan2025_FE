@@ -25,8 +25,10 @@
     "react-icons": "^5.5.0",
     "react-lottie-player": "^2.1.0",
     "react-router-dom": "^7.5.1",
+    "react-sortablejs": "^6.1.4",
     "recharts": "^2.15.3",
-    "scss": "^0.2.4"
+    "scss": "^0.2.4",
+    "sortablejs": "^1.15.6"
   },
   "devDependencies": {
     "@eslint/js": "^9.22.0",

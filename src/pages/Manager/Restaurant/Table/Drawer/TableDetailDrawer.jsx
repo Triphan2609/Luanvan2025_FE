@@ -1,15 +1,46 @@
 // TableDetailDrawer.jsx
 import React, { useState } from "react";
-import { Drawer, Descriptions, Button, Space, message, List, Tag, Select, Divider } from "antd";
+import {
+    Drawer,
+    Descriptions,
+    Button,
+    Space,
+    message,
+    List,
+    Tag,
+    Select,
+    Divider,
+    Typography,
+    Badge,
+    Statistic,
+    Row,
+    Col,
+    Timeline,
+    Popconfirm,
+    Empty,
+} from "antd";
+import {
+    UserOutlined,
+    ClockCircleOutlined,
+    DollarOutlined,
+    TableOutlined,
+    DeleteOutlined,
+    EditOutlined,
+    CheckCircleOutlined,
+    ShoppingCartOutlined,
+} from "@ant-design/icons";
 import AddServiceModal from "../Modals/AddServiceModal";
 import AddDishModal from "../Modals/AddDishModal";
 import { useNavigate } from "react-router-dom";
+
+const { Title, Text } = Typography;
 const { Option } = Select;
 
 export default function TableDetailDrawer({ open, onClose, table, tables, onChangeTable, setTables }) {
     const [isServiceModalOpen, setIsServiceModalOpen] = useState(false);
     const [isFoodModalOpen, setIsFoodModalOpen] = useState(false);
     const navigate = useNavigate();
+
     if (!table) return null;
 
     const orderItems = table.orders || [];
@@ -29,16 +60,58 @@ export default function TableDetailDrawer({ open, onClose, table, tables, onChan
         message.success("Đã thêm vào đơn!");
     };
 
+    const handleStatusChange = (itemId, newStatus) => {
+        const updatedTables = tables.map((t) =>
+            t.id === table.id
+                ? {
+                      ...t,
+                      orders: t.orders.map((order) => (order.id === itemId ? { ...order, status: newStatus } : order)),
+                  }
+                : t
+        );
+        setTables(updatedTables);
+        message.success("Đã cập nhật trạng thái!");
+    };
+
     return (
         <>
-            <Drawer title={`Chi tiết ${table.name}`} placement="right" width={420} onClose={onClose} open={open}>
+            <Drawer
+                title={
+                    <Space>
+                        <TableOutlined />
+                        <span>Chi tiết {table.name}</span>
+                        <Badge
+                            status={table.status === "available" ? "success" : "error"}
+                            text={table.status === "available" ? "Còn trống" : "Đang sử dụng"}
+                        />
+                    </Space>
+                }
+                placement="right"
+                width={500}
+                onClose={onClose}
+                open={open}
+                extra={
+                    <Button type="primary" danger onClick={() => navigate("/restaurant/payment")}>
+                        Thanh toán
+                    </Button>
+                }
+            >
+                <Row gutter={[16, 16]}>
+                    <Col span={12}>
+                        <Statistic title="Tổng món" value={orderItems.length} prefix={<ShoppingCartOutlined />} />
+                    </Col>
+                    <Col span={12}>
+                        <Statistic title="Tổng tiền" value={total} prefix={<DollarOutlined />} suffix="đ" />
+                    </Col>
+                </Row>
+
+                <Divider />
+
                 <Descriptions bordered column={1} size="small">
-                    <Descriptions.Item label="Tên bàn">{table.name}</Descriptions.Item>
-                    <Descriptions.Item label="Số chỗ ngồi">{table.seats}</Descriptions.Item>
-                    <Descriptions.Item label="Trạng thái">
-                        <span style={{ textTransform: "capitalize" }}>{table.status}</span>
+                    <Descriptions.Item label="Số chỗ ngồi">
+                        <UserOutlined /> {table.seats} người
                     </Descriptions.Item>
-                    <Descriptions.Item label="Chuyển bàn">
+                    <Descriptions.Item label="Chuyển đến">
                         <Select style={{ width: "100%" }} placeholder="Chọn bàn mới" onChange={(val) => onChangeTable(table.id, val)}>
                             {(tables || [])
                                 .filter((t) => t.id !== table.id && t.status === "available")
@@ -51,48 +124,58 @@ export default function TableDetailDrawer({ open, onClose, table, tables, onChan
                     </Descriptions.Item>
                 </Descriptions>
 
-                <Divider orientation="left" style={{ marginTop: 24 }}>
-                    Đơn hàng hiện tại
-                </Divider>
+                <Divider orientation="left">Đơn hiện tại</Divider>
+
                 {orderItems.length === 0 ? (
-                    <p>Chưa có món nào được gọi.</p>
+                    <Empty description="Chưa có món nào được gọi" />
                 ) : (
                     <List
-                        bordered
                         dataSource={orderItems}
                         renderItem={(item) => (
-                            <List.Item>
-                                <div style={{ width: "100%" }}>
-                                    <div style={{ display: "flex", justifyContent: "space-between" }}>
-                                        <strong>{item.name}</strong>
-                                        <span>
-                                            {item.quantity} x {item.price.toLocaleString()}đ
-                                        </span>
-                                    </div>
-                                    <Tag color={item.status === "done" ? "green" : "orange"}>
-                                        {item.status === "done" ? "Đã làm" : "Đang chế biến"}
-                                    </Tag>
-                                </div>
+                            <List.Item
+                                actions={[
+                                    <Popconfirm title="Xác nhận món đã hoàn thành?" onConfirm={() => handleStatusChange(item.id, "done")}>
+                                        <Button type="link" icon={<CheckCircleOutlined />} disabled={item.status === "done"}>
+                                            Hoàn thành
+                                        </Button>
+                                    </Popconfirm>,
+                                    <Button type="link" danger icon={<DeleteOutlined />}>
+                                        Xóa
+                                    </Button>,
+                                ]}
+                            >
+                                <List.Item.Meta
+                                    title={
+                                        <Space>
+                                            {item.name}
+                                            <Badge
+                                                status={item.status === "done" ? "success" : "processing"}
+                                                text={item.status === "done" ? "Đã hoàn thành" : "Đang chế biến"}
+                                            />
+                                        </Space>
+                                    }
+                                    description={
+                                        <Space direction="vertical">
+                                            <Text>
+                                                {item.quantity} x {item.price.toLocaleString()}đ ={" "}
+                                                <Text strong>{(item.quantity * item.price).toLocaleString()}đ</Text>
+                                            </Text>
+                                            {item.note && <Tag color="orange">Ghi chú: {item.note}</Tag>}
+                                        </Space>
+                                    }
+                                />
                             </List.Item>
                         )}
                     />
                 )}
 
                 <Divider />
-                <Descriptions column={1} size="small">
-                    <Descriptions.Item label="Tạm tính">
-                        <strong style={{ color: "#1890ff" }}>{total.toLocaleString()}đ</strong>
-                    </Descriptions.Item>
-                </Descriptions>
 
-                <Space style={{ marginTop: 24 }} wrap>
+                <Space style={{ width: "100%", justifyContent: "space-between" }}>
                     <Button type="primary" onClick={() => setIsFoodModalOpen(true)}>
-                        Gọi món
+                        Gọi thêm món
                     </Button>
                     <Button onClick={() => setIsServiceModalOpen(true)}>Thêm dịch vụ</Button>
-                    <Button danger onClick={() => navigate("/restaurant/payment")}>
-                        Thanh toán
-                    </Button>
                 </Space>
             </Drawer>
 

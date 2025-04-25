@@ -96,17 +96,17 @@ const items = [
                     },
                     {
                         type: "group",
-                        label: "Menu",
+                        label: "Thực đơn",
                         children: [
                             {
                                 key: "menu-main",
                                 icon: <AppstoreOutlined />,
-                                label: <Link to="/restaurant/menus/main">Menu chính</Link>,
+                                label: <Link to="/restaurant/menus-main">Thực đơn chính</Link>,
                             },
                             {
                                 key: "menu-seasonal",
                                 icon: <StarOutlined />,
-                                label: <Link to="/restaurant/menus/seasonal">Menu theo mùa</Link>,
+                                label: <Link to="/restaurant/menus-seasonal">Thực đơn theo mùa</Link>,
                             },
                         ],
                     },
