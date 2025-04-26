@@ -128,7 +128,7 @@ const items = [
             {
                 key: "rooms",
                 icon: <HomeOutlined />,
-                label: <Link to="/hotel/rooms">Phòng</Link>,
+                label: <Link to="/hotel/rooms">Quản lý phòng</Link>,
             },
             {
                 key: "room-types",
@@ -143,7 +143,7 @@ const items = [
             {
                 key: "stuff",
                 icon: <OrderedListOutlined />,
-                label: <Link to="/hotel/stuffs">Quản lý vật dụng</Link>,
+                label: <Link to="/hotel/room-stuffs">Quản lý vật dụng</Link>,
             },
         ],
     },
@@ -155,17 +155,17 @@ const items = [
             {
                 key: "customers",
                 icon: <UserOutlined />,
-                label: <Link to="/customers">Danh sách</Link>,
+                label: <Link to="/customer/list-customer">Danh sách khách hàng</Link>,
             },
             {
                 key: "memberships",
                 icon: <IdcardOutlined />,
-                label: <Link to="/customers/memberships">Thành viên</Link>,
+                label: <Link to="/customer/list-membership-card">Thẻ thành viên</Link>,
             },
             {
                 key: "feedback",
                 icon: <FileTextOutlined />,
-                label: <Link to="/customers/feedback">Phản hồi</Link>,
+                label: <Link to="/customer/feedback">Phản hồi từ khách hàng</Link>,
             },
         ],
     },
@@ -177,17 +177,17 @@ const items = [
             {
                 key: "staff",
                 icon: <TeamOutlined />,
-                label: <Link to="/staff">Danh sách</Link>,
+                label: <Link to="/employees/list">Danh sách nhân viên</Link>,
             },
             {
                 key: "positions",
                 icon: <IdcardOutlined />,
-                label: <Link to="/staff/positions">Chức vụ</Link>,
+                label: <Link to="/employees/positions">Quản lý chức vụ</Link>,
             },
             {
                 key: "shifts",
                 icon: <ScheduleOutlined />,
-                label: <Link to="/staff/shifts">Ca làm</Link>,
+                label: <Link to="/employees/working-time">Quản lý ca làm</Link>,
             },
         ],
     },
@@ -202,14 +202,9 @@ const items = [
                 label: <Link to="/reports/revenue">Doanh thu</Link>,
             },
             {
-                key: "occupancy",
+                key: "service-usage",
                 icon: <BarChartOutlined />,
-                label: <Link to="/reports/occupancy">Tỷ lệ lấp đầy</Link>,
-            },
-            {
-                key: "customer-stats",
-                icon: <UserOutlined />,
-                label: <Link to="/reports/customer-stats">Thống kê KH</Link>,
+                label: <Link to="/reports/service-usage">Sử dụng dịch vụ</Link>,
             },
             {
                 key: "financial",
@@ -219,24 +214,19 @@ const items = [
         ],
     },
     {
-        key: "settings",
+        key: "systems",
         icon: <SettingOutlined />,
-        label: "Cài đặt",
+        label: "Hệ thống",
         children: [
             {
-                key: "system-settings",
-                icon: <SettingOutlined />,
-                label: <Link to="/settings/system">Hệ thống</Link>,
-            },
-            {
-                key: "user-settings",
+                key: "accounts",
                 icon: <UserOutlined />,
-                label: <Link to="/settings/user">Người dùng</Link>,
+                label: <Link to="/systems/accounts">Tài khoản</Link>,
             },
             {
                 key: "permissions",
                 icon: <IdcardOutlined />,
-                label: <Link to="/settings/permissions">Phân quyền</Link>,
+                label: <Link to="/systems/permissions">Phân quyền</Link>,
             },
         ],
     },

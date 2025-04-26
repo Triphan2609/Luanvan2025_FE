@@ -1,0 +1,44 @@
+/* Styles cho in ấn */
+@media print {
+    body * {
+        visibility: hidden;
+    }
+    #invoice-print,
+    #invoice-print * {
+        visibility: visible;
+    }
+    #invoice-print {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+    }
+}
+
+/* Styles chung */
+.payment-container {
+    padding: 24px;
+    background: #f0f2f5;
+    min-height: 100vh;
+}
+
+.payment-steps {
+    margin-bottom: 24px;
+}
+
+.payment-card {
+    background: #fff;
+    border-radius: 8px;
+}
+
+.payment-total {
+    color: #cf1322;
+    font-size: 24px;
+    font-weight: bold;
+}
+
+.payment-methods {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}

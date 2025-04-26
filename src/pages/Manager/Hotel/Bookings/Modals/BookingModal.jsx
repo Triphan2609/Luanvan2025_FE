@@ -28,12 +28,13 @@ export default function BookingModal({ open, onCancel, onSave, initialData }) {
                 form.setFieldsValue({
                     ...initialData,
                     dateRange: [dayjs(initialData.checkIn), dayjs(initialData.checkOut)],
+                    // Tính tổng số người từ adults và children nếu có
+                    people: (initialData.adults || 0) + (initialData.children || 0),
                 });
             } else {
                 form.resetFields();
                 form.setFieldsValue({
-                    adults: 1,
-                    children: 0,
+                    people: 1, // Giá trị mặc định cho số người
                 });
             }
         }
@@ -110,15 +111,9 @@ export default function BookingModal({ open, onCancel, onSave, initialData }) {
                     />
                 </Form.Item>
 
-                <Space style={{ width: "100%" }}>
-                    <Form.Item name="adults" label="Người lớn" rules={[{ required: true }]} style={{ width: "200px" }}>
-                        <InputNumber min={1} max={10} style={{ width: "100%" }} />
-                    </Form.Item>
-
-                    <Form.Item name="children" label="Trẻ em" initialValue={0} style={{ width: "200px" }}>
-                        <InputNumber min={0} max={5} style={{ width: "100%" }} />
-                    </Form.Item>
-                </Space>
+                <Form.Item name="people" label="Số người" rules={[{ required: true, message: "Vui lòng nhập số người" }]}>
+                    <InputNumber min={1} max={10} style={{ width: "100%" }} prefix={<TeamOutlined />} placeholder="Nhập số người" />
+                </Form.Item>
 
                 <Form.Item name="totalAmount" label="Tổng tiền" rules={[{ required: true }]}>
                     <InputNumber

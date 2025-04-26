@@ -2,6 +2,8 @@ import { Layout, Dropdown, Avatar, Badge, Breadcrumb } from "antd";
 import { BellOutlined, UserOutlined, HomeOutlined, KeyOutlined, LogoutOutlined } from "@ant-design/icons";
 import { theme } from "antd";
 import { useNavigate, useLocation } from "react-router-dom";
+import { useState } from "react";
+import NotificationDrawer from "../common/NotificationDrawer";
 
 const { Header } = Layout;
 const { useToken } = theme;
@@ -19,27 +21,27 @@ const BREADCRUMB_MAP = {
     menu: { label: "Thực đơn" },
     foods: { label: "Danh sách món ăn" },
     reservations: { label: "Quản lý đặt bàn" },
-    promotions: { label: "Khuyến mãi" },
+    promotions: { label: "Quản lý khuyến mãi" },
     payment: { label: "Thanh toán" },
+    invoice: { label: "Hóa đơn" },
     "menus-main": { label: "Thực đơn chính" },
-    hotel: { label: "Khách sạn" },
-    rooms: { label: "Phòng" },
-    "room-types": { label: "Loại phòng" },
+    hotel: { label: "Quản lý khách sạn" },
+    rooms: { label: "Quản lý phòng" },
+    "room-types": { label: "Quản lý loại phòng" },
+    "room-stuffs": { label: "Quản lý vật dụng" },
     bookings: { label: "Đặt phòng" },
-    customers: { label: "Khách hàng" },
+    customer: { label: "Quản lý khách hàng" },
+    "list-customer": { label: "Danh sách khách hàng" },
     memberships: { label: "Thành viên" },
-    feedback: { label: "Phản hồi" },
-    staff: { label: "Nhân viên" },
-    positions: { label: "Chức vụ" },
+    feedback: { label: "Quản lý phản hồi" },
+    employees: { label: "Quản lý nhân viên" },
+    positions: { label: "Quản lý chức vụ" },
     shifts: { label: "Ca làm" },
     reports: { label: "Báo cáo & Doanh thu" },
     revenue: { label: "Doanh thu" },
-    occupancy: { label: "Tỷ lệ lấp đầy" },
-    "customer-stats": { label: "Thống kê KH" },
     financial: { label: "Tài chính" },
     settings: { label: "Cài đặt" },
-    "system-settings": { label: "Hệ thống" },
-    "user-settings": { label: "Người dùng" },
+    systems: { label: "Hệ thống" },
     permissions: { label: "Phân quyền" },
     profile: { label: "Thông tin tài khoản" },
 };
@@ -51,6 +53,7 @@ export default function AppHeader() {
     const { token } = useToken();
     const navigate = useNavigate();
     const location = useLocation();
+    const [isNotificationOpen, setIsNotificationOpen] = useState(false);
 
     const handleMenuClick = (e) => {
         if (e.key === "1") navigate("/profile");
@@ -134,7 +137,7 @@ export default function AppHeader() {
 
             <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
                 <Badge count={5}>
-                    <BellOutlined style={{ fontSize: 18, cursor: "pointer" }} />
+                    <BellOutlined style={{ fontSize: 18, cursor: "pointer" }} onClick={() => setIsNotificationOpen(true)} />
                 </Badge>
                 <Dropdown menu={{ items: menuItems, onClick: handleMenuClick }} placement="bottomRight">
                     <div style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
@@ -143,6 +146,7 @@ export default function AppHeader() {
                     </div>
                 </Dropdown>
             </div>
+            <NotificationDrawer open={isNotificationOpen} onClose={() => setIsNotificationOpen(false)} />
         </Header>
     );
 }

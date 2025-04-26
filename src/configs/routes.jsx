@@ -12,7 +12,9 @@ const Area = lazy(() => import("../pages/Info/Area/index"));
 
 const Table = lazy(() => import("../pages/Manager/Restaurant/Table/index"));
 const PaymentRestaurant = lazy(() => import("../pages/Manager/Restaurant/Payment/index"));
+const InvoiceRestaurant = lazy(() => import("../pages/Manager/Restaurant/Payment/Invoice/index"));
 const FoodList = lazy(() => import("../pages/Manager/Restaurant/ListFood/index"));
+const ServiceRestaurant = lazy(() => import("../pages/Manager/Restaurant/Service/index"));
 const Reservation = lazy(() => import("../pages/Manager/Restaurant/Reservation/index"));
 const Promotion = lazy(() => import("../pages/Manager/Restaurant/Promotion/index"));
 const MenuMain = lazy(() => import("../pages/Manager/Restaurant/Menu/MenuMain/index"));
@@ -20,7 +22,25 @@ const MenuSeasonal = lazy(() => import("../pages/Manager/Restaurant/Menu/MenuSea
 
 const Rooms = lazy(() => import("../pages/Manager/Hotel/Rooms/index"));
 const RoomTypes = lazy(() => import("../pages/Manager/Hotel/RoomTypes/index"));
+const RoomStuffs = lazy(() => import("../pages/Manager/Hotel/Stuff/index"));
 const Bookings = lazy(() => import("../pages/Manager/Hotel/Bookings/index"));
+const PaymentHotel = lazy(() => import("../pages/Manager/Hotel/Payment/index"));
+const InvoiceHotel = lazy(() => import("../pages/Manager/Hotel/Payment/Invoice/index"));
+
+const CustomerList = lazy(() => import("../pages/Manager/Customer/ListCustomer/index"));
+const MembershipCard = lazy(() => import("../pages/Manager/Customer/MembershipCard/index"));
+const Feedback = lazy(() => import("../pages/Manager/Customer/Feedback/index"));
+
+const EmployeeList = lazy(() => import("../pages/Manager/Employee/ListEmployee/index"));
+const EmployeePosition = lazy(() => import("../pages/Manager/Employee/Position/index"));
+const WorkingTime = lazy(() => import("../pages/Manager/Employee/WorkingTime/index"));
+
+const Revenue = lazy(() => import("../pages/Report/Revenue"));
+const ServiceUsageReport = lazy(() => import("../pages/Report/ServiceUsageReport"));
+const FinancialReport = lazy(() => import("../pages/Report/FinancialReport"));
+
+const AccountManagement = lazy(() => import("../pages/System/Accounts/index"));
+const Permissions = lazy(() => import("../pages/System/Permissions"));
 
 const routes = [
     {
@@ -44,12 +64,17 @@ const routes = [
 
             { path: "/restaurant/tables", element: <Table /> },
             { path: "/restaurant/payment", element: <PaymentRestaurant /> },
+            {
+                path: "/restaurant/payment/invoice/:id",
+                element: <InvoiceRestaurant />,
+            },
             { path: "/restaurant/foods", element: <FoodList /> },
-            { path: "/restaurant/services", element: <PaymentRestaurant /> },
+            { path: "/restaurant/table-services", element: <ServiceRestaurant /> },
             { path: "/restaurant/reservations", element: <Reservation /> },
             { path: "/restaurant/promotions", element: <Promotion /> },
             { path: "/restaurant/menus-main", element: <MenuMain /> },
             { path: "/restaurant/menus-seasonal", element: <MenuSeasonal /> },
+
             {
                 path: "/hotel/rooms",
                 element: <Rooms />,
@@ -59,11 +84,72 @@ const routes = [
                 element: <RoomTypes />,
             },
             {
+                path: "/hotel/room-stuffs",
+                element: <RoomStuffs />,
+            },
+            {
                 path: "/hotel/bookings",
                 element: <Bookings />,
             },
+            {
+                path: "/hotel/payment",
+                element: <PaymentHotel />,
+            },
+            {
+                path: "/hotel/payment/invoice/:id",
+                element: <InvoiceHotel />,
+            },
+
+            {
+                path: "/customer/list-customer",
+                element: <CustomerList />,
+            },
+            {
+                path: "/customer/list-membership-card",
+                element: <MembershipCard />,
+            },
+            {
+                path: "/customer/feedback",
+                element: <Feedback />,
+            },
+
+            {
+                path: "/employees/list",
+                element: <EmployeeList />,
+            },
+            {
+                path: "/employees/positions",
+                element: <EmployeePosition />,
+            },
+            {
+                path: "/employees/working-time",
+                element: <WorkingTime />,
+            },
+
+            {
+                path: "/reports/revenue",
+                element: <Revenue />,
+            },
+            {
+                path: "/reports/service-usage",
+                element: <ServiceUsageReport />,
+            },
+            {
+                path: "/reports/financial",
+                element: <FinancialReport />,
+            },
+
+            {
+                path: "/systems/accounts",
+                element: <AccountManagement />,
+            },
+            {
+                path: "/systems/permissions",
+                element: <Permissions />,
+            },
         ],
     },
+
     {
         path: "*",
         element: <NotFoundPage />,

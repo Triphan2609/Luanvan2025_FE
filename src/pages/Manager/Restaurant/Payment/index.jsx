@@ -1,34 +1,35 @@
 // PaymentRestaurant.jsx
 import React, { useState } from "react";
 import {
-    Radio,
-    Table,
-    Descriptions,
-    Divider,
-    Button,
     Card,
-    Space,
-    InputNumber,
-    Row,
-    Col,
-    Statistic,
     Steps,
+    Space,
+    Typography,
+    Radio,
+    InputNumber,
+    Button,
     message,
-    Tag,
     Modal,
+    Statistic,
+    Divider,
+    Table,
+    Tag,
+    Descriptions,
     Input,
 } from "antd";
 import {
     DollarOutlined,
     CreditCardOutlined,
-    PrinterOutlined,
-    RollbackOutlined,
-    CheckCircleOutlined,
-    BankOutlined,
     MoneyCollectOutlined,
+    BankOutlined,
+    CheckCircleOutlined,
+    RollbackOutlined,
 } from "@ant-design/icons";
+import { useNavigate } from "react-router-dom";
+import dayjs from "dayjs";
 
-// Helper function để format tiền tệ
+const { Title, Text } = Typography;
+
 const formatCurrency = (value) => {
     return new Intl.NumberFormat("vi-VN", {
         style: "currency",
@@ -39,30 +40,26 @@ const formatCurrency = (value) => {
 };
 
 export default function PaymentRestaurant() {
+    const navigate = useNavigate();
+    const [currentStep, setCurrentStep] = useState(0);
     const [paymentMethod, setPaymentMethod] = useState("cash");
     const [receivedAmount, setReceivedAmount] = useState(0);
-    const [currentStep, setCurrentStep] = useState(0);
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [note, setNote] = useState("");
 
-    // 🔹 Dữ liệu mẫu nâng cao
-    const table = {
+    // Dữ liệu mẫu đơn hàng
+    const orderData = {
         id: "table01",
         name: "Bàn 1",
         orders: [
             { id: 1, name: "Phở bò", quantity: 2, price: 45000, type: "food", status: "done" },
-            { id: 2, name: "Trà đá", quantity: 2, price: 5000, type: "food", status: "done" },
+            { id: 2, name: "Trà đá", quantity: 2, price: 5000, type: "drink", status: "done" },
             { id: 3, name: "Khăn giấy", quantity: 1, price: 3000, type: "service", status: "done" },
         ],
         timeIn: "10:30",
         timeOut: "11:45",
         customerCount: 2,
     };
-
-    const orderItems = table?.orders || [];
-    const createdAt = new Date().toLocaleString();
-    const total = orderItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    const change = receivedAmount - total;
 
     const columns = [
         {
@@ -80,7 +77,11 @@ export default function PaymentRestaurant() {
             title: "Loại",
             dataIndex: "type",
             key: "type",
-            render: (text) => <Tag color={text === "service" ? "blue" : "green"}>{text === "service" ? "Dịch vụ" : "Món ăn"}</Tag>,
+            render: (text) => (
+                <Tag color={text === "food" ? "green" : text === "drink" ? "blue" : "purple"}>
+                    {text === "food" ? "Món ăn" : text === "drink" ? "Đồ uống" : "Dịch vụ"}
+                </Tag>
+            ),
         },
         {
             title: "Số lượng",
@@ -103,11 +104,17 @@ export default function PaymentRestaurant() {
             width: 120,
             align: "right",
             render: (_, record) => (
-                <span style={{ color: "#1890ff", fontWeight: "bold" }}>{formatCurrency(record.price * record.quantity)}</span>
+                <Text strong style={{ color: "#1890ff" }}>
+                    {formatCurrency(record.price * record.quantity)}
+                </Text>
             ),
         },
     ];
 
+    // Tính tổng tiền
+    const total = orderData.orders.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
+    // Xử lý thanh toán
     const handlePayment = () => {
         if (paymentMethod === "cash" && receivedAmount < total) {
             message.error("Số tiền nhận vào phải lớn hơn hoặc bằng tổng tiền!");
@@ -116,24 +123,38 @@ export default function PaymentRestaurant() {
         setIsModalVisible(true);
     };
 
-    const confirmPayment = () => {
+    // Xác nhận thanh toán
+    const handleConfirmPayment = () => {
+        const paymentInfo = {
+            method: paymentMethod,
+            receivedAmount,
+            change: receivedAmount - total,
+            timestamp: dayjs().format("YYYY-MM-DD HH:mm:ss"),
+            note,
+        };
+
+        // Lưu thông tin vào localStorage
+        localStorage.setItem(
+            `restaurant_payment_${orderData.id}`,
+            JSON.stringify({
+                orderData,
+                paymentInfo,
+            })
+        );
+
         message.success("Thanh toán thành công!");
-        setCurrentStep(2);
-        setIsModalVisible(false);
+        // Chuyển đến trang hóa đơn
+        navigate(`/restaurant/payment/invoice/${orderData.id}`);
     };
 
     const steps = [
         {
-            title: "Xác nhận đơn",
+            title: "Xác nhận",
             icon: <CheckCircleOutlined />,
         },
         {
             title: "Thanh toán",
             icon: <MoneyCollectOutlined />,
-        },
-        {
-            title: "Hoàn thành",
-            icon: <PrinterOutlined />,
         },
     ];
 
@@ -142,55 +163,43 @@ export default function PaymentRestaurant() {
             <Space direction="vertical" style={{ width: "100%" }} size="large">
                 <Steps current={currentStep} items={steps} />
 
-                <Row gutter={16}>
-                    <Col span={16}>
-                        <Card title="Chi tiết hóa đơn">
-                            <Descriptions bordered column={2} size="small">
-                                <Descriptions.Item label="Bàn">{table.name}</Descriptions.Item>
-                                <Descriptions.Item label="Thời gian vào">{table.timeIn}</Descriptions.Item>
-                                <Descriptions.Item label="Số khách">{table.customerCount} người</Descriptions.Item>
-                                <Descriptions.Item label="Thời gian ra">{table.timeOut}</Descriptions.Item>
-                            </Descriptions>
+                <Card title="Thông tin thanh toán">
+                    <Space direction="vertical" style={{ width: "100%" }} size="large">
+                        {/* Thông tin bàn */}
+                        <div style={{ background: "#f5f5f5", padding: 16, borderRadius: 8 }}>
+                            <Title level={5}>THÔNG TIN BÀN</Title>
+                            <Space wrap>
+                                <Text strong>Bàn số:</Text>
+                                <Text>{orderData.name}</Text>
+                                <Divider type="vertical" />
+                                <Text strong>Số khách:</Text>
+                                <Text>{orderData.customerCount} người</Text>
+                                <Divider type="vertical" />
+                                <Text strong>Giờ vào:</Text>
+                                <Text>{orderData.timeIn}</Text>
+                                <Divider type="vertical" />
+                                <Text strong>Giờ ra:</Text>
+                                <Text>{orderData.timeOut}</Text>
+                            </Space>
+                        </div>
 
-                            <Divider />
+                        {/* Chi tiết đơn hàng */}
+                        <Table dataSource={orderData.orders} columns={columns} pagination={false} bordered />
 
-                            <Table
-                                dataSource={orderItems}
-                                columns={columns}
-                                pagination={false}
-                                summary={() => (
-                                    <Table.Summary fixed>
-                                        <Table.Summary.Row>
-                                            <Table.Summary.Cell colSpan={5} align="right">
-                                                <strong>Tổng cộng:</strong>
-                                            </Table.Summary.Cell>
-                                            <Table.Summary.Cell align="right">
-                                                <span style={{ color: "#f5222d", fontWeight: "bold", fontSize: 16 }}>
-                                                    {formatCurrency(total)}
-                                                </span>
-                                            </Table.Summary.Cell>
-                                        </Table.Summary.Row>
-                                    </Table.Summary>
-                                )}
-                            />
-                        </Card>
-                    </Col>
-
-                    <Col span={8}>
-                        <Card title="Thanh toán">
+                        {/* Phần thanh toán */}
+                        <Card>
                             <Space direction="vertical" style={{ width: "100%" }}>
                                 <Statistic
                                     title="Tổng tiền"
                                     value={total}
                                     formatter={(value) => formatCurrency(value)}
-                                    prefix={<DollarOutlined />}
                                     valueStyle={{ color: "#cf1322" }}
                                 />
 
                                 <Divider />
 
                                 <div>
-                                    <h4>Phương thức thanh toán</h4>
+                                    <Title level={5}>PHƯƠNG THỨC THANH TOÁN</Title>
                                     <Radio.Group
                                         value={paymentMethod}
                                         onChange={(e) => setPaymentMethod(e.target.value)}
@@ -214,23 +223,25 @@ export default function PaymentRestaurant() {
                                     <>
                                         <Divider />
                                         <Space direction="vertical" style={{ width: "100%" }}>
-                                            <div>
-                                                <label>Tiền khách đưa:</label>
-                                                <InputNumber
-                                                    style={{ width: "100%" }}
-                                                    value={receivedAmount}
-                                                    onChange={setReceivedAmount}
-                                                    formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ".")}
-                                                    parser={(value) => value.replace(/\./g, "")}
-                                                    addonAfter="₫"
-                                                />
-                                            </div>
-                                            <Statistic
-                                                title="Tiền thừa"
-                                                value={change > 0 ? change : 0}
-                                                formatter={(value) => formatCurrency(value)}
-                                                valueStyle={{ color: change > 0 ? "#3f8600" : "#cf1322" }}
+                                            <Title level={5}>TIỀN KHÁCH ĐƯA</Title>
+                                            <InputNumber
+                                                style={{ width: "100%" }}
+                                                value={receivedAmount}
+                                                onChange={setReceivedAmount}
+                                                formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ".")}
+                                                parser={(value) => value.replace(/\./g, "")}
+                                                min={0}
                                             />
+                                            {receivedAmount > 0 && (
+                                                <Statistic
+                                                    title="Tiền thừa"
+                                                    value={receivedAmount - total}
+                                                    formatter={(value) => formatCurrency(value)}
+                                                    valueStyle={{
+                                                        color: receivedAmount - total >= 0 ? "#3f8600" : "#cf1322",
+                                                    }}
+                                                />
+                                            )}
                                         </Space>
                                     </>
                                 )}
@@ -247,13 +258,14 @@ export default function PaymentRestaurant() {
                                 </Space>
                             </Space>
                         </Card>
-                    </Col>
-                </Row>
+                    </Space>
+                </Card>
 
+                {/* Modal xác nhận thanh toán */}
                 <Modal
                     title="Xác nhận thanh toán"
                     open={isModalVisible}
-                    onOk={confirmPayment}
+                    onOk={handleConfirmPayment}
                     onCancel={() => setIsModalVisible(false)}
                     okText="Xác nhận"
                     cancelText="Hủy"
@@ -267,7 +279,7 @@ export default function PaymentRestaurant() {
                             {paymentMethod === "cash" && (
                                 <>
                                     <Descriptions.Item label="Tiền nhận">{formatCurrency(receivedAmount)}</Descriptions.Item>
-                                    <Descriptions.Item label="Tiền thừa">{formatCurrency(change > 0 ? change : 0)}</Descriptions.Item>
+                                    <Descriptions.Item label="Tiền thừa">{formatCurrency(receivedAmount - total)}</Descriptions.Item>
                                 </>
                             )}
                         </Descriptions>
