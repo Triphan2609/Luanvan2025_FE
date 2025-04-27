@@ -1,16 +1,13 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Card, Table, Button, Space, Typography, Tag, Row, Col, Input, Select, Tooltip, Badge, message, Popconfirm } from "antd";
-
-// Add this destructuring for Search
-const { Search } = Input;
-
+import apiClient from "../../../configs/apiClient";
 import { PlusOutlined, EditOutlined, LockOutlined, UnlockOutlined, KeyOutlined, SearchOutlined, UserOutlined } from "@ant-design/icons";
 import AccountForm from "./components/AccountForm";
 import ChangePasswordForm from "./components/ChangePasswordForm";
 
-const { Title, Text } = Typography; // Add Text import from Typography
+const { Search } = Input;
+const { Title, Text } = Typography;
 
-// Constants
 const ACCOUNT_STATUS = {
     ACTIVE: "active",
     LOCKED: "locked",
@@ -23,37 +20,26 @@ const ACCOUNT_ROLE = {
 };
 
 export default function AccountManagement() {
-    // States
     const [searchText, setSearchText] = useState("");
     const [statusFilter, setStatusFilter] = useState("all");
     const [roleFilter, setRoleFilter] = useState("all");
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [isChangePasswordVisible, setIsChangePasswordVisible] = useState(false);
     const [selectedAccount, setSelectedAccount] = useState(null);
+    const [accounts, setAccounts] = useState([]);
 
-    // Sample data
-    const [accounts, setAccounts] = useState([
-        {
-            id: "TK001",
-            username: "admin",
-            fullName: "Administrator",
-            email: "admin@example.com",
-            role: ACCOUNT_ROLE.ADMIN,
-            status: ACCOUNT_STATUS.ACTIVE,
-            lastLogin: "2024-04-26 08:30:00",
-            createdAt: "2024-01-01",
-        },
-        {
-            id: "TK002",
-            username: "manager1",
-            fullName: "Nguyễn Văn A",
-            email: "manager1@example.com",
-            role: ACCOUNT_ROLE.MANAGER,
-            status: ACCOUNT_STATUS.ACTIVE,
-            lastLogin: "2024-04-25 17:45:00",
-            createdAt: "2024-01-15",
-        },
-    ]);
+    useEffect(() => {
+        const fetchAccounts = async () => {
+            try {
+                const response = await apiClient.get("/accounts");
+                setAccounts(response.data);
+            } catch (error) {
+                console.error("Lỗi khi lấy danh sách tài khoản:", error);
+            }
+        };
+
+        fetchAccounts();
+    }, []);
 
     const columns = [
         {
@@ -160,12 +146,14 @@ export default function AccountManagement() {
         setIsChangePasswordVisible(true);
     };
 
-    const handleToggleStatus = (record) => {
-        const newStatus = record.status === ACCOUNT_STATUS.ACTIVE ? ACCOUNT_STATUS.LOCKED : ACCOUNT_STATUS.ACTIVE;
-
-        setAccounts(accounts.map((acc) => (acc.id === record.id ? { ...acc, status: newStatus } : acc)));
-
-        message.success(`Đã ${newStatus === ACCOUNT_STATUS.ACTIVE ? "mở khóa" : "khóa"} tài khoản ${record.username}`);
+    const handleToggleStatus = async (record) => {
+        try {
+            const response = await apiClient.patch(`/accounts/${record.id}/status`);
+            setAccounts(accounts.map((acc) => (acc.id === record.id ? { ...acc, status: response.data.status } : acc)));
+            message.success(`Tài khoản đã được ${response.data.status === "active" ? "mở khóa" : "khóa"}`);
+        } catch (error) {
+            message.error(error.response?.data?.message || "Đã xảy ra lỗi!");
+        }
     };
 
     const filteredAccounts = accounts.filter((acc) => {
@@ -181,29 +169,35 @@ export default function AccountManagement() {
         return matchSearch && matchStatus && matchRole;
     });
 
-    const handleSubmit = (values) => {
-        if (selectedAccount) {
-            // Cập nhật tài khoản
-            setAccounts(accounts.map((acc) => (acc.id === selectedAccount.id ? { ...acc, ...values } : acc)));
-            message.success("Cập nhật tài khoản thành công");
-        } else {
-            // Thêm tài khoản mới
-            const newAccount = {
-                ...values,
-                id: `TK${String(accounts.length + 1).padStart(3, "0")}`,
-                status: ACCOUNT_STATUS.ACTIVE,
-                createdAt: new Date().toISOString(),
-                lastLogin: null,
-            };
-            setAccounts([...accounts, newAccount]);
-            message.success("Thêm tài khoản mới thành công");
+    const handleSubmit = async (values) => {
+        try {
+            if (selectedAccount) {
+                // Gửi yêu cầu cập nhật tài khoản
+                const response = await apiClient.put(`/accounts/${selectedAccount.id}`, values);
+                setAccounts(accounts.map((acc) => (acc.id === selectedAccount.id ? { ...acc, ...response.data } : acc)));
+                message.success("Cập nhật tài khoản thành công");
+            } else {
+                // Gửi yêu cầu thêm tài khoản mới
+                const response = await apiClient.post("/accounts", values);
+                setAccounts([...accounts, response.data]);
+                message.success("Thêm tài khoản mới thành công");
+            }
+            setIsModalVisible(false);
+        } catch (error) {
+            message.error(error.response?.data?.message || "Đã xảy ra lỗi!");
         }
-        setIsModalVisible(false);
     };
 
-    const handleChangePasswordSubmit = (values) => {
-        message.success("Đổi mật khẩu thành công");
-        setIsChangePasswordVisible(false);
+    const handleChangePasswordSubmit = async (values) => {
+        try {
+            await apiClient.patch(`/accounts/${selectedAccount.id}/password`, {
+                newPassword: values.newPassword,
+            });
+            message.success("Đổi mật khẩu thành công");
+            setIsChangePasswordVisible(false);
+        } catch (error) {
+            message.error(error.response?.data?.message || "Đã xảy ra lỗi!");
+        }
     };
 
     return (
@@ -254,7 +248,76 @@ export default function AccountManagement() {
                     </Row>
 
                     {/* Table */}
-                    <Table columns={columns} dataSource={filteredAccounts} rowKey="id" bordered />
+                    <Table
+                        dataSource={filteredAccounts}
+                        columns={[
+                            {
+                                title: "Tên đăng nhập",
+                                dataIndex: "username",
+                                key: "username",
+                            },
+                            {
+                                title: "Họ và tên",
+                                dataIndex: "fullName",
+                                key: "fullName",
+                            },
+                            {
+                                title: "Email",
+                                dataIndex: "email",
+                                key: "email",
+                            },
+                            {
+                                title: "Vai trò",
+                                dataIndex: "role",
+                                key: "role",
+                                render: (role) =>
+                                    role === "admin" ? <Tag color="red">Quản trị viên</Tag> : <Tag color="blue">Người dùng</Tag>,
+                            },
+                            {
+                                title: "Trạng thái",
+                                dataIndex: "status",
+                                key: "status",
+                                render: (status) =>
+                                    status === "active" ? <Tag color="green">Đang hoạt động</Tag> : <Tag color="volcano">Đã khóa</Tag>,
+                            },
+                            {
+                                title: "Hành động",
+                                key: "actions",
+                                render: (_, record) => (
+                                    <Space>
+                                        <Tooltip title="Chỉnh sửa">
+                                            <Button
+                                                type="primary"
+                                                icon={<EditOutlined />}
+                                                size="small"
+                                                onClick={() => handleEdit(record)}
+                                            />
+                                        </Tooltip>
+                                        <Tooltip title="Đổi mật khẩu">
+                                            <Button icon={<KeyOutlined />} size="small" onClick={() => handleChangePassword(record)} />
+                                        </Tooltip>
+                                        <Tooltip title={record.status === ACCOUNT_STATUS.ACTIVE ? "Khóa" : "Mở khóa"}>
+                                            <Popconfirm
+                                                title={`Bạn có chắc chắn muốn ${
+                                                    record.status === ACCOUNT_STATUS.ACTIVE ? "khóa" : "mở khóa"
+                                                } tài khoản này?`}
+                                                onConfirm={() => handleToggleStatus(record)}
+                                                okText="Đồng ý"
+                                                cancelText="Hủy"
+                                            >
+                                                <Button
+                                                    danger={record.status === ACCOUNT_STATUS.ACTIVE}
+                                                    icon={record.status === ACCOUNT_STATUS.ACTIVE ? <LockOutlined /> : <UnlockOutlined />}
+                                                    size="small"
+                                                />
+                                            </Popconfirm>
+                                        </Tooltip>
+                                    </Space>
+                                ),
+                            },
+                        ]}
+                        rowKey="id"
+                    />
                 </Space>
             </Card>
 

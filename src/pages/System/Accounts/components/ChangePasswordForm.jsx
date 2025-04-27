@@ -1,17 +1,36 @@
-import React from "react";
-import { Modal, Form, Input, Space, Button } from "antd";
+import React, { useEffect } from "react";
+import { Modal, Form, Input, Space, Button, message } from "antd";
 
 const ChangePasswordForm = ({ open, onCancel, onSubmit, account }) => {
     const [form] = Form.useForm();
 
-    const handleSubmit = (values) => {
-        onSubmit(values);
-        form.resetFields();
+    useEffect(() => {
+        if (account) {
+            form.resetFields(); // Reset form khi tài khoản thay đổi
+        }
+    }, [account, form]);
+
+    const handleSubmit = async (values) => {
+        try {
+            await onSubmit(values); // Gọi hàm onSubmit từ props
+            message.success("Đổi mật khẩu thành công!");
+            form.resetFields();
+        } catch (error) {
+            message.error(error.response?.data?.message || "Đã xảy ra lỗi!");
+        }
     };
 
     return (
-        <Modal title="Đổi mật khẩu" open={open} onCancel={onCancel} footer={null}>
+        <Modal title={`Đổi mật khẩu cho tài khoản: ${account?.username || "N/A"}`} open={open} onCancel={onCancel} footer={null}>
             <Form form={form} layout="vertical" onFinish={handleSubmit}>
+                <Form.Item
+                    name="currentPassword"
+                    label="Mật khẩu hiện tại"
+                    rules={[{ required: true, message: "Vui lòng nhập mật khẩu hiện tại!" }]}
+                >
+                    <Input.Password placeholder="Nhập mật khẩu hiện tại" />
+                </Form.Item>
+
                 <Form.Item
                     name="newPassword"
                     label="Mật khẩu mới"

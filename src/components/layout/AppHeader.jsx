@@ -4,6 +4,11 @@ import { theme } from "antd";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useState } from "react";
 import NotificationDrawer from "../common/NotificationDrawer";
+import { useDispatch, useSelector } from "react-redux";
+import { selectAccount } from "../../store/authSlice";
+import { logout } from "../../store/authSlice";
+import { message } from "antd";
+import { persistor } from "../../store/store";
 
 const { Header } = Layout;
 const { useToken } = theme;
@@ -51,16 +56,17 @@ const NON_CLICKABLE_SEGMENTS = ["info", "restaurant", "hotel", "customers", "sta
 
 export default function AppHeader() {
     const { token } = useToken();
+    const user = useSelector(selectAccount);
     const navigate = useNavigate();
+    const dispatch = useDispatch();
     const location = useLocation();
     const [isNotificationOpen, setIsNotificationOpen] = useState(false);
 
-    const handleMenuClick = (e) => {
-        if (e.key === "1") navigate("/profile");
-        else if (e.key === "3") {
-            localStorage.removeItem("token");
-            navigate("/login");
-        }
+    const handleLogout = async () => {
+        await persistor.purge();
+        dispatch(logout());
+        message.success("Đăng xuất thành công!");
+        navigate("/login");
     };
 
     const menuItems = [
@@ -68,19 +74,15 @@ export default function AppHeader() {
             key: "1",
             icon: <UserOutlined />,
             label: "Thông tin tài khoản",
+            onClick: () => {
+                navigate("/profile");
+            },
         },
         {
             key: "2",
-            icon: <KeyOutlined />,
-            label: "Đổi mật khẩu",
-        },
-        {
-            type: "divider",
-        },
-        {
-            key: "3",
             icon: <LogoutOutlined />,
             label: "Đăng xuất",
+            onClick: handleLogout,
         },
     ];
 
@@ -139,9 +141,9 @@ export default function AppHeader() {
                 <Badge count={5}>
                     <BellOutlined style={{ fontSize: 18, cursor: "pointer" }} onClick={() => setIsNotificationOpen(true)} />
                 </Badge>
-                <Dropdown menu={{ items: menuItems, onClick: handleMenuClick }} placement="bottomRight">
+                <Dropdown menu={{ items: menuItems }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
-                        <span>Admin</span>
+                        <span>{user?.fullName || "Người dùng"}</span>
                         <Avatar icon={<UserOutlined />} />
                     </div>
                 </Dropdown>

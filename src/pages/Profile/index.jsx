@@ -1,111 +1,61 @@
-import { Card, Descriptions, Avatar, Tag, Button, Tabs, Row, Col, List } from "antd";
-import { UserOutlined, EditOutlined, MailOutlined, PhoneOutlined, LockOutlined } from "@ant-design/icons";
-import { useState } from "react";
-import EditProfileModal from "./Modals/EditProfileModal";
+import React from "react";
+import { useSelector } from "react-redux";
+import { Card, Avatar, Descriptions, Tag, Row, Col, Typography, Divider } from "antd";
 
-const { TabPane } = Tabs;
-
-// Simplified employee data
-const employeeData = {
-    avatar: "https://randomuser.me/api/portraits/men/32.jpg",
-    fullName: "Nguyễn Văn A",
-    position: "Quản lý nhà hàng",
-    email: "nguyenvana@example.com",
-    phone: "0987654321",
-    address: "123 Đường ABC, Quận 1, TP.HCM",
-    joinDate: "15/05/2018",
-    status: "active",
-    permissions: ["Quản lý nhân viên", "Quản lý đặt bàn", "Quản lý menu", "Xem báo cáo doanh thu"],
-};
+const { Title, Text } = Typography;
 
 export default function ProfilePage() {
-    const [isModalVisible, setIsModalVisible] = useState(false);
+    // Lấy thông tin người dùng từ Redux
+    const user = useSelector((state) => state.auth.account); // Sửa từ state.auth.user thành state.auth.account
+
+    if (!user) {
+        return (
+            <Row justify="center" align="middle" style={{ height: "100vh" }}>
+                <Text type="danger">Không có thông tin người dùng!</Text>
+            </Row>
+        );
+    }
 
     return (
-        <div style={{ padding: "24px" }}>
-            <Row gutter={[16, 16]}>
-                {/* Profile Card */}
-                <Col xs={24} md={8}>
-                    <Card>
-                        <div style={{ textAlign: "center", marginBottom: "20px" }}>
-                            <Avatar size={100} src={employeeData.avatar} icon={<UserOutlined />} />
-                            <h2 style={{ margin: "16px 0 8px" }}>{employeeData.fullName}</h2>
-                            <Tag color={employeeData.status === "active" ? "green" : "red"}>
-                                {employeeData.status === "active" ? "Đang làm việc" : "Đã nghỉ"}
-                            </Tag>
-                        </div>
-
-                        <Descriptions column={1}>
-                            <Descriptions.Item label="Chức vụ">{employeeData.position}</Descriptions.Item>
-                            <Descriptions.Item label="Email">
-                                <MailOutlined /> {employeeData.email}
-                            </Descriptions.Item>
-                            <Descriptions.Item label="Số điện thoại">
-                                <PhoneOutlined /> {employeeData.phone}
-                            </Descriptions.Item>
-                            <Descriptions.Item label="Địa chỉ">{employeeData.address}</Descriptions.Item>
-                        </Descriptions>
-
-                        <Button
-                            type="primary"
-                            icon={<EditOutlined />}
-                            block
-                            onClick={() => setIsModalVisible(true)}
-                            style={{ marginTop: "16px" }}
+        <Row justify="center" style={{ padding: "24px" }}>
+            <Col xs={24} sm={20} md={16} lg={12} xl={10}>
+                <Card
+                    bordered={false}
+                    style={{
+                        boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
+                        borderRadius: "12px",
+                    }}
+                >
+                    <div style={{ textAlign: "center", marginBottom: "24px" }}>
+                        <Avatar
+                            size={120}
+                            src={user.avatar || "/default-avatar.png"}
+                            style={{
+                                boxShadow: "0 4px 8px rgba(0, 0, 0, 0.2)",
+                            }}
+                        />
+                        <Title level={3} style={{ marginTop: "16px" }}>
+                            {user.fullName}
+                        </Title>
+                        <Tag
+                            color={user.role === "admin" ? "red" : "blue"}
+                            style={{
+                                fontSize: "14px",
+                                padding: "4px 12px",
+                                borderRadius: "16px",
+                            }}
                         >
-                            Cập nhật thông tin
-                        </Button>
-                    </Card>
-                </Col>
-
-                {/* Information Card */}
-                <Col xs={24} md={16}>
-                    <Card>
-                        <Tabs defaultActiveKey="1">
-                            <TabPane tab="Thông tin cá nhân" key="1">
-                                <Descriptions bordered>
-                                    <Descriptions.Item label="Họ tên" span={3}>
-                                        {employeeData.fullName}
-                                    </Descriptions.Item>
-                                    <Descriptions.Item label="Email" span={3}>
-                                        {employeeData.email}
-                                    </Descriptions.Item>
-                                    <Descriptions.Item label="Số điện thoại" span={3}>
-                                        {employeeData.phone}
-                                    </Descriptions.Item>
-                                    <Descriptions.Item label="Địa chỉ" span={3}>
-                                        {employeeData.address}
-                                    </Descriptions.Item>
-                                    <Descriptions.Item label="Ngày vào làm" span={3}>
-                                        {employeeData.joinDate}
-                                    </Descriptions.Item>
-                                </Descriptions>
-                            </TabPane>
-                            <TabPane tab="Quyền hạn" key="2" icon={<LockOutlined />}>
-                                <List
-                                    bordered
-                                    dataSource={employeeData.permissions}
-                                    renderItem={(item) => (
-                                        <List.Item>
-                                            <List.Item.Meta avatar={<LockOutlined />} title={item} />
-                                        </List.Item>
-                                    )}
-                                />
-                            </TabPane>
-                        </Tabs>
-                    </Card>
-                </Col>
-            </Row>
-
-            <EditProfileModal
-                visible={isModalVisible}
-                onCancel={() => setIsModalVisible(false)}
-                onSave={(values) => {
-                    console.log("Saved:", values);
-                    setIsModalVisible(false);
-                }}
-                initialValues={employeeData}
-            />
-        </div>
+                            {user.role === "admin" ? "Quản trị viên" : "Người dùng"}
+                        </Tag>
+                    </div>
+                    <Divider />
+                    <Descriptions column={1} labelStyle={{ fontWeight: "bold", width: "120px" }} contentStyle={{ color: "#555" }}>
+                        <Descriptions.Item label="Email">{user.email}</Descriptions.Item>
+                        <Descriptions.Item label="Tên đăng nhập">{user.username}</Descriptions.Item>
+                        <Descriptions.Item label="Vai trò">{user.role === "admin" ? "Quản trị viên" : "Người dùng"}</Descriptions.Item>
+                    </Descriptions>
+                </Card>
+            </Col>
+        </Row>
     );
 }

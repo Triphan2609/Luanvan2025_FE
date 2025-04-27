@@ -1,4 +1,5 @@
 import { lazy } from "react";
+import ProtectedRoute from "../components/common/ProtectedRoute";
 
 const LoginPage = lazy(() => import("../pages/Login/index"));
 const AppLayout = lazy(() => import("../components/layout/AppLayout"));
@@ -50,7 +51,11 @@ const routes = [
     },
     {
         path: "/",
-        element: <AppLayout />,
+        element: (
+            <ProtectedRoute>
+                <AppLayout />
+            </ProtectedRoute>
+        ),
         children: [
             {
                 index: true,
