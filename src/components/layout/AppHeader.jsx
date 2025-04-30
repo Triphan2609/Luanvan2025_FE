@@ -18,9 +18,9 @@ const BREADCRUMB_MAP = {
     "": { label: "Trang chủ", icon: <HomeOutlined /> },
     info: { label: "Thông tin NH & KS" },
     basic: { label: "Thông tin cơ bản" },
-    branches: { label: "Chi nhánh" },
+    branches: { label: "Quản lý chi nhánh" },
     services: { label: "Dịch vụ và tiện ích" },
-    area: { label: "Khu vực" },
+    areas: { label: "Quản lý khu vực" },
     restaurant: { label: "Quản lý nhà hàng" },
     tables: { label: "Quản lý bàn" },
     menu: { label: "Thực đơn" },
@@ -45,14 +45,14 @@ const BREADCRUMB_MAP = {
     reports: { label: "Báo cáo & Doanh thu" },
     revenue: { label: "Doanh thu" },
     financial: { label: "Tài chính" },
-    settings: { label: "Cài đặt" },
+    accounts: { label: "Tài khoản" },
     systems: { label: "Hệ thống" },
     permissions: { label: "Phân quyền" },
     profile: { label: "Thông tin tài khoản" },
 };
 
 // Các segment breadcrumb không được click
-const NON_CLICKABLE_SEGMENTS = ["info", "restaurant", "hotel", "customers", "staff", "reports", "settings"];
+const NON_CLICKABLE_SEGMENTS = ["info", "restaurant", "hotel", "customers", "staff", "reports", "systems"];
 
 export default function AppHeader() {
     const { token } = useToken();
@@ -91,7 +91,7 @@ export default function AppHeader() {
     const breadcrumbItems = [
         <Breadcrumb.Item key="home" onClick={() => navigate("/")}>
             {BREADCRUMB_MAP[""].icon}
-            <span style={{ marginLeft: 4 }}>{BREADCRUMB_MAP[""].label}</span>
+            <span style={{ marginLeft: 4, cursor: "pointer" }}>{BREADCRUMB_MAP[""].label}</span>
         </Breadcrumb.Item>,
     ];
 

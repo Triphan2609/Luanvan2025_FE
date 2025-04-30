@@ -1,23 +1,29 @@
-import React from "react";
+import React, { useState } from "react";
 import { Modal, Form, Input, Space, Button, ColorPicker } from "antd";
-
-const { TextArea } = Input;
 
 const RoleForm = ({ open, onCancel, onSubmit }) => {
     const [form] = Form.useForm();
+    const [color, setColor] = useState("#1890ff"); // Màu mặc định
 
     const handleSubmit = (values) => {
-        onSubmit(values);
+        onSubmit({ ...values, color }); // Gửi màu sắc cùng với các giá trị khác
         form.resetFields();
+        setColor("#1890ff"); // Reset màu về mặc định
     };
 
     return (
-        <Modal title="Thêm vai trò mới" open={open} onCancel={onCancel} footer={null} width={500}>
+        <Modal
+            title={<span style={{ fontSize: "18px", fontWeight: "bold" }}>Thêm vai trò mới</span>}
+            open={open}
+            onCancel={onCancel}
+            footer={null}
+            width={500}
+        >
+            <p style={{ marginBottom: "16px", color: "#888" }}>Điền thông tin vai trò và chọn màu sắc hiển thị để dễ dàng quản lý.</p>
             <Form form={form} layout="vertical" onFinish={handleSubmit}>
                 <Form.Item name="name" label="Tên vai trò" rules={[{ required: true, message: "Vui lòng nhập tên vai trò!" }]}>
-                    <Input placeholder="Nhập tên vai trò" />
+                    <Input placeholder="Nhập tên vai trò (ví dụ: Quản trị viên)" />
                 </Form.Item>
-
                 <Form.Item
                     name="code"
                     label="Mã vai trò"
@@ -28,13 +34,11 @@ const RoleForm = ({ open, onCancel, onSubmit }) => {
                 >
                     <Input placeholder="Ví dụ: MANAGER, STAFF" style={{ textTransform: "uppercase" }} />
                 </Form.Item>
-
-                <Form.Item name="description" label="Mô tả" rules={[{ required: true, message: "Vui lòng nhập mô tả!" }]}>
-                    <TextArea rows={4} placeholder="Nhập mô tả về vai trò" />
+                <Form.Item name="description" label="Mô tả" rules={[{ required: true, message: "Vui lòng nhập mô tả vai trò!" }]}>
+                    <Input.TextArea placeholder="Nhập mô tả vai trò (ví dụ: Vai trò quản lý toàn bộ hệ thống)" />
                 </Form.Item>
-
-                <Form.Item name="color" label="Màu hiển thị" rules={[{ required: true, message: "Vui lòng chọn màu!" }]}>
-                    <ColorPicker />
+                <Form.Item label="Màu hiển thị">
+                    <ColorPicker value={color} onChange={(newColor) => setColor(newColor.toHexString())} />
                 </Form.Item>
 
                 <Form.Item style={{ marginBottom: 0, textAlign: "right" }}>

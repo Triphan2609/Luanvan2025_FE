@@ -1,12 +1,13 @@
 import React from "react";
 import { useSelector } from "react-redux";
-import { Card, Avatar, Descriptions, Tag, Row, Col, Typography, Divider } from "antd";
+import { Card, Avatar, Descriptions, Tag, Row, Col, Typography, Divider, Button, Space } from "antd";
+import { EditOutlined, MailOutlined, UserOutlined } from "@ant-design/icons";
 
 const { Title, Text } = Typography;
 
 export default function ProfilePage() {
     // Lấy thông tin người dùng từ Redux
-    const user = useSelector((state) => state.auth.account); // Sửa từ state.auth.user thành state.auth.account
+    const user = useSelector((state) => state.auth.account);
 
     if (!user) {
         return (
@@ -35,25 +36,22 @@ export default function ProfilePage() {
                             }}
                         />
                         <Title level={3} style={{ marginTop: "16px" }}>
-                            {user.fullName}
+                            {user.fullName || "Chưa cập nhật"}
                         </Title>
-                        <Tag
-                            color={user.role === "admin" ? "red" : "blue"}
-                            style={{
-                                fontSize: "14px",
-                                padding: "4px 12px",
-                                borderRadius: "16px",
-                            }}
-                        >
-                            {user.role === "admin" ? "Quản trị viên" : "Người dùng"}
-                        </Tag>
+                        <Tag>{user.role}</Tag>
                     </div>
                     <Divider />
                     <Descriptions column={1} labelStyle={{ fontWeight: "bold", width: "120px" }} contentStyle={{ color: "#555" }}>
-                        <Descriptions.Item label="Email">{user.email}</Descriptions.Item>
-                        <Descriptions.Item label="Tên đăng nhập">{user.username}</Descriptions.Item>
-                        <Descriptions.Item label="Vai trò">{user.role === "admin" ? "Quản trị viên" : "Người dùng"}</Descriptions.Item>
+                        <Descriptions.Item label="Email">{user.email || "Chưa cập nhật"}</Descriptions.Item>
+                        <Descriptions.Item label="Tên đăng nhập">{user.username || "Chưa cập nhật"}</Descriptions.Item>
+                        <Descriptions.Item label="Vai trò">{user.role}</Descriptions.Item>
                     </Descriptions>
+                    <Divider />
+                    <Space style={{ display: "flex", justifyContent: "center" }}>
+                        <Button type="primary" icon={<EditOutlined />}>
+                            Chỉnh sửa thông tin
+                        </Button>
+                    </Space>
                 </Card>
             </Col>
         </Row>

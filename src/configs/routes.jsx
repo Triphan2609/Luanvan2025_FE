@@ -6,8 +6,7 @@ const AppLayout = lazy(() => import("../components/layout/AppLayout"));
 const Dashboard = lazy(() => import("../pages/Dashboard/index"));
 const ProfilePage = lazy(() => import("../pages/Profile/index"));
 const NotFoundPage = lazy(() => import("../pages/Notfound/index"));
-const InfoPage = lazy(() => import("../pages/Info/Basic/index"));
-const Brands = lazy(() => import("../pages/Info/Brands/index"));
+const Branches = lazy(() => import("../pages/Info/Branches/index"));
 const Service = lazy(() => import("../pages/Info/Service/index"));
 const Area = lazy(() => import("../pages/Info/Area/index"));
 
@@ -61,11 +60,12 @@ const routes = [
                 index: true,
                 element: <Dashboard />,
             },
+
             { path: "/profile", element: <ProfilePage /> },
-            { path: "/info/basic", element: <InfoPage /> },
-            { path: "/info/branches", element: <Brands /> },
+
+            { path: "/info/branches", element: <Branches /> },
             { path: "/info/services", element: <Service /> },
-            { path: "/info/area", element: <Area /> },
+            { path: "/info/areas", element: <Area /> },
 
             { path: "/restaurant/tables", element: <Table /> },
             { path: "/restaurant/payment", element: <PaymentRestaurant /> },

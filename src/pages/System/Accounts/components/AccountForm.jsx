@@ -6,7 +6,10 @@ const AccountForm = ({ open, onCancel, onSubmit, editingAccount, ACCOUNT_ROLE })
 
     useEffect(() => {
         if (editingAccount) {
-            form.setFieldsValue(editingAccount);
+            form.setFieldsValue({
+                ...editingAccount,
+                role: editingAccount.role?.id, // Đặt giá trị role là roleId
+            });
         } else {
             form.resetFields();
         }
@@ -14,7 +17,13 @@ const AccountForm = ({ open, onCancel, onSubmit, editingAccount, ACCOUNT_ROLE })
 
     const handleSubmit = async (values) => {
         try {
-            await onSubmit(values); // Gọi hàm onSubmit từ props
+            // Chuyển đổi role thành roleId trước khi gửi
+            const payload = {
+                ...values,
+                roleId: values.role, // Gửi roleId thay vì role
+            };
+
+            await onSubmit(payload); // Gọi hàm onSubmit từ props
             message.success(editingAccount ? "Cập nhật tài khoản thành công!" : "Tạo tài khoản mới thành công!");
             form.resetFields();
         } catch (error) {
@@ -33,7 +42,7 @@ const AccountForm = ({ open, onCancel, onSubmit, editingAccount, ACCOUNT_ROLE })
         >
             <Form form={form} onFinish={handleSubmit} layout="vertical">
                 <Form.Item name="username" label="Tên đăng nhập" rules={[{ required: true, message: "Vui lòng nhập tên đăng nhập!" }]}>
-                    <Input placeholder="Nhập tên đăng nhập" />
+                    <Input placeholder="Nhập tên đăng nhập (ví dụ: admin123)" />
                 </Form.Item>
                 <Form.Item name="fullName" label="Họ và tên" rules={[{ required: true, message: "Vui lòng nhập họ và tên!" }]}>
                     <Input placeholder="Nhập họ và tên" />
@@ -46,13 +55,13 @@ const AccountForm = ({ open, onCancel, onSubmit, editingAccount, ACCOUNT_ROLE })
                         { type: "email", message: "Email không hợp lệ!" },
                     ]}
                 >
-                    <Input placeholder="Nhập email" />
+                    <Input placeholder="Nhập email (ví dụ: example@gmail.com)" />
                 </Form.Item>
                 <Form.Item name="role" label="Vai trò" rules={[{ required: true, message: "Vui lòng chọn vai trò!" }]}>
                     <Select placeholder="Chọn vai trò">
-                        {Object.entries(ACCOUNT_ROLE).map(([key, value]) => (
-                            <Select.Option key={key} value={value}>
-                                {value === "admin" ? "Quản trị viên" : value === "manager" ? "Quản lý" : "Nhân viên"}
+                        {ACCOUNT_ROLE.map((role) => (
+                            <Select.Option key={role.id} value={role.id}>
+                                {role.name}
                             </Select.Option>
                         ))}
                     </Select>
@@ -67,6 +76,26 @@ const AccountForm = ({ open, onCancel, onSubmit, editingAccount, ACCOUNT_ROLE })
                         ]}
                     >
                         <Input.Password placeholder="Nhập mật khẩu" />
+                    </Form.Item>
+                )}
+                {!editingAccount && (
+                    <Form.Item
+                        name="confirmPassword"
+                        label="Xác nhận mật khẩu"
+                        dependencies={["password"]}
+                        rules={[
+                            { required: true, message: "Vui lòng xác nhận mật khẩu!" },
+                            ({ getFieldValue }) => ({
+                                validator(_, value) {
+                                    if (!value || getFieldValue("password") === value) {
+                                        return Promise.resolve();
+                                    }
+                                    return Promise.reject(new Error("Mật khẩu không khớp!"));
+                                },
+                            }),
+                        ]}
+                    >
+                        <Input.Password placeholder="Nhập lại mật khẩu" />
                     </Form.Item>
                 )}
             </Form>

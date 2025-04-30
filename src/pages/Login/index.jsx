@@ -9,6 +9,7 @@ const { Title } = Typography;
 const { Content } = Layout;
 
 export default function LoginPage() {
+    const [messageApi, contextHolder] = message.useMessage();
     const navigate = useNavigate();
     const dispatch = useDispatch();
     const {
@@ -23,7 +24,7 @@ export default function LoginPage() {
             localStorage.setItem("accessToken", accessToken);
             dispatch(loginSuccess({ account, accessToken }));
 
-            message.success("Đăng nhập thành công!");
+            messageApi.success("Đăng nhập thành công!");
             navigate("/");
         } catch (error) {
             // Xử lý lỗi từ backend

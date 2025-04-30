@@ -37,11 +37,6 @@ const items = [
         label: "Thông tin NH & KS",
         children: [
             {
-                key: "basic-info",
-                icon: <AppstoreOutlined />,
-                label: <Link to="/info/basic">Thông tin cơ bản</Link>,
-            },
-            {
                 key: "branches",
                 icon: <HomeOutlined />,
                 label: <Link to="/info/branches">Quản lý chi nhánh</Link>,
@@ -52,9 +47,9 @@ const items = [
                 label: <Link to="/info/services"> Quản lý dịch vụ tiện ích</Link>,
             },
             {
-                key: "area",
+                key: "areas",
                 icon: <TbGps />,
-                label: <Link to="/info/area"> Quản lý khu vực</Link>,
+                label: <Link to="/info/areas"> Quản lý khu vực</Link>,
             },
         ],
     },
