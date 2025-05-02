@@ -1,80 +1,144 @@
-import React, { useEffect } from "react";
-import { Modal, Form, Input, Space, Button, Select } from "antd";
+import React, { useEffect, useState } from "react";
+import { Modal, Form, Input, Space, Button, Spin, Select } from "antd";
+import { getDepartments } from "../../../../../api/departmentsApi";
 
 const { TextArea } = Input;
-
-// Constants
-const POSITION_TYPE = {
-    MANAGEMENT: "management", // Ban quản lý
-    FRONT_DESK: "front_desk", // Lễ tân
-    HOUSEKEEPING: "housekeeping", // Buồng phòng
-    RESTAURANT: "restaurant", // Nhà hàng
-    SERVICE: "service", // Dịch vụ
-    MAINTENANCE: "maintenance", // Bảo trì
-};
+const { Option } = Select;
 
 const PositionForm = ({ open, onCancel, onSubmit, editingPosition }) => {
     const [form] = Form.useForm();
+    const [loading, setLoading] = React.useState(false);
+    const [departments, setDepartments] = useState([]);
+    const [loadingDepartments, setLoadingDepartments] = useState(false);
+
+    useEffect(() => {
+        if (open) {
+            fetchDepartments();
+        }
+    }, [open]);
 
     useEffect(() => {
         if (editingPosition) {
-            form.setFieldsValue(editingPosition);
+            form.setFieldsValue({
+                ...editingPosition,
+                department_id: editingPosition.department?.id,
+            });
         } else {
             form.resetFields();
         }
     }, [editingPosition, form]);
 
-    const handleSubmit = async (values) => {
-        await onSubmit(values);
-        form.resetFields();
+    const fetchDepartments = async () => {
+        try {
+            setLoadingDepartments(true);
+            const data = await getDepartments();
+            setDepartments(data || []);
+        } catch (error) {
+            console.error("Error fetching departments:", error);
+        } finally {
+            setLoadingDepartments(false);
+        }
+    };
+
+    const handleSubmit = async () => {
+        try {
+            setLoading(true);
+            const values = await form.validateFields();
+            await onSubmit(values);
+            form.resetFields();
+        } catch (error) {
+            console.error("Error submitting form:", error);
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
-        <Modal title={editingPosition ? "Cập nhật chức vụ" : "Thêm chức vụ mới"} open={open} onCancel={onCancel} footer={null} width={600}>
-            <Form form={form} layout="vertical" onFinish={handleSubmit}>
-                <Form.Item name="name" label="Tên chức vụ" rules={[{ required: true, message: "Vui lòng nhập tên chức vụ!" }]}>
-                    <Input placeholder="Nhập tên chức vụ" />
-                </Form.Item>
-
-                <Form.Item
-                    name="code"
-                    label="Mã chức vụ"
-                    rules={[
-                        { required: true, message: "Vui lòng nhập mã chức vụ!" },
-                        { pattern: /^[A-Z_]+$/, message: "Mã chức vụ chỉ được chứa chữ hoa và dấu gạch dưới!" },
-                    ]}
+        <Modal
+            title={
+                <div
+                    style={{
+                        textAlign: "center",
+                        fontSize: "1.2em",
+                        fontWeight: "bold",
+                    }}
                 >
-                    <Input placeholder="Ví dụ: MANAGER, RECEPTIONIST" style={{ textTransform: "uppercase" }} />
-                </Form.Item>
+                    {editingPosition ? "Cập nhật chức vụ" : "Thêm chức vụ mới"}
+                </div>
+            }
+            open={open}
+            onCancel={onCancel}
+            footer={null}
+            width={600}
+            maskClosable={true}
+            destroyOnClose
+            bodyStyle={{ padding: "24px 32px" }}
+        >
+            <Spin spinning={loading || loadingDepartments}>
+                <Form form={form} layout="vertical" onFinish={handleSubmit}>
+                    <Form.Item
+                        name="name"
+                        label="Tên chức vụ"
+                        rules={[
+                            {
+                                required: true,
+                                message: "Vui lòng nhập tên chức vụ!",
+                            },
+                        ]}
+                    >
+                        <Input placeholder="Nhập tên chức vụ" />
+                    </Form.Item>
 
-                <Form.Item name="department" label="Thuộc bộ phận" rules={[{ required: true, message: "Vui lòng chọn bộ phận!" }]}>
-                    <Select placeholder="Chọn bộ phận">
-                        <Select.Option value={POSITION_TYPE.MANAGEMENT}>Ban quản lý</Select.Option>
-                        <Select.Option value={POSITION_TYPE.FRONT_DESK}>Lễ tân</Select.Option>
-                        <Select.Option value={POSITION_TYPE.HOUSEKEEPING}>Buồng phòng</Select.Option>
-                        <Select.Option value={POSITION_TYPE.RESTAURANT}>Nhà hàng</Select.Option>
-                        <Select.Option value={POSITION_TYPE.SERVICE}>Dịch vụ</Select.Option>
-                        <Select.Option value={POSITION_TYPE.MAINTENANCE}>Bảo trì</Select.Option>
-                    </Select>
-                </Form.Item>
+                    <Form.Item
+                        name="department_id"
+                        label="Thuộc phòng ban"
+                        rules={[
+                            {
+                                required: true,
+                                message: "Vui lòng chọn phòng ban!",
+                            },
+                        ]}
+                    >
+                        <Select
+                            placeholder="Chọn phòng ban"
+                            loading={loadingDepartments}
+                            showSearch
+                            optionFilterProp="children"
+                            filterOption={(input, option) =>
+                                option.children
+                                    .toLowerCase()
+                                    .indexOf(input.toLowerCase()) >= 0
+                            }
+                        >
+                            {departments.map((dept) => (
+                                <Option key={dept.id} value={dept.id}>
+                                    {dept.name}
+                                </Option>
+                            ))}
+                        </Select>
+                    </Form.Item>
 
-                <Form.Item name="salary" label="Mức lương cơ bản" rules={[{ required: true, message: "Vui lòng nhập mức lương!" }]}>
-                    <Input type="number" placeholder="Nhập mức lương cơ bản" addonAfter="VNĐ" />
-                </Form.Item>
+                    <Form.Item name="description" label="Mô tả chức vụ">
+                        <TextArea
+                            rows={5}
+                            placeholder="Nhập mô tả chi tiết về chức vụ này"
+                        />
+                    </Form.Item>
 
-                <Form.Item name="description" label="Mô tả công việc">
-                    <TextArea rows={4} placeholder="Nhập mô tả công việc" />
-                </Form.Item>
-
-                <Form.Item style={{ marginBottom: 0, textAlign: "right" }}>
-                    <Space>
-                        <Button onClick={onCancel}>Hủy</Button>
-                        <Button type="primary" htmlType="submit">
-                            {editingPosition ? "Cập nhật" : "Thêm mới"}
-                        </Button>
-                    </Space>
-                </Form.Item>
-            </Form>
+                    <Form.Item style={{ marginBottom: 0, textAlign: "right" }}>
+                        <Space>
+                            <Button onClick={onCancel}>Hủy</Button>
+                            <Button
+                                type="primary"
+                                htmlType="submit"
+                                loading={loading}
+                            >
+                                {editingPosition ? "Cập nhật" : "Thêm mới"}
+                            </Button>
+                        </Space>
+                    </Form.Item>
+                </Form>
+            </Spin>
         </Modal>
     );
 };

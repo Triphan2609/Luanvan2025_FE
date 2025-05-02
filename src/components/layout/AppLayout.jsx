@@ -44,7 +44,9 @@ const items = [
             {
                 key: "services",
                 icon: <OrderedListOutlined />,
-                label: <Link to="/info/services"> Quản lý dịch vụ tiện ích</Link>,
+                label: (
+                    <Link to="/info/services"> Quản lý dịch vụ tiện ích</Link>
+                ),
             },
             {
                 key: "areas",
@@ -66,7 +68,9 @@ const items = [
             {
                 key: "reservations",
                 icon: <ScheduleOutlined />,
-                label: <Link to="/restaurant/reservations">Quản lý đặt bàn</Link>,
+                label: (
+                    <Link to="/restaurant/reservations">Quản lý đặt bàn</Link>
+                ),
             },
             {
                 key: "menu",
@@ -80,12 +84,20 @@ const items = [
                             {
                                 key: "foods",
                                 icon: <IoRestaurantOutline />,
-                                label: <Link to="/restaurant/foods">Danh sách món ăn</Link>,
+                                label: (
+                                    <Link to="/restaurant/foods">
+                                        Danh sách món ăn
+                                    </Link>
+                                ),
                             },
                             {
                                 key: "foods-services",
                                 icon: <MdOutlineTableRestaurant />,
-                                label: <Link to="/restaurant/table-services">Dịch vụ bàn</Link>,
+                                label: (
+                                    <Link to="/restaurant/table-services">
+                                        Dịch vụ bàn
+                                    </Link>
+                                ),
                             },
                         ],
                     },
@@ -96,12 +108,20 @@ const items = [
                             {
                                 key: "menu-main",
                                 icon: <AppstoreOutlined />,
-                                label: <Link to="/restaurant/menus-main">Thực đơn chính</Link>,
+                                label: (
+                                    <Link to="/restaurant/menus-main">
+                                        Thực đơn chính
+                                    </Link>
+                                ),
                             },
                             {
                                 key: "menu-seasonal",
                                 icon: <StarOutlined />,
-                                label: <Link to="/restaurant/menus-seasonal">Thực đơn theo mùa</Link>,
+                                label: (
+                                    <Link to="/restaurant/menus-seasonal">
+                                        Thực đơn theo mùa
+                                    </Link>
+                                ),
                             },
                         ],
                     },
@@ -111,7 +131,9 @@ const items = [
             {
                 key: "promotions",
                 icon: <StarOutlined />,
-                label: <Link to="/restaurant/promotions">Quản lý khuyến mãi</Link>,
+                label: (
+                    <Link to="/restaurant/promotions">Quản lý khuyến mãi</Link>
+                ),
             },
         ],
     },
@@ -150,17 +172,27 @@ const items = [
             {
                 key: "customers",
                 icon: <UserOutlined />,
-                label: <Link to="/customer/list-customer">Danh sách khách hàng</Link>,
+                label: (
+                    <Link to="/customer/list-customer">
+                        Danh sách khách hàng
+                    </Link>
+                ),
             },
             {
                 key: "memberships",
                 icon: <IdcardOutlined />,
-                label: <Link to="/customer/list-membership-card">Thẻ thành viên</Link>,
+                label: (
+                    <Link to="/customer/list-membership-card">
+                        Thẻ thành viên
+                    </Link>
+                ),
             },
             {
                 key: "feedback",
                 icon: <FileTextOutlined />,
-                label: <Link to="/customer/feedback">Phản hồi từ khách hàng</Link>,
+                label: (
+                    <Link to="/customer/feedback">Phản hồi từ khách hàng</Link>
+                ),
             },
         ],
     },
@@ -177,7 +209,9 @@ const items = [
             {
                 key: "positions",
                 icon: <IdcardOutlined />,
-                label: <Link to="/employees/positions">Quản lý chức vụ</Link>,
+                label: (
+                    <Link to="/employees/positions">Chức vụ & phòng ban</Link>
+                ),
             },
             {
                 key: "shifts",

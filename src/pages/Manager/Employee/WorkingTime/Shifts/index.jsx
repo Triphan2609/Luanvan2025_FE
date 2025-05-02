@@ -1,7 +1,24 @@
-import React, { useState } from "react";
-import { Space, Table, Button, Typography, Tag, Row, Col, message, Tooltip, Popconfirm } from "antd";
+import React, { useState, useEffect } from "react";
+import {
+    Space,
+    Table,
+    Button,
+    Typography,
+    Tag,
+    Row,
+    Col,
+    message,
+    Tooltip,
+    Popconfirm,
+} from "antd";
 import { PlusOutlined, EditOutlined, DeleteOutlined } from "@ant-design/icons";
 import ShiftForm from "./ShiftForm";
+import {
+    getShifts,
+    createShift,
+    updateShift,
+    deleteShift,
+} from "../../../../../api/shiftsApi";
 
 const { Title } = Typography;
 
@@ -17,34 +34,47 @@ export default function Shifts() {
     // States
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [selectedShift, setSelectedShift] = useState(null);
-    const [shifts, setShifts] = useState([
-        {
-            id: "CA001",
-            name: "Ca Sáng",
-            type: SHIFT_TYPE.MORNING,
-            startTime: "07:00",
-            endTime: "15:00",
-            breakTime: "11:30-12:30",
-            workingHours: 8,
-            description: "Ca làm việc buổi sáng",
-        },
-        {
-            id: "CA002",
-            name: "Ca Chiều",
-            type: SHIFT_TYPE.AFTERNOON,
-            startTime: "15:00",
-            endTime: "23:00",
-            breakTime: "18:00-19:00",
-            workingHours: 8,
-            description: "Ca làm việc buổi chiều",
-        },
-    ]);
+    const [shifts, setShifts] = useState([]);
+    const [loading, setLoading] = useState(false);
+
+    // Fetch shifts on component mount
+    useEffect(() => {
+        fetchShifts();
+    }, []);
+
+    const fetchShifts = async () => {
+        try {
+            setLoading(true);
+            const data = await getShifts({ isActive: true });
+
+            // Chuyển đổi dữ liệu từ backend sang định dạng frontend
+            const formattedShifts = data.map((shift) => ({
+                id: shift.id,
+                shift_code: shift.shift_code,
+                name: shift.name,
+                type: shift.type,
+                startTime: shift.start_time,
+                endTime: shift.end_time,
+                breakTime: shift.break_time || "",
+                workingHours: shift.working_hours,
+                description: shift.description || "",
+                is_active: shift.is_active,
+            }));
+
+            setShifts(formattedShifts);
+        } catch (error) {
+            console.error("Lỗi khi lấy dữ liệu ca làm việc:", error);
+            message.error("Không thể tải danh sách ca làm việc");
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const columns = [
         {
             title: "Mã ca",
-            dataIndex: "id",
-            key: "id",
+            dataIndex: "shift_code",
+            key: "shift_code",
             width: 100,
         },
         {
@@ -80,7 +110,9 @@ export default function Shifts() {
                     <span>
                         {record.startTime} - {record.endTime}
                     </span>
-                    <small style={{ color: "#888" }}>Nghỉ: {record.breakTime}</small>
+                    <small style={{ color: "#888" }}>
+                        Nghỉ: {record.breakTime}
+                    </small>
                 </Space>
             ),
         },
@@ -99,7 +131,12 @@ export default function Shifts() {
             render: (_, record) => (
                 <Space>
                     <Tooltip title="Chỉnh sửa">
-                        <Button type="primary" icon={<EditOutlined />} size="small" onClick={() => handleEdit(record)} />
+                        <Button
+                            type="primary"
+                            icon={<EditOutlined />}
+                            size="small"
+                            onClick={() => handleEdit(record)}
+                        />
                     </Tooltip>
                     <Tooltip title="Xóa">
                         <Popconfirm
@@ -109,7 +146,11 @@ export default function Shifts() {
                             okText="Xóa"
                             cancelText="Hủy"
                         >
-                            <Button danger icon={<DeleteOutlined />} size="small" />
+                            <Button
+                                danger
+                                icon={<DeleteOutlined />}
+                                size="small"
+                            />
                         </Popconfirm>
                     </Tooltip>
                 </Space>
@@ -128,24 +169,52 @@ export default function Shifts() {
         setIsModalVisible(true);
     };
 
-    const handleDelete = (record) => {
-        setShifts(shifts.filter((shift) => shift.id !== record.id));
-        message.success("Xóa ca làm việc thành công");
+    const handleDelete = async (record) => {
+        try {
+            await deleteShift(record.id);
+            setShifts(shifts.filter((shift) => shift.id !== record.id));
+            message.success("Xóa ca làm việc thành công");
+        } catch (error) {
+            console.error("Error deleting shift:", error);
+            message.error("Không thể xóa ca làm việc");
+        }
     };
 
-    const handleSubmit = (values) => {
-        if (selectedShift) {
-            setShifts(shifts.map((shift) => (shift.id === selectedShift.id ? { ...shift, ...values } : shift)));
-            message.success("Cập nhật ca làm việc thành công");
-        } else {
-            const newShift = {
-                ...values,
-                id: `CA${String(shifts.length + 1).padStart(3, "0")}`,
+    const handleSubmit = async (values) => {
+        try {
+            // Chuyển đổi dữ liệu từ định dạng frontend sang backend
+            const shiftData = {
+                name: values.name,
+                type: values.type,
+                start_time: values.startTime,
+                end_time: values.endTime,
+                break_time: values.breakTime,
+                working_hours: values.workingHours,
+                description: values.description,
+                is_active: true,
             };
-            setShifts([...shifts, newShift]);
-            message.success("Thêm ca làm việc mới thành công");
+
+            if (selectedShift) {
+                // Cập nhật ca làm việc
+                await updateShift(selectedShift.id, shiftData);
+                message.success("Cập nhật ca làm việc thành công");
+            } else {
+                // Tạo ca làm việc mới
+                await createShift(shiftData);
+                message.success("Thêm ca làm việc mới thành công");
+            }
+
+            // Tải lại danh sách ca làm việc
+            fetchShifts();
+            setIsModalVisible(false);
+        } catch (error) {
+            console.error("Error saving shift:", error);
+            message.error(
+                selectedShift
+                    ? "Không thể cập nhật ca làm việc"
+                    : "Không thể tạo ca làm việc mới"
+            );
         }
-        setIsModalVisible(false);
     };
 
     return (
@@ -157,13 +226,23 @@ export default function Shifts() {
                     </Title>
                 </Col>
                 <Col>
-                    <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+                    <Button
+                        type="primary"
+                        icon={<PlusOutlined />}
+                        onClick={handleAdd}
+                    >
                         Thêm ca làm việc
                     </Button>
                 </Col>
             </Row>
 
-            <Table columns={columns} dataSource={shifts} rowKey="id" bordered />
+            <Table
+                columns={columns}
+                dataSource={shifts}
+                rowKey="id"
+                bordered
+                loading={loading}
+            />
 
             <ShiftForm
                 open={isModalVisible}

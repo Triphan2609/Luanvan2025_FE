@@ -1,5 +1,11 @@
 import { Layout, Dropdown, Avatar, Badge, Breadcrumb } from "antd";
-import { BellOutlined, UserOutlined, HomeOutlined, KeyOutlined, LogoutOutlined } from "@ant-design/icons";
+import {
+    BellOutlined,
+    UserOutlined,
+    HomeOutlined,
+    KeyOutlined,
+    LogoutOutlined,
+} from "@ant-design/icons";
 import { theme } from "antd";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useState } from "react";
@@ -40,7 +46,7 @@ const BREADCRUMB_MAP = {
     memberships: { label: "Thành viên" },
     feedback: { label: "Quản lý phản hồi" },
     employees: { label: "Quản lý nhân viên" },
-    positions: { label: "Quản lý chức vụ" },
+    positions: { label: "Chức vụ & phòng ban" },
     shifts: { label: "Ca làm" },
     reports: { label: "Báo cáo & Doanh thu" },
     revenue: { label: "Doanh thu" },
@@ -52,7 +58,15 @@ const BREADCRUMB_MAP = {
 };
 
 // Các segment breadcrumb không được click
-const NON_CLICKABLE_SEGMENTS = ["info", "restaurant", "hotel", "customers", "staff", "reports", "systems"];
+const NON_CLICKABLE_SEGMENTS = [
+    "info",
+    "restaurant",
+    "hotel",
+    "customers",
+    "staff",
+    "reports",
+    "systems",
+];
 
 export default function AppHeader() {
     const { token } = useToken();
@@ -91,7 +105,9 @@ export default function AppHeader() {
     const breadcrumbItems = [
         <Breadcrumb.Item key="home" onClick={() => navigate("/")}>
             {BREADCRUMB_MAP[""].icon}
-            <span style={{ marginLeft: 4, cursor: "pointer" }}>{BREADCRUMB_MAP[""].label}</span>
+            <span style={{ marginLeft: 4, cursor: "pointer" }}>
+                {BREADCRUMB_MAP[""].label}
+            </span>
         </Breadcrumb.Item>,
     ];
 
@@ -139,16 +155,29 @@ export default function AppHeader() {
 
             <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
                 <Badge count={5}>
-                    <BellOutlined style={{ fontSize: 18, cursor: "pointer" }} onClick={() => setIsNotificationOpen(true)} />
+                    <BellOutlined
+                        style={{ fontSize: 18, cursor: "pointer" }}
+                        onClick={() => setIsNotificationOpen(true)}
+                    />
                 </Badge>
                 <Dropdown menu={{ items: menuItems }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+                    <div
+                        style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
+                            cursor: "pointer",
+                        }}
+                    >
                         <span>{user?.fullName || "Người dùng"}</span>
                         <Avatar icon={<UserOutlined />} />
                     </div>
                 </Dropdown>
             </div>
-            <NotificationDrawer open={isNotificationOpen} onClose={() => setIsNotificationOpen(false)} />
+            <NotificationDrawer
+                open={isNotificationOpen}
+                onClose={() => setIsNotificationOpen(false)}
+            />
         </Header>
     );
 }

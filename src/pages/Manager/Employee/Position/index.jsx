@@ -1,13 +1,59 @@
-import React, { useState } from "react";
-import { Card, Table, Button, Space, Typography, Input, Row, Col, Tag, Tooltip, message, Popconfirm } from "antd";
-import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, TeamOutlined } from "@ant-design/icons";
+import React, { useState, useEffect } from "react";
+import {
+    Card,
+    Table,
+    Button,
+    Space,
+    Typography,
+    Input,
+    Row,
+    Col,
+    Tag,
+    Tooltip,
+    message,
+    Popconfirm,
+    Tabs,
+    Drawer,
+    Spin,
+    Statistic,
+    Select,
+    Divider,
+} from "antd";
+import {
+    PlusOutlined,
+    EditOutlined,
+    DeleteOutlined,
+    SearchOutlined,
+    TeamOutlined,
+    BuildOutlined,
+    UserOutlined,
+    FilterOutlined,
+    SortAscendingOutlined,
+    BarChartOutlined,
+    ReloadOutlined,
+} from "@ant-design/icons";
 import PositionForm from "./components/PositionForm";
+import DepartmentForm from "./components/DepartmentForm";
+import {
+    getPositions,
+    createPosition,
+    updatePosition,
+    deletePosition,
+} from "../../../../api/positionsApi";
+import {
+    getDepartments,
+    createDepartment,
+    updateDepartment,
+    deleteDepartment,
+} from "../../../../api/departmentsApi";
 
 const { Title, Text } = Typography;
 const { Search } = Input;
+const { TabPane } = Tabs;
+const { Option } = Select;
 
 // Constants
-const POSITION_TYPE = {
+const POSITION_TYPES = {
     MANAGEMENT: "management",
     FRONT_DESK: "front_desk",
     HOUSEKEEPING: "housekeeping",
@@ -16,94 +62,311 @@ const POSITION_TYPE = {
     MAINTENANCE: "maintenance",
 };
 
+const POSITION_TYPE_LABELS = {
+    [POSITION_TYPES.MANAGEMENT]: "Ban quản lý",
+    [POSITION_TYPES.FRONT_DESK]: "Lễ tân",
+    [POSITION_TYPES.HOUSEKEEPING]: "Buồng phòng",
+    [POSITION_TYPES.RESTAURANT]: "Nhà hàng",
+    [POSITION_TYPES.SERVICE]: "Dịch vụ",
+    [POSITION_TYPES.MAINTENANCE]: "Bảo trì",
+};
+
+const POSITION_TYPE_COLORS = {
+    [POSITION_TYPES.MANAGEMENT]: "blue",
+    [POSITION_TYPES.FRONT_DESK]: "green",
+    [POSITION_TYPES.HOUSEKEEPING]: "orange",
+    [POSITION_TYPES.RESTAURANT]: "purple",
+    [POSITION_TYPES.SERVICE]: "cyan",
+    [POSITION_TYPES.MAINTENANCE]: "red",
+};
+
 export default function PositionManagement() {
-    // States
+    // States for Position
     const [searchText, setSearchText] = useState("");
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [selectedPosition, setSelectedPosition] = useState(null);
-    const [positions, setPositions] = useState([
-        {
-            id: "CV001",
-            name: "Quản lý khách sạn",
-            code: "HOTEL_MANAGER",
-            department: POSITION_TYPE.MANAGEMENT,
-            salary: 15000000,
-            description: "Quản lý toàn bộ hoạt động của khách sạn",
-            employeeCount: 1,
-        },
-        {
-            id: "CV002",
-            name: "Lễ tân",
-            code: "RECEPTIONIST",
-            department: POSITION_TYPE.FRONT_DESK,
-            salary: 8000000,
-            description: "Tiếp đón khách và xử lý các thủ tục check-in/check-out",
-            employeeCount: 4,
-        },
-        // Thêm dữ liệu mẫu khác...
-    ]);
+    const [positions, setPositions] = useState([]);
+    const [loadingPositions, setLoadingPositions] = useState(false);
+    const [positionSort, setPositionSort] = useState({
+        field: "id",
+        order: "ascend",
+    });
+    const [positionFilter, setPositionFilter] = useState({
+        department: undefined,
+    });
 
-    const columns = [
+    // States for Department
+    const [departments, setDepartments] = useState([]);
+    const [searchDeptText, setSearchDeptText] = useState("");
+    const [isDepartmentDrawerVisible, setIsDepartmentDrawerVisible] =
+        useState(false);
+    const [selectedDepartment, setSelectedDepartment] = useState(null);
+    const [loadingDepartments, setLoadingDepartments] = useState(false);
+    const [departmentSort, setDepartmentSort] = useState({
+        field: "id",
+        order: "ascend",
+    });
+
+    // Fetch initial data
+    useEffect(() => {
+        fetchPositions();
+        fetchDepartments();
+    }, []);
+
+    // Fetch positions
+    const fetchPositions = async () => {
+        try {
+            setLoadingPositions(true);
+            const data = await getPositions();
+            setPositions(data);
+        } catch (error) {
+            console.error("Error fetching positions:", error);
+            message.error("Không thể tải danh sách chức vụ");
+        } finally {
+            setLoadingPositions(false);
+        }
+    };
+
+    // Fetch departments
+    const fetchDepartments = async () => {
+        try {
+            setLoadingDepartments(true);
+            const data = await getDepartments();
+            setDepartments(data);
+        } catch (error) {
+            console.error("Error fetching departments:", error);
+            message.error("Không thể tải danh sách phòng ban");
+        } finally {
+            setLoadingDepartments(false);
+        }
+    };
+
+    // Position handlers
+    const handleAddPosition = () => {
+        setSelectedPosition(null);
+        setIsModalVisible(true);
+    };
+
+    const handleEditPosition = (record) => {
+        setSelectedPosition(record);
+        setIsModalVisible(true);
+    };
+
+    const handleDeletePosition = async (id) => {
+        try {
+            await deletePosition(id);
+            message.success("Xóa chức vụ thành công");
+            fetchPositions();
+        } catch (error) {
+            console.error("Error deleting position:", error);
+            message.error(
+                "Không thể xóa chức vụ. Có thể chức vụ đang được sử dụng."
+            );
+        }
+    };
+
+    const handlePositionSubmit = async (values) => {
+        try {
+            if (selectedPosition) {
+                // Cập nhật chức vụ
+                await updatePosition(selectedPosition.id, values);
+                message.success("Cập nhật chức vụ thành công");
+            } else {
+                // Thêm chức vụ mới
+                await createPosition(values);
+                message.success("Thêm chức vụ mới thành công");
+            }
+            setIsModalVisible(false);
+            fetchPositions();
+        } catch (error) {
+            console.error("Error saving position:", error);
+            message.error(
+                selectedPosition
+                    ? "Lỗi khi cập nhật chức vụ"
+                    : "Lỗi khi thêm chức vụ mới"
+            );
+        }
+    };
+
+    // Department handlers
+    const handleAddDepartment = () => {
+        setSelectedDepartment(null);
+        setIsDepartmentDrawerVisible(true);
+    };
+
+    const handleEditDepartment = (record) => {
+        setSelectedDepartment(record);
+        setIsDepartmentDrawerVisible(true);
+    };
+
+    const handleDeleteDepartment = async (id) => {
+        try {
+            await deleteDepartment(id);
+            message.success("Xóa phòng ban thành công");
+            fetchDepartments();
+        } catch (error) {
+            console.error("Error deleting department:", error);
+            message.error(
+                "Không thể xóa phòng ban. Có thể phòng ban đang được sử dụng."
+            );
+        }
+    };
+
+    const handleDepartmentSubmit = async (values) => {
+        try {
+            if (selectedDepartment) {
+                // Cập nhật phòng ban
+                await updateDepartment(selectedDepartment.id, values);
+                message.success("Cập nhật phòng ban thành công");
+            } else {
+                // Thêm phòng ban mới
+                await createDepartment(values);
+                message.success("Thêm phòng ban mới thành công");
+            }
+            setIsDepartmentDrawerVisible(false);
+            fetchDepartments();
+        } catch (error) {
+            console.error("Error saving department:", error);
+            message.error(
+                selectedDepartment
+                    ? "Lỗi khi cập nhật phòng ban"
+                    : "Lỗi khi thêm phòng ban mới"
+            );
+        }
+    };
+
+    // Reset filters for positions
+    const handleResetPositionFilters = () => {
+        setSearchText("");
+        setPositionFilter({ department: undefined });
+        setPositionSort({ field: "id", order: "ascend" });
+    };
+
+    // Reset filters for departments
+    const handleResetDepartmentFilters = () => {
+        setSearchDeptText("");
+        setDepartmentSort({ field: "id", order: "ascend" });
+    };
+
+    // Position statistics
+    const getPositionStats = () => {
+        const totalPositions = positions.length;
+        const positionsWithEmployees = positions.filter(
+            (p) => p.employees && p.employees.length > 0
+        ).length;
+        const avgEmployeesPerPosition = positions.length
+            ? (
+                  positions.reduce(
+                      (sum, p) => sum + (p.employees ? p.employees.length : 0),
+                      0
+                  ) / positions.length
+              ).toFixed(1)
+            : 0;
+
+        return {
+            totalPositions,
+            positionsWithEmployees,
+            avgEmployeesPerPosition,
+        };
+    };
+
+    // Department statistics
+    const getDepartmentStats = () => {
+        const totalDepartments = departments.length;
+        const departmentsWithEmployees = departments.filter(
+            (d) => d.employees && d.employees.length > 0
+        ).length;
+        const avgEmployeesPerDepartment = departments.length
+            ? (
+                  departments.reduce(
+                      (sum, d) => sum + (d.employees ? d.employees.length : 0),
+                      0
+                  ) / departments.length
+              ).toFixed(1)
+            : 0;
+
+        return {
+            totalDepartments,
+            departmentsWithEmployees,
+            avgEmployeesPerDepartment,
+        };
+    };
+
+    // Handle table sort
+    const handlePositionTableChange = (pagination, filters, sorter) => {
+        if (sorter && sorter.field) {
+            setPositionSort({
+                field: sorter.field,
+                order: sorter.order,
+            });
+        }
+    };
+
+    const handleDepartmentTableChange = (pagination, filters, sorter) => {
+        if (sorter && sorter.field) {
+            setDepartmentSort({
+                field: sorter.field,
+                order: sorter.order,
+            });
+        }
+    };
+
+    // Table columns for positions
+    const positionColumns = [
         {
-            title: "Mã CV",
+            title: "ID",
             dataIndex: "id",
             key: "id",
-            width: 100,
+            width: 80,
+            sorter: (a, b) => a.id - b.id,
+            sortOrder: positionSort.field === "id" ? positionSort.order : null,
         },
         {
             title: "Chức vụ",
             dataIndex: "name",
             key: "name",
-            render: (text, record) => (
-                <Space direction="vertical" size={0}>
-                    <Text strong>{text}</Text>
-                    <Text type="secondary" style={{ fontSize: "12px" }}>
-                        {record.code}
-                    </Text>
-                </Space>
-            ),
+            render: (text) => <Text strong>{text}</Text>,
+            sorter: (a, b) => a.name.localeCompare(b.name),
+            sortOrder:
+                positionSort.field === "name" ? positionSort.order : null,
         },
         {
-            title: "Bộ phận",
+            title: "Phòng ban",
             dataIndex: "department",
             key: "department",
-            render: (department) => {
-                const colors = {
-                    [POSITION_TYPE.MANAGEMENT]: "blue",
-                    [POSITION_TYPE.FRONT_DESK]: "green",
-                    [POSITION_TYPE.HOUSEKEEPING]: "orange",
-                    [POSITION_TYPE.RESTAURANT]: "purple",
-                    [POSITION_TYPE.SERVICE]: "cyan",
-                    [POSITION_TYPE.MAINTENANCE]: "red",
-                };
-                const labels = {
-                    [POSITION_TYPE.MANAGEMENT]: "Ban quản lý",
-                    [POSITION_TYPE.FRONT_DESK]: "Lễ tân",
-                    [POSITION_TYPE.HOUSEKEEPING]: "Buồng phòng",
-                    [POSITION_TYPE.RESTAURANT]: "Nhà hàng",
-                    [POSITION_TYPE.SERVICE]: "Dịch vụ",
-                    [POSITION_TYPE.MAINTENANCE]: "Bảo trì",
-                };
-                return <Tag color={colors[department]}>{labels[department]}</Tag>;
-            },
+            render: (department) =>
+                department ? (
+                    <Tag color="blue">{department.name}</Tag>
+                ) : (
+                    <Tag color="red">Chưa có phòng ban</Tag>
+                ),
+            filters: departments.map((dept) => ({
+                text: dept.name,
+                value: dept.id,
+            })),
+            onFilter: (value, record) => record.department?.id === value,
+            filteredValue: positionFilter.department
+                ? [positionFilter.department]
+                : null,
         },
         {
-            title: "Lương cơ bản",
-            dataIndex: "salary",
-            key: "salary",
-            align: "right",
-            render: (salary) =>
-                new Intl.NumberFormat("vi-VN", {
-                    style: "currency",
-                    currency: "VND",
-                }).format(salary),
+            title: "Mô tả",
+            dataIndex: "description",
+            key: "description",
+            ellipsis: true,
         },
         {
             title: "Số nhân viên",
-            dataIndex: "employeeCount",
-            key: "employeeCount",
+            dataIndex: "employees",
+            key: "employees",
             width: 120,
             align: "center",
+            render: (employees) => (employees ? employees.length : 0),
+            sorter: (a, b) =>
+                (a.employees ? a.employees.length : 0) -
+                (b.employees ? b.employees.length : 0),
+            sortOrder:
+                positionSort.field === "employees" ? positionSort.order : null,
         },
         {
             title: "Thao tác",
@@ -112,18 +375,33 @@ export default function PositionManagement() {
             render: (_, record) => (
                 <Space>
                     <Tooltip title="Chỉnh sửa">
-                        <Button type="primary" icon={<EditOutlined />} size="small" onClick={() => handleEdit(record)} />
+                        <Button
+                            type="primary"
+                            icon={<EditOutlined />}
+                            size="small"
+                            onClick={() => handleEditPosition(record)}
+                        />
                     </Tooltip>
                     <Tooltip title="Xóa">
                         <Popconfirm
                             title="Xóa chức vụ"
                             description="Bạn có chắc chắn muốn xóa chức vụ này?"
-                            onConfirm={() => handleDelete(record)}
+                            onConfirm={() => handleDeletePosition(record.id)}
                             okText="Xóa"
                             cancelText="Hủy"
-                            disabled={record.employeeCount > 0}
+                            disabled={
+                                record.employees && record.employees.length > 0
+                            }
                         >
-                            <Button danger icon={<DeleteOutlined />} size="small" disabled={record.employeeCount > 0} />
+                            <Button
+                                danger
+                                icon={<DeleteOutlined />}
+                                size="small"
+                                disabled={
+                                    record.employees &&
+                                    record.employees.length > 0
+                                }
+                            />
                         </Popconfirm>
                     </Tooltip>
                 </Space>
@@ -131,95 +409,415 @@ export default function PositionManagement() {
         },
     ];
 
-    // Handlers
-    const handleAdd = () => {
-        setSelectedPosition(null);
-        setIsModalVisible(true);
-    };
+    // Table columns for departments
+    const departmentColumns = [
+        {
+            title: "ID",
+            dataIndex: "id",
+            key: "id",
+            width: 80,
+            sorter: (a, b) => a.id - b.id,
+            sortOrder:
+                departmentSort.field === "id" ? departmentSort.order : null,
+        },
+        {
+            title: "Tên phòng ban",
+            dataIndex: "name",
+            key: "name",
+            render: (text) => <Text strong>{text}</Text>,
+            sorter: (a, b) => a.name.localeCompare(b.name),
+            sortOrder:
+                departmentSort.field === "name" ? departmentSort.order : null,
+        },
+        {
+            title: "Mô tả",
+            dataIndex: "description",
+            key: "description",
+            ellipsis: true,
+        },
+        {
+            title: "Số chức vụ",
+            key: "positionCount",
+            width: 120,
+            align: "center",
+            render: (_, record) => {
+                const count = positions.filter(
+                    (pos) => pos.department?.id === record.id
+                ).length;
+                return count;
+            },
+            sorter: (a, b) => {
+                const countA = positions.filter(
+                    (pos) => pos.department?.id === a.id
+                ).length;
+                const countB = positions.filter(
+                    (pos) => pos.department?.id === b.id
+                ).length;
+                return countA - countB;
+            },
+            sortOrder:
+                departmentSort.field === "positionCount"
+                    ? departmentSort.order
+                    : null,
+        },
+        {
+            title: "Số nhân viên",
+            dataIndex: "employees",
+            key: "employees",
+            width: 120,
+            align: "center",
+            render: (employees) => (employees ? employees.length : 0),
+            sorter: (a, b) =>
+                (a.employees ? a.employees.length : 0) -
+                (b.employees ? b.employees.length : 0),
+            sortOrder:
+                departmentSort.field === "employees"
+                    ? departmentSort.order
+                    : null,
+        },
+        {
+            title: "Thao tác",
+            key: "action",
+            width: 120,
+            render: (_, record) => (
+                <Space>
+                    <Tooltip title="Chỉnh sửa">
+                        <Button
+                            type="primary"
+                            icon={<EditOutlined />}
+                            size="small"
+                            onClick={() => handleEditDepartment(record)}
+                        />
+                    </Tooltip>
+                    <Tooltip title="Xóa">
+                        <Popconfirm
+                            title="Xóa phòng ban"
+                            description="Bạn có chắc chắn muốn xóa phòng ban này?"
+                            onConfirm={() => handleDeleteDepartment(record.id)}
+                            okText="Xóa"
+                            cancelText="Hủy"
+                            disabled={
+                                record.employees && record.employees.length > 0
+                            }
+                        >
+                            <Button
+                                danger
+                                icon={<DeleteOutlined />}
+                                size="small"
+                                disabled={
+                                    record.employees &&
+                                    record.employees.length > 0
+                                }
+                            />
+                        </Popconfirm>
+                    </Tooltip>
+                </Space>
+            ),
+        },
+    ];
 
-    const handleEdit = (record) => {
-        setSelectedPosition(record);
-        setIsModalVisible(true);
-    };
+    const filteredPositions = positions.filter(
+        (position) =>
+            position.name.toLowerCase().includes(searchText.toLowerCase()) ||
+            (position.description &&
+                position.description
+                    .toLowerCase()
+                    .includes(searchText.toLowerCase()))
+    );
 
-    const handleDelete = (record) => {
-        setPositions(positions.filter((pos) => pos.id !== record.id));
-        message.success("Xóa chức vụ thành công");
-    };
+    const filteredDepartments = departments.filter(
+        (department) =>
+            department.name
+                .toLowerCase()
+                .includes(searchDeptText.toLowerCase()) ||
+            (department.description &&
+                department.description
+                    .toLowerCase()
+                    .includes(searchDeptText.toLowerCase()))
+    );
 
-    const handleSubmit = (values) => {
-        if (selectedPosition) {
-            // Cập nhật chức vụ
-            setPositions(positions.map((pos) => (pos.id === selectedPosition.id ? { ...pos, ...values } : pos)));
-            message.success("Cập nhật chức vụ thành công");
-        } else {
-            // Thêm chức vụ mới
-            const newPosition = {
-                ...values,
-                id: `CV${String(positions.length + 1).padStart(3, "0")}`,
-                employeeCount: 0,
-            };
-            setPositions([...positions, newPosition]);
-            message.success("Thêm chức vụ mới thành công");
-        }
-        setIsModalVisible(false);
-    };
+    const positionStats = getPositionStats();
+    const departmentStats = getDepartmentStats();
 
     return (
         <div style={{ padding: 24 }}>
-            <Card>
-                <Space direction="vertical" style={{ width: "100%" }} size="large">
-                    {/* Header */}
-                    <Row gutter={[16, 16]} justify="space-between" align="middle">
-                        <Col>
-                            <Space align="center" size={16}>
-                                <TeamOutlined style={{ fontSize: 24 }} />
-                                <Title level={3} style={{ margin: 0 }}>
-                                    Quản lý Chức vụ
-                                </Title>
-                            </Space>
-                        </Col>
-                    </Row>
+            <Tabs defaultActiveKey="positions" type="card">
+                <TabPane
+                    tab={
+                        <span>
+                            <BuildOutlined /> Chức vụ
+                        </span>
+                    }
+                    key="positions"
+                >
+                    <Card>
+                        <Space
+                            direction="vertical"
+                            style={{ width: "100%" }}
+                            size="large"
+                        >
+                            {/* Header */}
+                            <Row
+                                gutter={[16, 16]}
+                                justify="space-between"
+                                align="middle"
+                            >
+                                <Col>
+                                    <Space align="center" size={16}>
+                                        <BuildOutlined
+                                            style={{ fontSize: 24 }}
+                                        />
+                                        <Title level={3} style={{ margin: 0 }}>
+                                            Quản lý Chức vụ
+                                        </Title>
+                                    </Space>
+                                </Col>
+                            </Row>
 
-                    {/* Toolbar */}
-                    <Row gutter={16} justify="space-between">
-                        <Col flex="auto">
-                            <Search
-                                placeholder="Tìm kiếm theo tên hoặc mã chức vụ"
-                                value={searchText}
-                                onChange={(e) => setSearchText(e.target.value)}
-                                style={{ width: 300 }}
-                                allowClear
+                            {/* Statistics */}
+                            <Card>
+                                <Row gutter={16}>
+                                    <Col span={8}>
+                                        <Statistic
+                                            title="Tổng số chức vụ"
+                                            value={positionStats.totalPositions}
+                                            prefix={<BuildOutlined />}
+                                        />
+                                    </Col>
+                                    <Col span={8}>
+                                        <Statistic
+                                            title="Chức vụ có nhân viên"
+                                            value={
+                                                positionStats.positionsWithEmployees
+                                            }
+                                            prefix={<UserOutlined />}
+                                        />
+                                    </Col>
+                                    <Col span={8}>
+                                        <Statistic
+                                            title="Số nhân viên trung bình/chức vụ"
+                                            value={
+                                                positionStats.avgEmployeesPerPosition
+                                            }
+                                            prefix={<BarChartOutlined />}
+                                        />
+                                    </Col>
+                                </Row>
+                            </Card>
+
+                            {/* Toolbar */}
+                            <Row gutter={16} align="middle">
+                                <Col flex="auto">
+                                    <Space wrap>
+                                        <Search
+                                            placeholder="Tìm kiếm theo tên hoặc mô tả chức vụ"
+                                            value={searchText}
+                                            onChange={(e) =>
+                                                setSearchText(e.target.value)
+                                            }
+                                            style={{ width: 300 }}
+                                            allowClear
+                                        />
+
+                                        <Select
+                                            placeholder="Lọc theo phòng ban"
+                                            style={{ width: 200 }}
+                                            onChange={(value) =>
+                                                setPositionFilter({
+                                                    ...positionFilter,
+                                                    department: value,
+                                                })
+                                            }
+                                            value={positionFilter.department}
+                                            allowClear
+                                        >
+                                            {departments.map((dept) => (
+                                                <Option
+                                                    key={dept.id}
+                                                    value={dept.id}
+                                                >
+                                                    {dept.name}
+                                                </Option>
+                                            ))}
+                                        </Select>
+
+                                        <Button
+                                            icon={<ReloadOutlined />}
+                                            onClick={handleResetPositionFilters}
+                                        >
+                                            Đặt lại
+                                        </Button>
+                                    </Space>
+                                </Col>
+                                <Col>
+                                    <Button
+                                        type="primary"
+                                        icon={<PlusOutlined />}
+                                        onClick={handleAddPosition}
+                                    >
+                                        Thêm chức vụ
+                                    </Button>
+                                </Col>
+                            </Row>
+
+                            <Divider style={{ margin: "12px 0" }} />
+
+                            {/* Table */}
+                            <Table
+                                columns={positionColumns}
+                                dataSource={filteredPositions}
+                                rowKey="id"
+                                bordered
+                                loading={loadingPositions}
+                                onChange={handlePositionTableChange}
                             />
-                        </Col>
-                        <Col>
-                            <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
-                                Thêm chức vụ
-                            </Button>
-                        </Col>
-                    </Row>
+                        </Space>
+                    </Card>
+                </TabPane>
 
-                    {/* Table */}
-                    <Table
-                        columns={columns}
-                        dataSource={positions.filter(
-                            (pos) =>
-                                pos.name.toLowerCase().includes(searchText.toLowerCase()) ||
-                                pos.code.toLowerCase().includes(searchText.toLowerCase())
-                        )}
-                        rowKey="id"
-                        bordered
-                    />
-                </Space>
-            </Card>
+                <TabPane
+                    tab={
+                        <span>
+                            <TeamOutlined /> Phòng ban
+                        </span>
+                    }
+                    key="departments"
+                >
+                    <Card>
+                        <Space
+                            direction="vertical"
+                            style={{ width: "100%" }}
+                            size="large"
+                        >
+                            {/* Header */}
+                            <Row
+                                gutter={[16, 16]}
+                                justify="space-between"
+                                align="middle"
+                            >
+                                <Col>
+                                    <Space align="center" size={16}>
+                                        <TeamOutlined
+                                            style={{ fontSize: 24 }}
+                                        />
+                                        <Title level={3} style={{ margin: 0 }}>
+                                            Quản lý Phòng ban
+                                        </Title>
+                                    </Space>
+                                </Col>
+                            </Row>
 
-            {/* Form Modal */}
+                            {/* Statistics */}
+                            <Card>
+                                <Row gutter={16}>
+                                    <Col span={8}>
+                                        <Statistic
+                                            title="Tổng số phòng ban"
+                                            value={
+                                                departmentStats.totalDepartments
+                                            }
+                                            prefix={<TeamOutlined />}
+                                        />
+                                    </Col>
+                                    <Col span={8}>
+                                        <Statistic
+                                            title="Phòng ban có nhân viên"
+                                            value={
+                                                departmentStats.departmentsWithEmployees
+                                            }
+                                            prefix={<UserOutlined />}
+                                        />
+                                    </Col>
+                                    <Col span={8}>
+                                        <Statistic
+                                            title="Số nhân viên trung bình/phòng ban"
+                                            value={
+                                                departmentStats.avgEmployeesPerDepartment
+                                            }
+                                            prefix={<BarChartOutlined />}
+                                        />
+                                    </Col>
+                                </Row>
+                            </Card>
+
+                            {/* Toolbar */}
+                            <Row gutter={16} align="middle">
+                                <Col flex="auto">
+                                    <Space wrap>
+                                        <Search
+                                            placeholder="Tìm kiếm theo tên hoặc mô tả phòng ban"
+                                            value={searchDeptText}
+                                            onChange={(e) =>
+                                                setSearchDeptText(
+                                                    e.target.value
+                                                )
+                                            }
+                                            style={{ width: 300 }}
+                                            allowClear
+                                        />
+                                        <Button
+                                            icon={<ReloadOutlined />}
+                                            onClick={
+                                                handleResetDepartmentFilters
+                                            }
+                                        >
+                                            Đặt lại
+                                        </Button>
+                                    </Space>
+                                </Col>
+                                <Col>
+                                    <Button
+                                        type="primary"
+                                        icon={<PlusOutlined />}
+                                        onClick={handleAddDepartment}
+                                    >
+                                        Thêm phòng ban
+                                    </Button>
+                                </Col>
+                            </Row>
+
+                            <Divider style={{ margin: "12px 0" }} />
+
+                            {/* Table */}
+                            <Table
+                                columns={departmentColumns}
+                                dataSource={filteredDepartments}
+                                rowKey="id"
+                                bordered
+                                loading={loadingDepartments}
+                                onChange={handleDepartmentTableChange}
+                            />
+                        </Space>
+                    </Card>
+                </TabPane>
+            </Tabs>
+
+            {/* Form Modal for Position */}
             <PositionForm
                 open={isModalVisible}
                 onCancel={() => setIsModalVisible(false)}
-                onSubmit={handleSubmit}
+                onSubmit={handlePositionSubmit}
                 editingPosition={selectedPosition}
             />
+
+            {/* Drawer for Department */}
+            <Drawer
+                title={
+                    selectedDepartment
+                        ? "Cập nhật phòng ban"
+                        : "Thêm phòng ban mới"
+                }
+                placement="right"
+                onClose={() => setIsDepartmentDrawerVisible(false)}
+                open={isDepartmentDrawerVisible}
+                width={500}
+                destroyOnClose
+            >
+                <DepartmentForm
+                    onSubmit={handleDepartmentSubmit}
+                    editingDepartment={selectedDepartment}
+                />
+            </Drawer>
         </div>
     );
 }
