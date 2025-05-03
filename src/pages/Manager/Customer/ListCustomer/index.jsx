@@ -1,5 +1,21 @@
 import React, { useState } from "react";
-import { Card, Table, Button, Space, Tag, Typography, Input, Row, Col, Select, Tooltip, Badge, Statistic, Popconfirm, message } from "antd";
+import {
+    Card,
+    Table,
+    Button,
+    Space,
+    Tag,
+    Typography,
+    Input,
+    Row,
+    Col,
+    Select,
+    Tooltip,
+    Badge,
+    Statistic,
+    Popconfirm,
+    message,
+} from "antd";
 import {
     UserAddOutlined,
     SearchOutlined,
@@ -96,7 +112,11 @@ export default function CustomerList() {
             dataIndex: "type",
             key: "type",
             width: 150,
-            render: (type) => <Tag color={TYPE_COLORS[type]}>{type === CUSTOMER_TYPE.VIP ? "Khách VIP" : "Khách thường"}</Tag>,
+            render: (type) => (
+                <Tag color={TYPE_COLORS[type]}>
+                    {type === CUSTOMER_TYPE.VIP ? "Khách VIP" : "Khách thường"}
+                </Tag>
+            ),
         },
         {
             title: "Số lần đặt",
@@ -126,8 +146,14 @@ export default function CustomerList() {
             width: 120,
             render: (status) => (
                 <Badge
-                    status={status === CUSTOMER_STATUS.ACTIVE ? "success" : "error"}
-                    text={status === CUSTOMER_STATUS.ACTIVE ? "Đang hoạt động" : "Đã khóa"}
+                    status={
+                        status === CUSTOMER_STATUS.ACTIVE ? "success" : "error"
+                    }
+                    text={
+                        status === CUSTOMER_STATUS.ACTIVE
+                            ? "Đang hoạt động"
+                            : "Đã khóa"
+                    }
                 />
             ),
         },
@@ -138,24 +164,53 @@ export default function CustomerList() {
             render: (_, record) => (
                 <Space>
                     <Tooltip title="Xem chi tiết">
-                        <Button icon={<EyeOutlined />} size="small" onClick={() => handleViewDetails(record)} />
+                        <Button
+                            icon={<EyeOutlined />}
+                            size="small"
+                            onClick={() => handleViewDetails(record)}
+                        />
                     </Tooltip>
                     <Tooltip title="Chỉnh sửa">
-                        <Button type="primary" icon={<EditOutlined />} size="small" onClick={() => handleEdit(record)} />
+                        <Button
+                            type="primary"
+                            icon={<EditOutlined />}
+                            size="small"
+                            onClick={() => handleEdit(record)}
+                        />
                     </Tooltip>
-                    <Tooltip title={record.status === CUSTOMER_STATUS.ACTIVE ? "Khóa" : "Mở khóa"}>
+                    <Tooltip
+                        title={
+                            record.status === CUSTOMER_STATUS.ACTIVE
+                                ? "Khóa"
+                                : "Mở khóa"
+                        }
+                    >
                         <Popconfirm
-                            title={`${record.status === CUSTOMER_STATUS.ACTIVE ? "Khóa" : "Mở khóa"} khách hàng`}
+                            title={`${
+                                record.status === CUSTOMER_STATUS.ACTIVE
+                                    ? "Khóa"
+                                    : "Mở khóa"
+                            } khách hàng`}
                             description={`Bạn có chắc chắn muốn ${
-                                record.status === CUSTOMER_STATUS.ACTIVE ? "khóa" : "mở khóa"
+                                record.status === CUSTOMER_STATUS.ACTIVE
+                                    ? "khóa"
+                                    : "mở khóa"
                             } khách hàng này?`}
                             onConfirm={() => handleToggleStatus(record)}
                             okText="Đồng ý"
                             cancelText="Hủy"
                         >
                             <Button
-                                danger={record.status === CUSTOMER_STATUS.ACTIVE}
-                                icon={record.status === CUSTOMER_STATUS.ACTIVE ? <StopOutlined /> : <CheckCircleOutlined />}
+                                danger={
+                                    record.status === CUSTOMER_STATUS.ACTIVE
+                                }
+                                icon={
+                                    record.status === CUSTOMER_STATUS.ACTIVE ? (
+                                        <StopOutlined />
+                                    ) : (
+                                        <CheckCircleOutlined />
+                                    )
+                                }
                                 size="small"
                             />
                         </Popconfirm>
@@ -167,8 +222,11 @@ export default function CustomerList() {
 
     // Handlers
     const handleToggleStatus = (record) => {
-        console.log("Toggle status:", record);
-        message.success(`${record.status === CUSTOMER_STATUS.ACTIVE ? "Khóa" : "Mở khóa"} khách hàng thành công`);
+        message.success(
+            `${
+                record.status === CUSTOMER_STATUS.ACTIVE ? "Khóa" : "Mở khóa"
+            } khách hàng thành công`
+        );
     };
 
     const handleTableChange = (pagination, filters, sorter) => {
@@ -203,7 +261,13 @@ export default function CustomerList() {
     const handleSubmit = (values) => {
         if (editingCustomer) {
             // Update existing customer
-            setCustomers(customers.map((item) => (item.id === editingCustomer.id ? { ...item, ...values } : item)));
+            setCustomers(
+                customers.map((item) =>
+                    item.id === editingCustomer.id
+                        ? { ...item, ...values }
+                        : item
+                )
+            );
             message.success("Cập nhật thông tin khách hàng thành công");
         } else {
             // Add new customer
@@ -225,17 +289,31 @@ export default function CustomerList() {
     return (
         <div style={{ padding: 24 }}>
             <Card>
-                <Space direction="vertical" style={{ width: "100%" }} size="large">
+                <Space
+                    direction="vertical"
+                    style={{ width: "100%" }}
+                    size="large"
+                >
                     {/* Header Section */}
                     <Row gutter={[16, 16]}>
                         <Col span={6}>
-                            <Statistic title="Tổng số khách hàng" value={customers.length} prefix={<UserAddOutlined />} />
+                            <Statistic
+                                title="Tổng số khách hàng"
+                                value={customers.length}
+                                prefix={<UserAddOutlined />}
+                            />
                         </Col>
                         <Col span={6}>
                             <Statistic
                                 title="Khách VIP"
-                                value={customers.filter((c) => c.type === CUSTOMER_TYPE.VIP).length}
-                                valueStyle={{ color: TYPE_COLORS[CUSTOMER_TYPE.VIP] }}
+                                value={
+                                    customers.filter(
+                                        (c) => c.type === CUSTOMER_TYPE.VIP
+                                    ).length
+                                }
+                                valueStyle={{
+                                    color: TYPE_COLORS[CUSTOMER_TYPE.VIP],
+                                }}
                             />
                         </Col>
                     </Row>
@@ -247,27 +325,60 @@ export default function CustomerList() {
                                 <Search
                                     placeholder="Tìm kiếm theo tên, SĐT, CCCD"
                                     value={searchText}
-                                    onChange={(e) => setSearchText(e.target.value)}
+                                    onChange={(e) =>
+                                        setSearchText(e.target.value)
+                                    }
                                     style={{ width: 300 }}
                                     allowClear
                                 />
-                                <Select value={filterType} onChange={setFilterType} style={{ width: 150 }}>
-                                    <Select.Option value="all">Tất cả loại</Select.Option>
-                                    <Select.Option value={CUSTOMER_TYPE.NORMAL}>Khách thường</Select.Option>
-                                    <Select.Option value={CUSTOMER_TYPE.VIP}>Khách VIP</Select.Option>
+                                <Select
+                                    value={filterType}
+                                    onChange={setFilterType}
+                                    style={{ width: 150 }}
+                                >
+                                    <Select.Option value="all">
+                                        Tất cả loại
+                                    </Select.Option>
+                                    <Select.Option value={CUSTOMER_TYPE.NORMAL}>
+                                        Khách thường
+                                    </Select.Option>
+                                    <Select.Option value={CUSTOMER_TYPE.VIP}>
+                                        Khách VIP
+                                    </Select.Option>
                                 </Select>
-                                <Select value={filterStatus} onChange={setFilterStatus} style={{ width: 150 }}>
-                                    <Select.Option value="all">Tất cả trạng thái</Select.Option>
-                                    <Select.Option value={CUSTOMER_STATUS.ACTIVE}>Đang hoạt động</Select.Option>
-                                    <Select.Option value={CUSTOMER_STATUS.BLOCKED}>Đã khóa</Select.Option>
+                                <Select
+                                    value={filterStatus}
+                                    onChange={setFilterStatus}
+                                    style={{ width: 150 }}
+                                >
+                                    <Select.Option value="all">
+                                        Tất cả trạng thái
+                                    </Select.Option>
+                                    <Select.Option
+                                        value={CUSTOMER_STATUS.ACTIVE}
+                                    >
+                                        Đang hoạt động
+                                    </Select.Option>
+                                    <Select.Option
+                                        value={CUSTOMER_STATUS.BLOCKED}
+                                    >
+                                        Đã khóa
+                                    </Select.Option>
                                 </Select>
-                                <Button icon={<ReloadOutlined />} onClick={handleReset}>
+                                <Button
+                                    icon={<ReloadOutlined />}
+                                    onClick={handleReset}
+                                >
                                     Đặt lại
                                 </Button>
                             </Space>
                         </Col>
                         <Col>
-                            <Button type="primary" icon={<UserAddOutlined />} onClick={handleAdd}>
+                            <Button
+                                type="primary"
+                                icon={<UserAddOutlined />}
+                                onClick={handleAdd}
+                            >
                                 Thêm khách hàng
                             </Button>
                         </Col>

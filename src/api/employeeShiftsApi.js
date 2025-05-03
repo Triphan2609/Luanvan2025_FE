@@ -144,3 +144,17 @@ export const bulkUpdateEmployeeShiftStatus = async (ids, status) => {
         throw error;
     }
 };
+
+// Xóa nhiều lịch làm việc cùng lúc
+export const bulkDeleteEmployeeShifts = async (ids) => {
+    try {
+        const response = await axios.delete(
+            `${API_URL}/api/employee-shifts/bulk`,
+            { data: { ids } }
+        );
+        return response.data;
+    } catch (error) {
+        console.error("Error deleting bulk employee shifts:", error);
+        throw error;
+    }
+};

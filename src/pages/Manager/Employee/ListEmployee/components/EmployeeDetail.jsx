@@ -16,6 +16,13 @@ import {
     Timeline,
     Empty,
     Skeleton,
+    Table,
+    Badge,
+    Calendar,
+    Select,
+    DatePicker,
+    Tooltip,
+    message,
 } from "antd";
 import {
     UserOutlined,
@@ -31,76 +38,115 @@ import {
     ClockCircleOutlined,
     CheckCircleOutlined,
     CarryOutOutlined,
+    FilterOutlined,
 } from "@ant-design/icons";
 import {
     EMPLOYEE_STATUS_LABELS,
     EMPLOYEE_STATUS_COLORS,
 } from "../../../../../constants/employee";
-import { getWorkHistory } from "../../../../../api/employeesApi";
+import {
+    getEmployeeShifts,
+    updateEmployeeShiftStatus,
+} from "../../../../../api/employeeShiftsApi";
+import dayjs from "dayjs";
 
 const { Title, Text } = Typography;
 const { TabPane } = Tabs;
+const { RangePicker } = DatePicker;
+
+// Constants
+const SCHEDULE_STATUS = {
+    PENDING: "pending",
+    CONFIRMED: "confirmed",
+    COMPLETED: "completed",
+};
 
 export default function EmployeeDetail({ open, onClose, employee, onEdit }) {
     const [previewVisible, setPreviewVisible] = useState(false);
-    const [workHistory, setWorkHistory] = useState([]);
+    const [schedules, setSchedules] = useState([]);
     const [loading, setLoading] = useState(false);
     const [activeTab, setActiveTab] = useState("basic");
+    const [dateRange, setDateRange] = useState([
+        dayjs().startOf("month"),
+        dayjs().endOf("month"),
+    ]);
 
     useEffect(() => {
-        if (employee && activeTab === "history") {
-            fetchWorkHistory();
+        if (employee && activeTab === "schedule") {
+            fetchEmployeeSchedules();
         }
-    }, [employee, activeTab]);
+    }, [employee, activeTab, dateRange]);
 
-    const fetchWorkHistory = async () => {
+    const fetchEmployeeSchedules = async () => {
         if (!employee) return;
 
         setLoading(true);
         try {
-            // If the API is implemented, use this:
-            // const history = await getWorkHistory(employee.id);
-            // setWorkHistory(history);
+            const startDate = dateRange[0].format("YYYY-MM-DD");
+            const endDate = dateRange[1].format("YYYY-MM-DD");
 
-            // For demo purposes, let's use mock data:
-            setTimeout(() => {
-                const mockHistory = [
-                    {
-                        id: 1,
-                        date: new Date(2023, 0, 15),
-                        event: "Bắt đầu làm việc",
-                        description: "Nhân viên bắt đầu làm việc tại công ty",
-                        type: "join",
-                    },
-                    {
-                        id: 2,
-                        date: new Date(2023, 3, 10),
-                        event: "Thay đổi chức vụ",
-                        description: "Từ Nhân viên thành Trưởng nhóm",
-                        type: "promotion",
-                    },
-                    {
-                        id: 3,
-                        date: new Date(2023, 6, 5),
-                        event: "Chuyển phòng ban",
-                        description: "Từ Phòng Kinh doanh sang Phòng Marketing",
-                        type: "transfer",
-                    },
-                    {
-                        id: 4,
-                        date: new Date(2023, 11, 20),
-                        event: "Thưởng thành tích",
-                        description:
-                            "Hoàn thành xuất sắc dự án khách hàng quan trọng",
-                        type: "achievement",
-                    },
-                ];
-                setWorkHistory(mockHistory);
-                setLoading(false);
-            }, 1000);
-        } catch (error) {
-            console.error("Error fetching work history:", error);
+            const filter = {
+                employeeId: employee.id,
+                startDate,
+                endDate,
+            };
+
+            const data = await getEmployeeShifts(filter);
+
+            // Format schedules for display
+            const formattedSchedules = data.map((schedule) => ({
+                id: schedule.id,
+                schedule_code: schedule.schedule_code,
+                employeeId: schedule.employee?.id,
+                employeeName:
+                    schedule.employee?.name || schedule.employee?.fullname,
+                department:
+                    schedule.employee?.department?.name || "Chưa phân loại",
+                departmentId: schedule.employee?.department?.id,
+                departmentCode:
+                    schedule.employee?.department?.code || "unknown",
+                roleId: schedule.employee?.role?.id,
+                roleName: schedule.employee?.role?.name || "Chưa có chức vụ",
+                shiftId: schedule.shift?.id,
+                shiftName: schedule.shift?.name,
+                shiftTime: `${schedule.shift?.start_time || ""} - ${
+                    schedule.shift?.end_time || ""
+                }`,
+                date: dayjs(schedule.date).format("YYYY-MM-DD"),
+                status: schedule.status,
+                attendance_status: schedule.attendance_status,
+                check_in: schedule.check_in,
+                check_out: schedule.check_out,
+                note: schedule.note,
+            }));
+
+            setSchedules(formattedSchedules);
             setLoading(false);
+        } catch (error) {
+            console.error("Error fetching employee schedules:", error);
+            setLoading(false);
+        }
+    };
+
+    const handleStatusChange = async (id, newStatus) => {
+        try {
+            await updateEmployeeShiftStatus(id, newStatus);
+            // Cập nhật trạng thái trong state
+            setSchedules(
+                schedules.map((s) =>
+                    s.id === id ? { ...s, status: newStatus } : s
+                )
+            );
+            message.success("Cập nhật trạng thái thành công");
+        } catch (error) {
+            console.error("Lỗi khi cập nhật trạng thái:", error);
+            message.error("Không thể cập nhật trạng thái");
+        }
+    };
+
+    const handleDateRangeChange = (dates) => {
+        if (dates && dates.length === 2) {
+            setDateRange(dates);
         }
     };
 
@@ -117,29 +163,111 @@ export default function EmployeeDetail({ open, onClose, employee, onEdit }) {
         onClose();
     };
 
-    const getTimelineItemColor = (type) => {
-        const colors = {
-            join: "green",
-            promotion: "blue",
-            transfer: "orange",
-            achievement: "purple",
-            leave: "red",
-            default: "gray",
-        };
-        return colors[type] || colors.default;
+    const getStatusTagColor = (status) => {
+        switch (status) {
+            case SCHEDULE_STATUS.PENDING:
+                return "warning";
+            case SCHEDULE_STATUS.CONFIRMED:
+                return "success";
+            case SCHEDULE_STATUS.COMPLETED:
+                return "default";
+            default:
+                return "default";
+        }
     };
 
-    const getTimelineItemIcon = (type) => {
-        const icons = {
-            join: <CarryOutOutlined />,
-            promotion: <CheckCircleOutlined />,
-            transfer: <TeamOutlined />,
-            achievement: <ClockCircleOutlined />,
-            leave: <UserOutlined />,
-            default: <HistoryOutlined />,
-        };
-        return icons[type] || icons.default;
+    const getStatusText = (status) => {
+        switch (status) {
+            case SCHEDULE_STATUS.PENDING:
+                return "Chờ xác nhận";
+            case SCHEDULE_STATUS.CONFIRMED:
+                return "Đã xác nhận";
+            case SCHEDULE_STATUS.COMPLETED:
+                return "Đã hoàn thành";
+            default:
+                return "Không xác định";
+        }
     };
+
+    // Group schedules by date for the calendar view
+    const getSchedulesByDate = (date) => {
+        const dateStr = date.format("YYYY-MM-DD");
+        return schedules.filter((s) => s.date === dateStr);
+    };
+
+    const dateCellRender = (date) => {
+        const listData = getSchedulesByDate(date);
+        if (listData.length === 0) return null;
+
+        return (
+            <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                {listData.map((item) => (
+                    <li key={item.id} style={{ marginBottom: 3 }}>
+                        <Badge
+                            status={
+                                item.status === SCHEDULE_STATUS.CONFIRMED
+                                    ? "success"
+                                    : item.status === SCHEDULE_STATUS.COMPLETED
+                                    ? "default"
+                                    : "warning"
+                            }
+                            text={
+                                <Tooltip title={`${item.shiftTime}`}>
+                                    <span>{item.shiftName}</span>
+                                </Tooltip>
+                            }
+                        />
+                    </li>
+                ))}
+            </ul>
+        );
+    };
+
+    const scheduleColumns = [
+        {
+            title: "Mã lịch",
+            dataIndex: "schedule_code",
+            key: "schedule_code",
+            width: 100,
+        },
+        {
+            title: "Ca làm việc",
+            dataIndex: "shiftName",
+            key: "shiftName",
+            render: (text, record) => (
+                <Space direction="vertical" size={0}>
+                    <span>{text}</span>
+                    <Text type="secondary" style={{ fontSize: "11px" }}>
+                        {record.shiftTime}
+                    </Text>
+                </Space>
+            ),
+        },
+        {
+            title: "Ngày",
+            dataIndex: "date",
+            key: "date",
+            sorter: (a, b) => dayjs(a.date).unix() - dayjs(b.date).unix(),
+            defaultSortOrder: "descend",
+            render: (date) => <Text>{dayjs(date).format("DD/MM/YYYY")}</Text>,
+        },
+        {
+            title: "Trạng thái",
+            dataIndex: "status",
+            key: "status",
+            filters: [
+                { text: "Chờ xác nhận", value: SCHEDULE_STATUS.PENDING },
+                { text: "Đã xác nhận", value: SCHEDULE_STATUS.CONFIRMED },
+                { text: "Đã hoàn thành", value: SCHEDULE_STATUS.COMPLETED },
+            ],
+            onFilter: (value, record) => record.status === value,
+            render: (status) => (
+                <Tag color={getStatusTagColor(status)}>
+                    {getStatusText(status)}
+                </Tag>
+            ),
+        },
+    ];
 
     return (
         <Drawer
@@ -348,44 +476,137 @@ export default function EmployeeDetail({ open, onClose, employee, onEdit }) {
                 <TabPane
                     tab={
                         <>
-                            <HistoryOutlined /> Lịch sử làm việc
+                            <CalendarOutlined /> Lịch làm việc
                         </>
                     }
-                    key="history"
+                    key="schedule"
                 >
-                    <Skeleton loading={loading} active paragraph={{ rows: 6 }}>
-                        {workHistory.length > 0 ? (
-                            <Card>
-                                <Timeline mode="left">
-                                    {workHistory.map((item) => (
-                                        <Timeline.Item
-                                            key={item.id}
-                                            color={getTimelineItemColor(
-                                                item.type
-                                            )}
-                                            dot={getTimelineItemIcon(item.type)}
-                                            label={new Date(
-                                                item.date
-                                            ).toLocaleDateString("vi-VN")}
-                                        >
-                                            <div>
-                                                <Text strong>{item.event}</Text>
-                                                <div>
-                                                    <Text type="secondary">
-                                                        {item.description}
-                                                    </Text>
-                                                </div>
-                                            </div>
-                                        </Timeline.Item>
-                                    ))}
-                                </Timeline>
-                            </Card>
-                        ) : (
-                            <Empty
-                                description="Chưa có dữ liệu lịch sử làm việc"
-                                image={Empty.PRESENTED_IMAGE_SIMPLE}
-                            />
-                        )}
+                    <Skeleton loading={loading} active>
+                        <Space
+                            direction="vertical"
+                            style={{ width: "100%" }}
+                            size="middle"
+                        >
+                            <Row>
+                                <Col
+                                    span={24}
+                                    style={{
+                                        marginBottom: 16,
+                                        textAlign: "right",
+                                    }}
+                                >
+                                    <RangePicker
+                                        value={dateRange}
+                                        onChange={handleDateRangeChange}
+                                        format="DD/MM/YYYY"
+                                    />
+                                </Col>
+                            </Row>
+
+                            {schedules.length > 0 ? (
+                                <>
+                                    <Card
+                                        title="Lịch làm việc theo tháng"
+                                        style={{ marginBottom: 16 }}
+                                    >
+                                        <Calendar
+                                            fullscreen={false}
+                                            dateCellRender={dateCellRender}
+                                            value={dateRange[0]}
+                                        />
+                                    </Card>
+
+                                    <Card title="Danh sách ca làm việc">
+                                        <Table
+                                            columns={scheduleColumns}
+                                            dataSource={schedules}
+                                            rowKey="id"
+                                            size="small"
+                                            pagination={{
+                                                pageSize: 5,
+                                                showSizeChanger: true,
+                                                pageSizeOptions: [
+                                                    "5",
+                                                    "10",
+                                                    "20",
+                                                ],
+                                                showTotal: (total) =>
+                                                    `Tổng ${total} lịch làm việc`,
+                                            }}
+                                            summary={(pageData) => {
+                                                if (pageData.length === 0)
+                                                    return null;
+
+                                                const statusCounts =
+                                                    pageData.reduce(
+                                                        (acc, item) => {
+                                                            acc[item.status] =
+                                                                (acc[
+                                                                    item.status
+                                                                ] || 0) + 1;
+                                                            return acc;
+                                                        },
+                                                        {}
+                                                    );
+
+                                                return (
+                                                    <Table.Summary fixed>
+                                                        <Table.Summary.Row>
+                                                            <Table.Summary.Cell
+                                                                index={0}
+                                                                colSpan={4}
+                                                            >
+                                                                <Space
+                                                                    split={
+                                                                        <Divider type="vertical" />
+                                                                    }
+                                                                >
+                                                                    {Object.entries(
+                                                                        statusCounts
+                                                                    ).map(
+                                                                        ([
+                                                                            status,
+                                                                            count,
+                                                                        ]) => (
+                                                                            <Space
+                                                                                key={
+                                                                                    status
+                                                                                }
+                                                                            >
+                                                                                <Badge
+                                                                                    status={getStatusTagColor(
+                                                                                        status
+                                                                                    )}
+                                                                                />
+                                                                                <Text type="secondary">
+                                                                                    {getStatusText(
+                                                                                        status
+                                                                                    )}
+
+                                                                                    :{" "}
+                                                                                    {
+                                                                                        count
+                                                                                    }
+                                                                                </Text>
+                                                                            </Space>
+                                                                        )
+                                                                    )}
+                                                                </Space>
+                                                            </Table.Summary.Cell>
+                                                        </Table.Summary.Row>
+                                                    </Table.Summary>
+                                                );
+                                            }}
+                                        />
+                                    </Card>
+                                </>
+                            ) : (
+                                <Empty
+                                    description="Chưa có dữ liệu lịch làm việc"
+                                    image={Empty.PRESENTED_IMAGE_SIMPLE}
+                                />
+                            )}
+                        </Space>
                     </Skeleton>
                 </TabPane>
             </Tabs>

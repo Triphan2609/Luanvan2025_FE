@@ -79,7 +79,6 @@ const AdvancedFilterForm = ({
                                 size="middle"
                                 style={{ maxWidth: "500px" }}
                                 onSearch={(value) => {
-                                    console.log("Tìm kiếm với từ khóa:", value);
                                     if (onSearch) {
                                         onSearch(value);
                                     } else {
@@ -216,7 +215,6 @@ const AdvancedFilterForm = ({
                                     type="default"
                                     htmlType="button"
                                     onClick={(e) => {
-                                        console.log("Đặt lại tất cả bộ lọc");
                                         if (onReset) {
                                             onReset();
                                         }

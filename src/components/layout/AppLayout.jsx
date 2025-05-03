@@ -15,6 +15,7 @@ import {
     IdcardOutlined,
     BarChartOutlined,
     LineChartOutlined,
+    CalendarOutlined,
 } from "@ant-design/icons";
 import { TbGps } from "react-icons/tb";
 import { IoRestaurantOutline } from "react-icons/io5";
@@ -217,6 +218,34 @@ const items = [
                 key: "shifts",
                 icon: <ScheduleOutlined />,
                 label: <Link to="/employees/working-time">Quản lý ca làm</Link>,
+            },
+            {
+                key: "salary-config",
+                icon: <SettingOutlined />,
+                label: (
+                    <Link to="/employees/salary-config">Cấu hình lương</Link>
+                ),
+            },
+            {
+                key: "payroll",
+                icon: <DollarOutlined />,
+                label: <Link to="/employees/payroll">Quản lý bảng lương</Link>,
+            },
+            {
+                key: "payroll-dashboard",
+                icon: <BarChartOutlined />,
+                label: (
+                    <Link to="/employees/payroll-dashboard">Báo cáo lương</Link>
+                ),
+            },
+            {
+                key: "payroll-attendance",
+                icon: <CalendarOutlined />,
+                label: (
+                    <Link to="/employees/payroll-attendance">
+                        Tích hợp chấm công
+                    </Link>
+                ),
             },
         ],
     },

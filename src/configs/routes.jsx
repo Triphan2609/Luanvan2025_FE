@@ -11,32 +11,72 @@ const Service = lazy(() => import("../pages/Info/Service/index"));
 const Area = lazy(() => import("../pages/Info/Area/index"));
 
 const Table = lazy(() => import("../pages/Manager/Restaurant/Table/index"));
-const PaymentRestaurant = lazy(() => import("../pages/Manager/Restaurant/Payment/index"));
-const InvoiceRestaurant = lazy(() => import("../pages/Manager/Restaurant/Payment/Invoice/index"));
-const FoodList = lazy(() => import("../pages/Manager/Restaurant/ListFood/index"));
-const ServiceRestaurant = lazy(() => import("../pages/Manager/Restaurant/Service/index"));
-const Reservation = lazy(() => import("../pages/Manager/Restaurant/Reservation/index"));
-const Promotion = lazy(() => import("../pages/Manager/Restaurant/Promotion/index"));
-const MenuMain = lazy(() => import("../pages/Manager/Restaurant/Menu/MenuMain/index"));
-const MenuSeasonal = lazy(() => import("../pages/Manager/Restaurant/Menu/MenuSeasonal/index"));
+const PaymentRestaurant = lazy(() =>
+    import("../pages/Manager/Restaurant/Payment/index")
+);
+const InvoiceRestaurant = lazy(() =>
+    import("../pages/Manager/Restaurant/Payment/Invoice/index")
+);
+const FoodList = lazy(() =>
+    import("../pages/Manager/Restaurant/ListFood/index")
+);
+const ServiceRestaurant = lazy(() =>
+    import("../pages/Manager/Restaurant/Service/index")
+);
+const Reservation = lazy(() =>
+    import("../pages/Manager/Restaurant/Reservation/index")
+);
+const Promotion = lazy(() =>
+    import("../pages/Manager/Restaurant/Promotion/index")
+);
+const MenuMain = lazy(() =>
+    import("../pages/Manager/Restaurant/Menu/MenuMain/index")
+);
+const MenuSeasonal = lazy(() =>
+    import("../pages/Manager/Restaurant/Menu/MenuSeasonal/index")
+);
 
 const Rooms = lazy(() => import("../pages/Manager/Hotel/Rooms/index"));
 const RoomTypes = lazy(() => import("../pages/Manager/Hotel/RoomTypes/index"));
 const RoomStuffs = lazy(() => import("../pages/Manager/Hotel/Stuff/index"));
 const Bookings = lazy(() => import("../pages/Manager/Hotel/Bookings/index"));
 const PaymentHotel = lazy(() => import("../pages/Manager/Hotel/Payment/index"));
-const InvoiceHotel = lazy(() => import("../pages/Manager/Hotel/Payment/Invoice/index"));
+const InvoiceHotel = lazy(() =>
+    import("../pages/Manager/Hotel/Payment/Invoice/index")
+);
 
-const CustomerList = lazy(() => import("../pages/Manager/Customer/ListCustomer/index"));
-const MembershipCard = lazy(() => import("../pages/Manager/Customer/MembershipCard/index"));
+const CustomerList = lazy(() =>
+    import("../pages/Manager/Customer/ListCustomer/index")
+);
+const MembershipCard = lazy(() =>
+    import("../pages/Manager/Customer/MembershipCard/index")
+);
 const Feedback = lazy(() => import("../pages/Manager/Customer/Feedback/index"));
 
-const EmployeeList = lazy(() => import("../pages/Manager/Employee/ListEmployee/index"));
-const EmployeePosition = lazy(() => import("../pages/Manager/Employee/Position/index"));
-const WorkingTime = lazy(() => import("../pages/Manager/Employee/WorkingTime/index"));
+const EmployeeList = lazy(() =>
+    import("../pages/Manager/Employee/ListEmployee/index")
+);
+const EmployeePosition = lazy(() =>
+    import("../pages/Manager/Employee/Position/index")
+);
+const WorkingTime = lazy(() =>
+    import("../pages/Manager/Employee/WorkingTime/index")
+);
+const SalaryConfig = lazy(() =>
+    import("../pages/Manager/Employee/SalaryConfig/index")
+);
+const Payroll = lazy(() => import("../pages/Manager/Employee/Payroll/index"));
+const PayrollDashboard = lazy(() =>
+    import("../pages/Manager/Employee/PayrollDashboard/index")
+);
+const PayrollAttendance = lazy(() =>
+    import("../pages/Manager/Employee/PayrollAttendance/index")
+);
 
 const Revenue = lazy(() => import("../pages/Report/Revenue"));
-const ServiceUsageReport = lazy(() => import("../pages/Report/ServiceUsageReport"));
+const ServiceUsageReport = lazy(() =>
+    import("../pages/Report/ServiceUsageReport")
+);
 const FinancialReport = lazy(() => import("../pages/Report/FinancialReport"));
 
 const AccountManagement = lazy(() => import("../pages/System/Accounts/index"));
@@ -74,7 +114,10 @@ const routes = [
                 element: <InvoiceRestaurant />,
             },
             { path: "/restaurant/foods", element: <FoodList /> },
-            { path: "/restaurant/table-services", element: <ServiceRestaurant /> },
+            {
+                path: "/restaurant/table-services",
+                element: <ServiceRestaurant />,
+            },
             { path: "/restaurant/reservations", element: <Reservation /> },
             { path: "/restaurant/promotions", element: <Promotion /> },
             { path: "/restaurant/menus-main", element: <MenuMain /> },
@@ -129,6 +172,22 @@ const routes = [
             {
                 path: "/employees/working-time",
                 element: <WorkingTime />,
+            },
+            {
+                path: "/employees/salary-config",
+                element: <SalaryConfig />,
+            },
+            {
+                path: "/employees/payroll",
+                element: <Payroll />,
+            },
+            {
+                path: "/employees/payroll-dashboard",
+                element: <PayrollDashboard />,
+            },
+            {
+                path: "/employees/payroll-attendance",
+                element: <PayrollAttendance />,
             },
 
             {

@@ -1,13 +1,5 @@
-import axios from "axios";
+import apiClient from "../configs/apiClient";
 import { message } from "antd";
-
-// Đảm bảo URL API đúng - ưu tiên sử dụng biến môi trường nếu có
-const API_URL = "http://localhost:8000";
-const API_PREFIX = "/api";
-
-// Thiết lập axios default
-axios.defaults.baseURL = API_URL;
-axios.defaults.headers.common["Content-Type"] = "application/json";
 
 // Hàm xử lý lỗi API để hiển thị thông báo lỗi rõ ràng
 const handleApiError = (error) => {
@@ -88,8 +80,6 @@ const validateId = (id) => {
 // Lấy danh sách nhân viên
 export const getEmployees = async (params = {}) => {
     try {
-        console.log("Đang gọi API với params:", params);
-
         // Lọc các tham số không xác định hoặc rỗng
         const filteredParams = {};
         for (const [key, value] of Object.entries(params)) {
@@ -109,12 +99,9 @@ export const getEmployees = async (params = {}) => {
             }
         }
 
-        console.log("Filtered params for API call:", filteredParams);
-
-        const response = await axios.get(`${API_URL}${API_PREFIX}/employees`, {
+        const response = await apiClient.get("/employees", {
             params: filteredParams,
         });
-        console.log("Response từ API employees:", response);
 
         // Kiểm tra nếu response có dữ liệu
         if (!response.data) {
@@ -149,9 +136,7 @@ export const getEmployeeById = async (id) => {
         // Kiểm tra ID hợp lệ
         validateId(id);
 
-        const response = await axios.get(
-            `${API_URL}${API_PREFIX}/employees/${id}`
-        );
+        const response = await apiClient.get(`/employees/${id}`);
         return response.data;
     } catch (error) {
         return handleApiError(error);
@@ -173,12 +158,7 @@ export const createEmployee = async (data) => {
             processedData.role_id = Number(processedData.role_id);
         }
 
-        console.log("Dữ liệu gửi lên server sau khi xử lý:", processedData);
-
-        const response = await axios.post(
-            `${API_URL}${API_PREFIX}/employees`,
-            processedData
-        );
+        const response = await apiClient.post("/employees", processedData);
         return response.data;
     } catch (error) {
         return handleApiError(error);
@@ -203,10 +183,8 @@ export const updateEmployee = async (id, data) => {
             processedData.role_id = Number(processedData.role_id);
         }
 
-        console.log("Dữ liệu gửi lên server sau khi xử lý:", processedData);
-
-        const response = await axios.patch(
-            `${API_URL}${API_PREFIX}/employees/${id}`,
+        const response = await apiClient.patch(
+            `/employees/${id}`,
             processedData
         );
         return response.data;
@@ -221,9 +199,7 @@ export const deleteEmployee = async (id) => {
         // Kiểm tra ID hợp lệ
         validateId(id);
 
-        const response = await axios.delete(
-            `${API_URL}${API_PREFIX}/employees/${id}`
-        );
+        const response = await apiClient.delete(`/employees/${id}`);
         return response.data;
     } catch (error) {
         return handleApiError(error);
@@ -240,16 +216,11 @@ export const uploadAvatar = async (file) => {
         const formData = new FormData();
         formData.append("file", file);
 
-        console.log("Đang tải lên ảnh...");
-        const response = await axios.post(
-            `${API_URL}${API_PREFIX}/employees/upload`,
-            formData,
-            {
-                headers: {
-                    "Content-Type": "multipart/form-data",
-                },
-            }
-        );
+        const response = await apiClient.post(`/employees/upload`, formData, {
+            headers: {
+                "Content-Type": "multipart/form-data",
+            },
+        });
 
         // Trả về URL từ server, nếu URL không phải là URL đầy đủ thì thêm URL gốc
         let imageUrl = response.data.url;
@@ -258,7 +229,6 @@ export const uploadAvatar = async (file) => {
             imageUrl = `http://localhost:8000${imageUrl}`;
         }
 
-        console.log("Upload thành công, URL ảnh:", imageUrl);
         return {
             ...response.data,
             url: imageUrl,
@@ -278,13 +248,9 @@ export const uploadBase64Avatar = async (base64Image, options = {}) => {
         // Nén ảnh trước khi gửi đến server
         const optimizedImage = await optimizeBase64Image(base64Image, options);
 
-        console.log("Đang tải lên ảnh base64...");
-        const response = await axios.post(
-            `${API_URL}${API_PREFIX}/employees/upload-base64`,
-            {
-                image: optimizedImage,
-            }
-        );
+        const response = await apiClient.post(`/employees/upload-base64`, {
+            image: optimizedImage,
+        });
 
         // Trả về URL từ server, nếu URL không phải là URL đầy đủ thì thêm URL gốc
         let imageUrl = response.data.url;
@@ -293,7 +259,6 @@ export const uploadBase64Avatar = async (base64Image, options = {}) => {
             imageUrl = `http://localhost:8000${imageUrl}`;
         }
 
-        console.log("Upload base64 thành công, URL ảnh:", imageUrl);
         return {
             ...response.data,
             url: imageUrl,
@@ -371,9 +336,7 @@ const optimizeBase64Image = (base64Image, options = {}) => {
 // Lấy danh sách phòng ban
 export const getDepartments = async () => {
     try {
-        const response = await axios.get(
-            `${API_URL}${API_PREFIX}/employees/departments`
-        );
+        const response = await apiClient.get(`/employees/departments`);
         return response.data;
     } catch (error) {
         return handleApiError(error);
@@ -383,9 +346,7 @@ export const getDepartments = async () => {
 // Lấy danh sách chức vụ
 export const getRoles = async () => {
     try {
-        const response = await axios.get(
-            `${API_URL}${API_PREFIX}/employees/roles`
-        );
+        const response = await apiClient.get(`/employees/roles`);
         return response.data;
     } catch (error) {
         return handleApiError(error);
@@ -402,12 +363,10 @@ export const updateEmployeeStatus = async (id, status) => {
         console.log(`Cập nhật nhân viên id=${id} sang trạng thái: ${status}`);
 
         // Gọi API trực tiếp
-        const response = await axios.patch(
-            `${API_URL}${API_PREFIX}/employees/${id}/status`,
-            { status }
-        );
+        const response = await apiClient.patch(`/employees/${id}/status`, {
+            status,
+        });
 
-        console.log("API phản hồi thành công:", response.data);
         return response.data;
     } catch (error) {
         console.error("Lỗi khi cập nhật trạng thái:", error);
@@ -421,9 +380,7 @@ export const getWorkHistory = async (id) => {
         // Kiểm tra ID hợp lệ
         validateId(id);
 
-        const response = await axios.get(
-            `${API_URL}${API_PREFIX}/employees/${id}/work-history`
-        );
+        const response = await apiClient.get(`/employees/${id}/work-history`);
         return response.data;
     } catch (error) {
         return handleApiError(error);
@@ -443,15 +400,11 @@ export const bulkUpdateStatus = async (ids, status) => {
         );
 
         // Gọi API trực tiếp
-        const response = await axios.post(
-            `${API_URL}${API_PREFIX}/employees/bulk/status`,
-            {
-                ids,
-                status,
-            }
-        );
+        const response = await apiClient.post(`/employees/bulk/status`, {
+            ids,
+            status,
+        });
 
-        console.log("API phản hồi thành công:", response.data);
         return response.data;
     } catch (error) {
         console.error("Lỗi khi cập nhật trạng thái hàng loạt:", error);
@@ -466,13 +419,9 @@ export const bulkDeleteEmployees = async (ids) => {
             throw new Error("Danh sách ID nhân viên không hợp lệ");
         }
 
-        console.log("Đang xóa nhân viên hàng loạt:", ids);
-        const response = await axios.post(
-            `${API_URL}${API_PREFIX}/employees/bulk/delete`,
-            {
-                ids,
-            }
-        );
+        const response = await apiClient.post(`/employees/bulk/delete`, {
+            ids,
+        });
         return response.data;
     } catch (error) {
         return handleApiError(error);

@@ -78,16 +78,12 @@ export default function EmployeeForm({
     }, [editingEmployee, form, open, departments, roles]);
 
     useEffect(() => {
-        console.log("selectedDepartment changed:", selectedDepartment);
-        console.log("roles available:", roles);
-
         if (selectedDepartment && roles.length > 0) {
             const filtered = roles.filter(
                 (role) =>
                     Number(role.department_id) === Number(selectedDepartment)
             );
 
-            console.log("filtered roles:", filtered);
             setFilteredRoles(filtered);
 
             const currentRoleId = form.getFieldValue("role_id");
@@ -110,7 +106,6 @@ export default function EmployeeForm({
             const values = await form.validateFields();
 
             // Log dữ liệu form gốc để debug
-            console.log("Form values:", values);
 
             const {
                 birthday: birthdayValue,
@@ -140,7 +135,6 @@ export default function EmployeeForm({
             }
 
             // Log dữ liệu sẽ gửi lên server để debug
-            console.log("Dữ liệu sẽ gửi lên server:", formData);
 
             if (editingEmployee) {
                 await updateEmployee(editingEmployee.id, formData);
@@ -176,13 +170,11 @@ export default function EmployeeForm({
     };
 
     const handleDepartmentChange = (value) => {
-        console.log("Department changed to:", value);
         setSelectedDepartment(value);
         form.setFieldValue("role_id", undefined);
     };
 
     const handleAvatarChange = (url) => {
-        console.log("Avatar changed to:", url);
         setAvatarUrl(url);
         form.setFieldsValue({ avatar: url });
     };

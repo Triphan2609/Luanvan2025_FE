@@ -130,17 +130,9 @@ const ExportDataModal = ({
     useEffect(() => {
         if (data && data.length > 0) {
             // Kiểm tra dữ liệu đầu vào
-            console.log(
-                "ExportDataModal nhận được dữ liệu:",
-                data.length,
-                "bản ghi"
-            );
+
             if (data.length > 0) {
                 const sampleItem = data[0];
-                console.log("Mẫu dữ liệu:", {
-                    department: sampleItem.department,
-                    role: sampleItem.role,
-                });
             }
 
             const columns = getColumns();

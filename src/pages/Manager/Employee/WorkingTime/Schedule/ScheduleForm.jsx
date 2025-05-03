@@ -3,12 +3,18 @@ import { Modal, Form, Select, DatePicker, Space, Button, Spin } from "antd";
 import dayjs from "dayjs";
 import { getActiveShifts } from "../../../../../api/shiftsApi";
 import { getEmployees } from "../../../../../api/employeesApi";
+import { getDepartments } from "../../../../../api/departmentsApi";
 
 const ScheduleForm = ({ open, onCancel, onSubmit, selectedDate }) => {
     const [form] = Form.useForm();
     const [employees, setEmployees] = useState([]);
+    const [filteredEmployees, setFilteredEmployees] = useState([]);
     const [shifts, setShifts] = useState([]);
+    const [departments, setDepartments] = useState([]);
+    const [roles, setRoles] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [departmentId, setDepartmentId] = useState(null);
+    const [roleId, setRoleId] = useState(null);
 
     // Lấy dữ liệu khi form mở
     useEffect(() => {
@@ -24,9 +30,66 @@ const ScheduleForm = ({ open, onCancel, onSubmit, selectedDate }) => {
         }
     }, [selectedDate, form]);
 
+    // Lọc nhân viên theo phòng ban
+    useEffect(() => {
+        if (!departmentId) {
+            setFilteredEmployees([]);
+            setRoles([]);
+            return;
+        }
+
+        // Lấy danh sách role từ nhân viên theo department
+        const departmentEmployees = employees.filter(
+            (emp) => emp.department?.id === departmentId
+        );
+
+        // Lấy danh sách roles duy nhất từ danh sách nhân viên đã lọc
+        const uniqueRoles = [];
+        const roleIds = new Set();
+
+        departmentEmployees.forEach((emp) => {
+            if (emp.role && !roleIds.has(emp.role.id)) {
+                roleIds.add(emp.role.id);
+                uniqueRoles.push({
+                    id: emp.role.id,
+                    name: emp.role.name,
+                });
+            }
+        });
+
+        setRoles(uniqueRoles);
+
+        // Reset role selection
+        form.setFieldValue("roleId", undefined);
+        form.setFieldValue("employeeId", undefined);
+        setRoleId(null);
+    }, [departmentId, employees, form]);
+
+    // Lọc nhân viên theo chức vụ
+    useEffect(() => {
+        if (!departmentId || !roleId) {
+            setFilteredEmployees([]);
+            return;
+        }
+
+        const filtered = employees.filter(
+            (emp) =>
+                emp.department?.id === departmentId && emp.role?.id === roleId
+        );
+
+        setFilteredEmployees(filtered);
+
+        // Reset employee selection
+        form.setFieldValue("employeeId", undefined);
+    }, [departmentId, roleId, employees, form]);
+
     const loadFormData = async () => {
         try {
             setLoading(true);
+
+            // Tải danh sách phòng ban
+            const departmentsData = await getDepartments();
+            setDepartments(departmentsData);
 
             // Tải danh sách nhân viên
             const employeesResponse = await getEmployees();
@@ -70,16 +133,21 @@ const ScheduleForm = ({ open, onCancel, onSubmit, selectedDate }) => {
     };
 
     const handleSubmit = (values) => {
-        const employee = employees.find((e) => e.id === values.employeeId);
-
         onSubmit({
             employeeId: values.employeeId,
             shiftId: values.shiftId,
             date: values.date.format("YYYY-MM-DD"),
-            // Các thông tin khác sẽ được xử lý trong component cha
         });
 
         form.resetFields();
+    };
+
+    const handleDepartmentChange = (value) => {
+        setDepartmentId(value);
+    };
+
+    const handleRoleChange = (value) => {
+        setRoleId(value);
     };
 
     // Hàm lọc nhân viên theo tên
@@ -98,6 +166,65 @@ const ScheduleForm = ({ open, onCancel, onSubmit, selectedDate }) => {
             <Spin spinning={loading}>
                 <Form form={form} layout="vertical" onFinish={handleSubmit}>
                     <Form.Item
+                        name="departmentId"
+                        label="Chọn phòng ban"
+                        rules={[
+                            {
+                                required: true,
+                                message: "Vui lòng chọn phòng ban!",
+                            },
+                        ]}
+                    >
+                        <Select
+                            placeholder="Chọn phòng ban"
+                            onChange={handleDepartmentChange}
+                            notFoundContent={
+                                loading ? <Spin size="small" /> : null
+                            }
+                        >
+                            {Array.isArray(departments) &&
+                                departments.map((dept) => (
+                                    <Select.Option
+                                        key={dept.id}
+                                        value={dept.id}
+                                    >
+                                        {dept.name}
+                                    </Select.Option>
+                                ))}
+                        </Select>
+                    </Form.Item>
+
+                    <Form.Item
+                        name="roleId"
+                        label="Chọn chức vụ"
+                        rules={[
+                            {
+                                required: true,
+                                message: "Vui lòng chọn chức vụ!",
+                            },
+                        ]}
+                    >
+                        <Select
+                            placeholder="Chọn chức vụ"
+                            onChange={handleRoleChange}
+                            disabled={!departmentId}
+                            notFoundContent={
+                                loading ? <Spin size="small" /> : null
+                            }
+                        >
+                            {Array.isArray(roles) &&
+                                roles.map((role) => (
+                                    <Select.Option
+                                        key={role.id}
+                                        value={role.id}
+                                    >
+                                        {role.name}
+                                    </Select.Option>
+                                ))}
+                        </Select>
+                    </Form.Item>
+
+                    <Form.Item
                         name="employeeId"
                         label="Chọn nhân viên"
                         rules={[
@@ -111,16 +238,15 @@ const ScheduleForm = ({ open, onCancel, onSubmit, selectedDate }) => {
                             placeholder="Chọn nhân viên"
                             showSearch
                             filterOption={filterEmployees}
+                            disabled={!departmentId || !roleId}
                             notFoundContent={
                                 loading ? <Spin size="small" /> : null
                             }
                         >
-                            {Array.isArray(employees) &&
-                                employees.map((emp) => (
+                            {Array.isArray(filteredEmployees) &&
+                                filteredEmployees.map((emp) => (
                                     <Select.Option key={emp.id} value={emp.id}>
-                                        {emp.fullname} -{" "}
-                                        {emp.department?.name ||
-                                            "Chưa phân bộ phận"}
+                                        {emp.name || emp.fullname}
                                     </Select.Option>
                                 ))}
                         </Select>

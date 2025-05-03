@@ -5,9 +5,8 @@ const API_URL = "http://localhost:8000/api";
 // Lấy danh sách chức vụ
 export const getPositions = async () => {
     try {
-        console.log("Fetching positions...");
         const response = await axios.get(`${API_URL}/roles-employee`);
-        console.log("Positions response:", response.data);
+
         return response.data;
     } catch (error) {
         console.error("Error fetching positions:", error);
@@ -30,9 +29,8 @@ export const getPositionById = async (id) => {
 // Tạo chức vụ mới
 export const createPosition = async (data) => {
     try {
-        console.log("Creating position with data:", data);
         const response = await axios.post(`${API_URL}/roles-employee`, data);
-        console.log("Create position response:", response.data);
+
         return response.data;
     } catch (error) {
         console.error("Error creating position:", error);
@@ -44,12 +42,11 @@ export const createPosition = async (data) => {
 // Cập nhật chức vụ
 export const updatePosition = async (id, data) => {
     try {
-        console.log("Updating position with data:", data);
         const response = await axios.patch(
             `${API_URL}/roles-employee/${id}`,
             data
         );
-        console.log("Update position response:", response.data);
+
         return response.data;
     } catch (error) {
         console.error("Error updating position:", error);

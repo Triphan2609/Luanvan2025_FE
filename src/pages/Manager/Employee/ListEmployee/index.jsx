@@ -126,7 +126,6 @@ export default function ListEmployee() {
     // Separate effect for pagination changes
     useEffect(() => {
         if (hasMounted.current) {
-            console.log("Pagination changed, fetching employees");
             fetchEmployees();
         } else {
             hasMounted.current = true;
@@ -135,7 +134,7 @@ export default function ListEmployee() {
 
     useEffect(() => {
         // Update form values when filters change
-        console.log("Filters changed, updating form values");
+
         form.setFieldsValue({
             search: filters.search,
             department_id: filters.department_id,
@@ -153,24 +152,16 @@ export default function ListEmployee() {
                 ...filters, // Include all filter parameters
             };
 
-            console.log("Đang gọi API getEmployees với params:", params);
-
             // Use the wrapper function to call API
             const response = await getEmployees(params);
 
             if (response && response.data) {
-                console.log(
-                    "Nhận được dữ liệu:",
-                    response.data.length,
-                    "nhân viên"
-                );
                 setEmployees(response.data);
                 setPagination({
                     ...pagination,
                     total: response.total || 0,
                 });
             } else {
-                console.log("Không có dữ liệu từ API");
                 setEmployees([]);
                 setPagination({
                     ...pagination,
@@ -207,13 +198,11 @@ export default function ListEmployee() {
     };
 
     const handleTableChange = (pagination, _, sorter) => {
-        console.log("Table change:", { pagination, sorter });
         setPagination(pagination);
         // Don't process filters from the table anymore, use our custom filter form
     };
 
     const handleSearch = (value) => {
-        console.log("Tìm kiếm với giá trị:", value);
         // Update search filter immediately
         const newFilters = {
             ...filters,
@@ -232,7 +221,6 @@ export default function ListEmployee() {
     };
 
     const handleReset = () => {
-        console.log("Đặt lại tất cả bộ lọc");
         // Reset form values
         form.resetFields();
 
@@ -274,7 +262,7 @@ export default function ListEmployee() {
             const response = await axios.delete(
                 `http://localhost:8000/api/employees/${id}`
             );
-            console.log("Delete employee response:", response.data);
+
             message.success("Xóa nhân viên thành công");
             fetchEmployees();
         } catch (error) {
@@ -296,25 +284,6 @@ export default function ListEmployee() {
     const handleFormSubmit = () => {
         setModalVisible({ ...modalVisible, form: false });
         fetchEmployees();
-    };
-
-    const handleExport = (type) => {
-        // Log thông tin về dữ liệu nhân viên để kiểm tra
-        console.log("Tổng số nhân viên để xuất:", employees.length);
-
-        // Kiểm tra cấu trúc dữ liệu của một nhân viên
-        if (employees.length > 0) {
-            const sampleEmployee = employees[0];
-            console.log("Mẫu dữ liệu nhân viên:", {
-                id: sampleEmployee.id,
-                name: sampleEmployee.name,
-                department: sampleEmployee.department,
-                role: sampleEmployee.role,
-            });
-        }
-
-        // Hiển thị modal xuất dữ liệu thay vì xuất trực tiếp
-        setExportModalVisible(true);
     };
 
     const handleStatusChange = async (id, newStatus) => {
@@ -369,7 +338,6 @@ export default function ListEmployee() {
                 try {
                     setLoading(true);
                     // Sử dụng cách gọi trực tiếp thay vì qua hàm wrapper
-                    console.log("Gọi API với ID:", id, "và status:", newStatus);
 
                     // Đảm bảo ID là số nguyên
                     const numericId = parseInt(id, 10);
@@ -378,8 +346,6 @@ export default function ListEmployee() {
                         `http://localhost:8000/api/employees/${numericId}/status`,
                         { status: newStatus }
                     );
-
-                    console.log("API response:", response.data);
 
                     message.success(
                         `Cập nhật trạng thái thành "${statusLabels[newStatus]}" thành công`
@@ -461,8 +427,6 @@ export default function ListEmployee() {
     };
 
     const handleAdvancedFilterSubmit = (values) => {
-        console.log("Áp dụng bộ lọc nâng cao:", values);
-
         // Update filters state
         setFilters({
             search: values.search || "",
@@ -819,8 +783,6 @@ export default function ListEmployee() {
                             ids: employeeIds,
                         }
                     );
-
-                    console.log("Bulk delete response:", response.data);
 
                     message.success(
                         `Đã xóa ${

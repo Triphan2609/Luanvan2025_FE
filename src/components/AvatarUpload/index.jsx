@@ -29,15 +29,12 @@ const AvatarUpload = ({ value, onChange, shape = "circle" }) => {
     // Đồng bộ giá trị từ prop khi có thay đổi
     useEffect(() => {
         if (value) {
-            console.log("AvatarUpload - value changed:", value);
             setImageUrl(value);
         }
     }, [value]);
 
     // Xử lý tải file lên
     const handleChange = async (info) => {
-        console.log("AvatarUpload - handle change:", info.file.status);
-
         if (info.file.status === "uploading") {
             setLoading(true);
             return;
@@ -76,8 +73,6 @@ const AvatarUpload = ({ value, onChange, shape = "circle" }) => {
                 maxWidth: 1000,
                 maxHeight: 1000,
             });
-
-            console.log("AvatarUpload - upload result:", result);
 
             // Cập nhật giá trị
             setImageUrl(result.url);
