@@ -69,6 +69,9 @@ const Payroll = lazy(() => import("../pages/Manager/Employee/Payroll/index"));
 const PayrollDashboard = lazy(() =>
     import("../pages/Manager/Employee/PayrollDashboard/index")
 );
+const Attendance = lazy(() =>
+    import("../pages/Manager/Employee/Attendance/index")
+);
 const PayrollAttendance = lazy(() =>
     import("../pages/Manager/Employee/PayrollAttendance/index")
 );
@@ -184,6 +187,10 @@ const routes = [
             {
                 path: "/employees/payroll-dashboard",
                 element: <PayrollDashboard />,
+            },
+            {
+                path: "/employees/attendance",
+                element: <Attendance />,
             },
             {
                 path: "/employees/payroll-attendance",

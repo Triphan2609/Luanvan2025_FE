@@ -20,6 +20,8 @@ import {
     Popconfirm,
     Typography,
     Divider,
+    Radio,
+    Alert,
 } from "antd";
 import {
     PlusOutlined,
@@ -46,6 +48,7 @@ import {
     deleteAttendance,
 } from "../../../../api/attendanceApi";
 import utc from "dayjs/plugin/utc";
+import { getEmployeeShifts } from "../../../../api/employeeShiftsApi";
 
 dayjs.extend(utc);
 
@@ -63,7 +66,8 @@ const AttendanceStatus = {
 const AttendanceType = {
     NORMAL: "normal",
     OVERTIME: "overtime",
-    MAKEUP: "makeup",
+    NIGHT_SHIFT: "night_shift",
+    HOLIDAY: "holiday",
 };
 
 const statusColors = {
@@ -81,7 +85,8 @@ const statusLabels = {
 const typeLabels = {
     [AttendanceType.NORMAL]: "Thông thường",
     [AttendanceType.OVERTIME]: "Tăng ca",
-    [AttendanceType.MAKEUP]: "Bù giờ",
+    [AttendanceType.NIGHT_SHIFT]: "Ca đêm",
+    [AttendanceType.HOLIDAY]: "Ngày lễ",
 };
 
 export default function AttendanceManagement() {
@@ -100,6 +105,9 @@ export default function AttendanceManagement() {
         dayjs().startOf("month"),
         dayjs().endOf("month"),
     ]);
+    const [employeeShifts, setEmployeeShifts] = useState([]);
+    const [adjustShifts, setAdjustShifts] = useState([]);
+    const [attendanceType, setAttendanceType] = useState(AttendanceType.NORMAL);
 
     // Statistics
     const [statistics, setStatistics] = useState({
@@ -120,10 +128,28 @@ export default function AttendanceManagement() {
                 ]);
 
                 setDepartments(deptResponse);
-                setEmployees(employeeResponse);
+
+                // Đảm bảo employees luôn là mảng
+                if (Array.isArray(employeeResponse)) {
+                    setEmployees(employeeResponse);
+                } else if (
+                    employeeResponse &&
+                    Array.isArray(employeeResponse.data)
+                ) {
+                    // Nếu response có định dạng { data: [...], total: ... }
+                    setEmployees(employeeResponse.data);
+                } else {
+                    // Trường hợp không có dữ liệu hoặc format không đúng
+                    setEmployees([]);
+                    console.warn(
+                        "Dữ liệu nhân viên không đúng định dạng:",
+                        employeeResponse
+                    );
+                }
             } catch (error) {
                 console.error("Error fetching initial data:", error);
                 message.error("Không thể tải dữ liệu. Vui lòng thử lại sau.");
+                setEmployees([]); // Đảm bảo là mảng rỗng trong trường hợp lỗi
             }
         };
 
@@ -134,6 +160,58 @@ export default function AttendanceManagement() {
     useEffect(() => {
         fetchAttendances();
     }, [dateRange, activeTab]);
+
+    // Effect to fetch employee shifts when employee changes in the add form
+    useEffect(() => {
+        const fetchEmployeeShifts = async () => {
+            const employeeId = addForm.getFieldValue("employee_id");
+            const date = addForm.getFieldValue("date");
+            if (employeeId && date) {
+                try {
+                    const formattedDate = date.format("YYYY-MM-DD");
+                    const response = await getEmployeeShifts({
+                        employeeId: employeeId,
+                        date: formattedDate,
+                    });
+                    setEmployeeShifts(response);
+                } catch (error) {
+                    console.error("Error fetching employee shifts:", error);
+                    setEmployeeShifts([]);
+                }
+            }
+        };
+
+        fetchEmployeeShifts();
+    }, [addForm.getFieldValue("employee_id"), addForm.getFieldValue("date")]);
+
+    // Effect to fetch employee shifts when employee changes in the adjust form
+    useEffect(() => {
+        const fetchAdjustShifts = async () => {
+            const employeeId = adjustForm.getFieldValue("employee_id");
+            const date = adjustForm.getFieldValue("date");
+            if (employeeId && date) {
+                try {
+                    const formattedDate = date.format("YYYY-MM-DD");
+                    const response = await getEmployeeShifts({
+                        employeeId: employeeId,
+                        date: formattedDate,
+                    });
+                    setAdjustShifts(response);
+                } catch (error) {
+                    console.error(
+                        "Error fetching employee shifts for adjustment:",
+                        error
+                    );
+                    setAdjustShifts([]);
+                }
+            }
+        };
+
+        fetchAdjustShifts();
+    }, [
+        adjustForm.getFieldValue("employee_id"),
+        adjustForm.getFieldValue("date"),
+    ]);
 
     const fetchAttendances = async () => {
         setLoading(true);
@@ -210,6 +288,11 @@ export default function AttendanceManagement() {
                 notes: values.notes,
             };
 
+            // Add employee_shift_id if selected
+            if (values.employee_shift_id) {
+                payload.employee_shift_id = values.employee_shift_id;
+            }
+
             if (values.check_in) {
                 payload.check_in = values.check_in.format("HH:mm:ss");
             }
@@ -242,7 +325,13 @@ export default function AttendanceManagement() {
                 type: values.type || AttendanceType.NORMAL,
                 notes: values.notes,
                 adjustment_reason: values.adjustment_reason,
+                is_adjustment: true,
             };
+
+            // Add employee_shift_id if selected
+            if (values.employee_shift_id) {
+                payload.employee_shift_id = values.employee_shift_id;
+            }
 
             if (values.check_in) {
                 payload.check_in = values.check_in.format("HH:mm:ss");
@@ -368,8 +457,10 @@ export default function AttendanceManagement() {
                     color={
                         type === AttendanceType.OVERTIME
                             ? "orange"
-                            : type === AttendanceType.MAKEUP
+                            : type === AttendanceType.NIGHT_SHIFT
                             ? "purple"
+                            : type === AttendanceType.HOLIDAY
+                            ? "green"
                             : "blue"
                     }
                 >
@@ -550,11 +641,17 @@ export default function AttendanceManagement() {
                                     showSearch
                                     optionFilterProp="children"
                                 >
-                                    {employees.map((emp) => (
-                                        <Option key={emp.id} value={emp.id}>
-                                            {emp.employee_code} - {emp.name}
-                                        </Option>
-                                    ))}
+                                    {Array.isArray(employees)
+                                        ? employees.map((emp) => (
+                                              <Option
+                                                  key={emp.id}
+                                                  value={emp.id}
+                                              >
+                                                  {emp.employee_code} -{" "}
+                                                  {emp.name}
+                                              </Option>
+                                          ))
+                                        : null}
                                 </Select>
                             </Form.Item>
                         </Col>
@@ -688,7 +785,40 @@ export default function AttendanceManagement() {
                 confirmLoading={loading}
                 width={650}
             >
-                <Form form={addForm} layout="vertical">
+                <Form
+                    form={addForm}
+                    layout="vertical"
+                    onValuesChange={(changedValues) => {
+                        // When employee or date changes, fetch shifts
+                        if (changedValues.employee_id || changedValues.date) {
+                            const employeeId =
+                                addForm.getFieldValue("employee_id");
+                            const date = addForm.getFieldValue("date");
+
+                            if (employeeId && date) {
+                                const fetchShifts = async () => {
+                                    try {
+                                        const formattedDate =
+                                            date.format("YYYY-MM-DD");
+                                        const response =
+                                            await getEmployeeShifts({
+                                                employeeId: employeeId,
+                                                date: formattedDate,
+                                            });
+                                        setEmployeeShifts(response);
+                                    } catch (error) {
+                                        console.error(
+                                            "Error fetching employee shifts:",
+                                            error
+                                        );
+                                        setEmployeeShifts([]);
+                                    }
+                                };
+                                fetchShifts();
+                            }
+                        }
+                    }}
+                >
                     <Row gutter={16}>
                         <Col span={12}>
                             <Form.Item
@@ -706,11 +836,17 @@ export default function AttendanceManagement() {
                                     placeholder="Chọn nhân viên"
                                     optionFilterProp="children"
                                 >
-                                    {employees.map((emp) => (
-                                        <Option key={emp.id} value={emp.id}>
-                                            {emp.employee_code} - {emp.name}
-                                        </Option>
-                                    ))}
+                                    {Array.isArray(employees)
+                                        ? employees.map((emp) => (
+                                              <Option
+                                                  key={emp.id}
+                                                  value={emp.id}
+                                              >
+                                                  {emp.employee_code} -{" "}
+                                                  {emp.name}
+                                              </Option>
+                                          ))
+                                        : null}
                                 </Select>
                             </Form.Item>
                         </Col>
@@ -734,21 +870,91 @@ export default function AttendanceManagement() {
                         </Col>
                     </Row>
                     <Row gutter={16}>
-                        <Col span={8}>
-                            <Form.Item name="type" label="Loại chấm công">
-                                <Select placeholder="Chọn loại">
-                                    {Object.keys(AttendanceType).map((key) => (
-                                        <Option
-                                            key={key}
-                                            value={AttendanceType[key]}
-                                        >
-                                            {typeLabels[AttendanceType[key]]}
+                        <Col span={12}>
+                            <Form.Item
+                                name="employee_shift_id"
+                                label="Ca làm việc"
+                                tooltip="Chọn ca làm việc sẽ giúp liên kết dữ liệu chấm công với lịch làm việc"
+                            >
+                                <Select
+                                    allowClear
+                                    placeholder="Chọn ca làm việc"
+                                    loading={loading}
+                                >
+                                    {employeeShifts &&
+                                    employeeShifts.length > 0 ? (
+                                        employeeShifts.map((shift) => (
+                                            <Option
+                                                key={shift.id}
+                                                value={shift.id}
+                                            >
+                                                {shift.schedule_code} -{" "}
+                                                {shift.shift?.name ||
+                                                    "Ca không xác định"}
+                                                :{" "}
+                                                {shift.shift?.start_time ||
+                                                    "--:--"}{" "}
+                                                -{" "}
+                                                {shift.shift?.end_time ||
+                                                    "--:--"}
+                                            </Option>
+                                        ))
+                                    ) : (
+                                        <Option disabled>
+                                            Không có ca làm việc cho ngày này
                                         </Option>
-                                    ))}
+                                    )}
                                 </Select>
                             </Form.Item>
                         </Col>
-                        <Col span={8}>
+                        <Col span={12}>
+                            <Form.Item
+                                name="type"
+                                label="Loại chấm công"
+                                rules={[
+                                    {
+                                        required: true,
+                                        message: "Vui lòng chọn loại chấm công",
+                                    },
+                                ]}
+                            >
+                                <Radio.Group
+                                    onChange={(e) =>
+                                        setAttendanceType(e.target.value)
+                                    }
+                                >
+                                    <Radio value={AttendanceType.NORMAL}>
+                                        Bình thường
+                                    </Radio>
+                                    <Radio value={AttendanceType.OVERTIME}>
+                                        Tăng ca
+                                    </Radio>
+                                    <Radio value={AttendanceType.NIGHT_SHIFT}>
+                                        <Text
+                                            strong
+                                            style={{ color: "#0050b3" }}
+                                        >
+                                            Ca đêm
+                                        </Text>
+                                    </Radio>
+                                    <Radio value={AttendanceType.HOLIDAY}>
+                                        Ngày lễ
+                                    </Radio>
+                                </Radio.Group>
+                            </Form.Item>
+                        </Col>
+                    </Row>
+                    {attendanceType === AttendanceType.NIGHT_SHIFT && (
+                        <Alert
+                            message="Thông tin ca đêm"
+                            description="Các giờ làm việc trong ca đêm sẽ được tính phụ cấp ca đêm theo hệ số cấu hình trong bảng lương."
+                            type="info"
+                            showIcon
+                            style={{ marginBottom: 16 }}
+                        />
+                    )}
+                    <Row gutter={16}>
+                        <Col span={12}>
                             <Form.Item name="check_in" label="Giờ check-in">
                                 <TimePicker
                                     format="HH:mm"
@@ -757,7 +963,7 @@ export default function AttendanceManagement() {
                                 />
                             </Form.Item>
                         </Col>
-                        <Col span={8}>
+                        <Col span={12}>
                             <Form.Item name="check_out" label="Giờ check-out">
                                 <TimePicker
                                     format="HH:mm"
@@ -785,7 +991,40 @@ export default function AttendanceManagement() {
                 confirmLoading={loading}
                 width={650}
             >
-                <Form form={adjustForm} layout="vertical">
+                <Form
+                    form={adjustForm}
+                    layout="vertical"
+                    onValuesChange={(changedValues) => {
+                        // When employee or date changes, fetch shifts
+                        if (changedValues.employee_id || changedValues.date) {
+                            const employeeId =
+                                adjustForm.getFieldValue("employee_id");
+                            const date = adjustForm.getFieldValue("date");
+
+                            if (employeeId && date) {
+                                const fetchShifts = async () => {
+                                    try {
+                                        const formattedDate =
+                                            date.format("YYYY-MM-DD");
+                                        const response =
+                                            await getEmployeeShifts({
+                                                employeeId: employeeId,
+                                                date: formattedDate,
+                                            });
+                                        setAdjustShifts(response);
+                                    } catch (error) {
+                                        console.error(
+                                            "Error fetching employee shifts:",
+                                            error
+                                        );
+                                        setAdjustShifts([]);
+                                    }
+                                };
+                                fetchShifts();
+                            }
+                        }
+                    }}
+                >
                     <Row gutter={16}>
                         <Col span={12}>
                             <Form.Item
@@ -803,11 +1042,17 @@ export default function AttendanceManagement() {
                                     placeholder="Chọn nhân viên"
                                     optionFilterProp="children"
                                 >
-                                    {employees.map((emp) => (
-                                        <Option key={emp.id} value={emp.id}>
-                                            {emp.employee_code} - {emp.name}
-                                        </Option>
-                                    ))}
+                                    {Array.isArray(employees)
+                                        ? employees.map((emp) => (
+                                              <Option
+                                                  key={emp.id}
+                                                  value={emp.id}
+                                              >
+                                                  {emp.employee_code} -{" "}
+                                                  {emp.name}
+                                              </Option>
+                                          ))
+                                        : null}
                                 </Select>
                             </Form.Item>
                         </Col>
@@ -831,7 +1076,43 @@ export default function AttendanceManagement() {
                         </Col>
                     </Row>
                     <Row gutter={16}>
-                        <Col span={8}>
+                        <Col span={12}>
+                            <Form.Item
+                                name="employee_shift_id"
+                                label="Ca làm việc"
+                                tooltip="Chọn ca làm việc sẽ giúp liên kết dữ liệu chấm công với lịch làm việc"
+                            >
+                                <Select
+                                    allowClear
+                                    placeholder="Chọn ca làm việc"
+                                    loading={loading}
+                                >
+                                    {adjustShifts && adjustShifts.length > 0 ? (
+                                        adjustShifts.map((shift) => (
+                                            <Option
+                                                key={shift.id}
+                                                value={shift.id}
+                                            >
+                                                {shift.schedule_code} -{" "}
+                                                {shift.shift?.name ||
+                                                    "Ca không xác định"}
+                                                :{" "}
+                                                {shift.shift?.start_time ||
+                                                    "--:--"}{" "}
+                                                -{" "}
+                                                {shift.shift?.end_time ||
+                                                    "--:--"}
+                                            </Option>
+                                        ))
+                                    ) : (
+                                        <Option disabled>
+                                            Không có ca làm việc cho ngày này
+                                        </Option>
+                                    )}
+                                </Select>
+                            </Form.Item>
+                        </Col>
+                        <Col span={12}>
                             <Form.Item name="type" label="Loại chấm công">
                                 <Select placeholder="Chọn loại">
                                     {Object.keys(AttendanceType).map((key) => (
@@ -845,7 +1126,9 @@ export default function AttendanceManagement() {
                                 </Select>
                             </Form.Item>
                         </Col>
-                        <Col span={8}>
+                    </Row>
+                    <Row gutter={16}>
+                        <Col span={12}>
                             <Form.Item name="check_in" label="Giờ check-in">
                                 <TimePicker
                                     format="HH:mm"
@@ -854,7 +1137,7 @@ export default function AttendanceManagement() {
                                 />
                             </Form.Item>
                         </Col>
-                        <Col span={8}>
+                        <Col span={12}>
                             <Form.Item name="check_out" label="Giờ check-out">
                                 <TimePicker
                                     format="HH:mm"

@@ -14,6 +14,7 @@ import {
     Tooltip,
     Spin,
     message,
+    Alert,
 } from "antd";
 import {
     DollarOutlined,
@@ -416,7 +417,9 @@ const SalaryConfigForm = ({
                             name="night_shift_multiplier"
                             label={
                                 <Tooltip title="Hệ số nhân cho giờ làm ca đêm">
-                                    Hệ số ca đêm
+                                    <Text strong style={{ color: "#0050b3" }}>
+                                        Hệ số ca đêm
+                                    </Text>
                                 </Tooltip>
                             }
                             rules={[
@@ -430,9 +433,17 @@ const SalaryConfigForm = ({
                                 style={{ width: "100%" }}
                                 min={1}
                                 step={0.1}
+                                className="night-shift-input"
                             />
                         </Form.Item>
-                        <HelperText text="Thông thường áp dụng hệ số ≥ 1.3" />
+                        <HelperText text="Thông thường áp dụng hệ số ≥ 1.3 cho ca đêm" />
+                        <Alert
+                            message="Quan trọng về ca đêm"
+                            description="Cần đảm bảo hệ số ca đêm được cấu hình đúng để tính lương cho nhân viên làm ca đêm. Giờ làm ca đêm sẽ được tính theo hệ số này."
+                            type="info"
+                            showIcon
+                            style={{ marginTop: 8 }}
+                        />
                     </Col>
                     <Col span={8}>
                         <Form.Item

@@ -16,6 +16,7 @@ import {
     BarChartOutlined,
     LineChartOutlined,
     CalendarOutlined,
+    CheckCircleOutlined,
 } from "@ant-design/icons";
 import { TbGps } from "react-icons/tb";
 import { IoRestaurantOutline } from "react-icons/io5";
@@ -23,6 +24,7 @@ import { MdOutlineTableRestaurant } from "react-icons/md";
 import { useState } from "react";
 import { Outlet, Link } from "react-router-dom";
 import AppHeader from "./AppHeader";
+import { icons } from "antd/es/image/PreviewGroup";
 
 const { Sider, Content } = Layout;
 
@@ -215,37 +217,69 @@ const items = [
                 ),
             },
             {
-                key: "shifts",
-                icon: <ScheduleOutlined />,
-                label: <Link to="/employees/working-time">Quản lý ca làm</Link>,
+                type: "group",
+                label: "Chấm công",
+                children: [
+                    {
+                        key: "shifts",
+                        icon: <ScheduleOutlined />,
+                        label: (
+                            <Link to="/employees/working-time">
+                                Quản lý ca làm
+                            </Link>
+                        ),
+                    },
+                    {
+                        key: "attendance",
+                        icon: <CheckCircleOutlined />,
+                        label: (
+                            <Link to="/employees/attendance">Chấm công</Link>
+                        ),
+                    },
+                    {
+                        key: "payroll-attendance",
+                        icon: <CalendarOutlined />,
+                        label: (
+                            <Link to="/employees/payroll-attendance">
+                                Tích hợp chấm công
+                            </Link>
+                        ),
+                    },
+                ],
             },
+
             {
-                key: "salary-config",
-                icon: <SettingOutlined />,
-                label: (
-                    <Link to="/employees/salary-config">Cấu hình lương</Link>
-                ),
-            },
-            {
-                key: "payroll",
-                icon: <DollarOutlined />,
-                label: <Link to="/employees/payroll">Quản lý bảng lương</Link>,
-            },
-            {
-                key: "payroll-dashboard",
-                icon: <BarChartOutlined />,
-                label: (
-                    <Link to="/employees/payroll-dashboard">Báo cáo lương</Link>
-                ),
-            },
-            {
-                key: "payroll-attendance",
-                icon: <CalendarOutlined />,
-                label: (
-                    <Link to="/employees/payroll-attendance">
-                        Tích hợp chấm công
-                    </Link>
-                ),
+                type: "group",
+                label: "Lương",
+                children: [
+                    {
+                        key: "payroll",
+                        icon: <DollarOutlined />,
+                        label: (
+                            <Link to="/employees/payroll">
+                                Quản lý bảng lương
+                            </Link>
+                        ),
+                    },
+                    {
+                        key: "salary-config",
+                        icon: <SettingOutlined />,
+                        label: (
+                            <Link to="/employees/salary-config">
+                                Cấu hình lương
+                            </Link>
+                        ),
+                    },
+                    {
+                        key: "payroll-dashboard",
+                        icon: <BarChartOutlined />,
+                        label: (
+                            <Link to="/employees/payroll-dashboard">
+                                Báo cáo lương
+                            </Link>
+                        ),
+                    },
+                ],
             },
         ],
     },

@@ -150,11 +150,24 @@ const PayrollAttendancePage = () => {
             attendanceMap[date] = attendance;
         });
 
+        // Create a map for shifts by date
+        const shiftsMap = {};
+        if (integrationData.employeeShifts) {
+            integrationData.employeeShifts.forEach((shift) => {
+                const date = dayjs(shift.date).format("YYYY-MM-DD");
+                if (!shiftsMap[date]) {
+                    shiftsMap[date] = [];
+                }
+                shiftsMap[date].push(shift);
+            });
+        }
+
         const dateCellRender = (value) => {
             const dateStr = value.format("YYYY-MM-DD");
             const attendance = attendanceMap[dateStr];
+            const shifts = shiftsMap[dateStr] || [];
 
-            if (!attendance) {
+            if (!attendance && shifts.length === 0) {
                 return null;
             }
 
@@ -162,69 +175,135 @@ const PayrollAttendancePage = () => {
                 <Tooltip
                     title={
                         <>
-                            <div>
-                                <strong>Trạng thái:</strong>{" "}
-                                {attendance.status === "present"
-                                    ? "Có mặt"
-                                    : attendance.status === "absent"
-                                    ? "Vắng mặt"
-                                    : attendance.status === "late"
-                                    ? "Đi muộn"
-                                    : attendance.status === "early_leave"
-                                    ? "Về sớm"
-                                    : attendance.status === "on_leave"
-                                    ? "Nghỉ phép"
-                                    : "Chưa xác định"}
-                            </div>
-                            {attendance.check_in && (
-                                <div>
-                                    <strong>Giờ vào:</strong>{" "}
-                                    {dayjs(attendance.check_in).format(
-                                        "HH:mm:ss"
+                            {attendance && (
+                                <>
+                                    <div>
+                                        <strong>Trạng thái:</strong>{" "}
+                                        {attendance.status === "approved"
+                                            ? "Có mặt"
+                                            : attendance.status === "rejected"
+                                            ? "Vắng mặt"
+                                            : attendance.status === "pending"
+                                            ? "Chưa xác định"
+                                            : attendance.status}
+                                    </div>
+                                    {attendance.check_in && (
+                                        <div>
+                                            <strong>Giờ vào:</strong>{" "}
+                                            {attendance.check_in}
+                                        </div>
                                     )}
-                                </div>
-                            )}
-                            {attendance.check_out && (
-                                <div>
-                                    <strong>Giờ ra:</strong>{" "}
-                                    {dayjs(attendance.check_out).format(
-                                        "HH:mm:ss"
+                                    {attendance.check_out && (
+                                        <div>
+                                            <strong>Giờ ra:</strong>{" "}
+                                            {attendance.check_out}
+                                        </div>
                                     )}
-                                </div>
+                                    {attendance.working_hours && (
+                                        <div>
+                                            <strong>Số giờ làm:</strong>{" "}
+                                            {attendance.working_hours.toFixed(
+                                                1
+                                            )}{" "}
+                                            giờ
+                                        </div>
+                                    )}
+                                </>
                             )}
-                            {attendance.working_hours && (
-                                <div>
-                                    <strong>Số giờ làm:</strong>{" "}
-                                    {attendance.working_hours.toFixed(1)} giờ
-                                </div>
+
+                            {shifts.length > 0 && (
+                                <>
+                                    <Divider style={{ margin: "5px 0" }} />
+                                    <div>
+                                        <strong>Ca làm việc:</strong>
+                                    </div>
+                                    {shifts.map((shift, index) => (
+                                        <div key={index}>
+                                            {shift.shift?.name} (
+                                            {shift.shift?.start_time} -{" "}
+                                            {shift.shift?.end_time})
+                                            <Tag
+                                                color={
+                                                    shift.status === "completed"
+                                                        ? "success"
+                                                        : shift.status ===
+                                                          "missed"
+                                                        ? "error"
+                                                        : shift.status ===
+                                                          "pending"
+                                                        ? "warning"
+                                                        : "default"
+                                                }
+                                                style={{ marginLeft: 5 }}
+                                            >
+                                                {shift.status === "completed"
+                                                    ? "Hoàn thành"
+                                                    : shift.status === "missed"
+                                                    ? "Vắng mặt"
+                                                    : shift.status === "pending"
+                                                    ? "Chờ xác nhận"
+                                                    : shift.status}
+                                            </Tag>
+                                        </div>
+                                    ))}
+                                </>
                             )}
                         </>
                     }
                 >
-                    <Badge
-                        status={getAttendanceStatusColor(attendance.status)}
-                        text={attendance.working_hours?.toFixed(1) + "h"}
-                    />
+                    <div>
+                        {attendance && (
+                            <Badge
+                                status={getAttendanceStatusColor(
+                                    attendance.status
+                                )}
+                                text={
+                                    attendance.working_hours
+                                        ? `${attendance.working_hours.toFixed(
+                                              1
+                                          )} giờ`
+                                        : ""
+                                }
+                            />
+                        )}
+                        {shifts.length > 0 && !attendance && (
+                            <Badge
+                                status="warning"
+                                text={`${shifts.length} ca làm việc`}
+                            />
+                        )}
+                    </div>
                 </Tooltip>
             );
         };
 
         return (
-            <Card
-                title={
-                    <Space>
-                        <CalendarOutlined />
-                        <span>Lịch chấm công</span>
-                    </Space>
-                }
-                style={{ marginBottom: 24 }}
-            >
+            <div className="attendance-calendar">
                 <Calendar
                     fullscreen={false}
                     dateCellRender={dateCellRender}
-                    validRange={[dayjs(dateRange[0]), dayjs(dateRange[1])]}
+                    headerRender={({ value, onChange }) => {
+                        const start = dayjs(dateRange[0]);
+                        const end = dayjs(dateRange[1]);
+                        return (
+                            <div style={{ padding: "8px 0" }}>
+                                <Typography.Title level={4}>
+                                    Lịch làm việc từ{" "}
+                                    {start.format("DD/MM/YYYY")} đến{" "}
+                                    {end.format("DD/MM/YYYY")}
+                                </Typography.Title>
+                            </div>
+                        );
+                    }}
+                    disabledDate={(current) => {
+                        // Only show dates within the selected range
+                        return (
+                            current < dayjs(dateRange[0]).startOf("day") ||
+                            current > dayjs(dateRange[1]).endOf("day")
+                        );
+                    }}
                 />
-            </Card>
+            </div>
         );
     };
 
@@ -238,11 +317,24 @@ const PayrollAttendancePage = () => {
             return <Empty description="Không có dữ liệu để hiển thị" />;
         }
 
-        const chartData = integrationData.dailyData.map((item) => ({
-            date: dayjs(item.date).format("DD/MM"),
-            hours: item.working_hours || 0,
-            salary: item.daily_pay || 0,
-        }));
+        // Format daily data for the chart
+        const chartData = [];
+
+        integrationData.dailyData.forEach((item) => {
+            // Add working hours data point
+            chartData.push({
+                date: dayjs(item.date).format("DD/MM"),
+                value: item.working_hours || 0,
+                category: "Giờ làm việc",
+            });
+
+            // Add salary data point
+            chartData.push({
+                date: dayjs(item.date).format("DD/MM"),
+                value: item.daily_pay || 0,
+                category: "Lương ngày",
+            });
+        });
 
         return (
             <Card
@@ -262,28 +354,21 @@ const PayrollAttendancePage = () => {
                     point
                     smooth
                     legend={{ position: "top" }}
-                    meta={{
-                        date: { alias: "Ngày" },
-                        value: {
-                            alias: "Giá trị",
-                            formatter: (v, datum) => {
-                                if (datum.category === "salary") {
-                                    return formatCurrency(v);
-                                }
-                                return `${v.toFixed(1)} giờ`;
-                            },
+                    tooltip={{
+                        formatter: (datum) => {
+                            if (datum.category === "Lương ngày") {
+                                return {
+                                    name: datum.category,
+                                    value: formatCurrency(datum.value),
+                                };
+                            }
+                            return {
+                                name: datum.category,
+                                value: `${datum.value.toFixed(1)} giờ`,
+                            };
                         },
                     }}
-                    geometryOptions={[
-                        {
-                            geometry: "line",
-                            color: ["#2196F3", "#FF9800"],
-                        },
-                        {
-                            geometry: "point",
-                            color: ["#2196F3", "#FF9800"],
-                        },
-                    ]}
+                    color={["#2196F3", "#FF9800"]}
                 />
             </Card>
         );
@@ -302,7 +387,7 @@ const PayrollAttendancePage = () => {
                 title={
                     <Space>
                         <CheckCircleOutlined />
-                        <span>Tổng hợp chấm công</span>
+                        <span>Tổng hợp chấm công và ca làm việc</span>
                     </Space>
                 }
                 style={{ marginBottom: 24 }}
@@ -325,10 +410,9 @@ const PayrollAttendancePage = () => {
                     </Col>
                     <Col span={6}>
                         <Statistic
-                            title="Giờ làm trung bình/ngày"
-                            value={summary.averageHoursPerDay?.toFixed(1) || 0}
-                            suffix="giờ/ngày"
-                            prefix={<ClockCircleOutlined />}
+                            title="Tổng ca lịch trình"
+                            value={summary.totalScheduledShifts || 0}
+                            prefix={<CalendarOutlined />}
                         />
                     </Col>
                     <Col span={6}>
@@ -344,47 +428,127 @@ const PayrollAttendancePage = () => {
                 <Divider style={{ margin: "24px 0" }} />
 
                 <Row gutter={16}>
-                    <Col span={4}>
-                        <Statistic
-                            title="Có mặt"
-                            value={summary.presentCount || 0}
-                            valueStyle={{ color: "#52c41a" }}
-                        />
+                    <Col span={8}>
+                        <Card title="Điểm danh" size="small">
+                            <Row gutter={[16, 16]}>
+                                <Col span={8}>
+                                    <Statistic
+                                        title="Có mặt"
+                                        value={summary.presentCount || 0}
+                                        valueStyle={{ color: "#52c41a" }}
+                                    />
+                                </Col>
+                                <Col span={8}>
+                                    <Statistic
+                                        title="Đi muộn"
+                                        value={summary.lateCount || 0}
+                                        valueStyle={{ color: "#faad14" }}
+                                    />
+                                </Col>
+                                <Col span={8}>
+                                    <Statistic
+                                        title="Về sớm"
+                                        value={summary.earlyLeaveCount || 0}
+                                        valueStyle={{ color: "#faad14" }}
+                                    />
+                                </Col>
+                                <Col span={8}>
+                                    <Statistic
+                                        title="Vắng mặt"
+                                        value={summary.absentCount || 0}
+                                        valueStyle={{ color: "#f5222d" }}
+                                    />
+                                </Col>
+                                <Col span={8}>
+                                    <Statistic
+                                        title="Nghỉ phép"
+                                        value={summary.onLeaveCount || 0}
+                                        valueStyle={{ color: "#1890ff" }}
+                                    />
+                                </Col>
+                                <Col span={8}>
+                                    <Statistic
+                                        title="Chờ duyệt"
+                                        value={summary.pendingCount || 0}
+                                        valueStyle={{ color: "#bfbfbf" }}
+                                    />
+                                </Col>
+                            </Row>
+                        </Card>
                     </Col>
-                    <Col span={4}>
-                        <Statistic
-                            title="Đi muộn"
-                            value={summary.lateCount || 0}
-                            valueStyle={{ color: "#faad14" }}
-                        />
+                    <Col span={8}>
+                        <Card title="Ca làm việc" size="small">
+                            <Row gutter={[16, 16]}>
+                                <Col span={8}>
+                                    <Statistic
+                                        title="Đã hoàn thành"
+                                        value={summary.completedShifts || 0}
+                                        valueStyle={{ color: "#52c41a" }}
+                                    />
+                                </Col>
+                                <Col span={8}>
+                                    <Statistic
+                                        title="Vắng mặt"
+                                        value={summary.missedShifts || 0}
+                                        valueStyle={{ color: "#f5222d" }}
+                                    />
+                                </Col>
+                                <Col span={8}>
+                                    <Statistic
+                                        title="Tỷ lệ hoàn thành"
+                                        value={
+                                            summary.totalScheduledShifts
+                                                ? Math.round(
+                                                      (summary.completedShifts /
+                                                          summary.totalScheduledShifts) *
+                                                          100
+                                                  )
+                                                : 0
+                                        }
+                                        suffix="%"
+                                        valueStyle={{ color: "#1890ff" }}
+                                    />
+                                </Col>
+                            </Row>
+                        </Card>
                     </Col>
-                    <Col span={4}>
-                        <Statistic
-                            title="Về sớm"
-                            value={summary.earlyLeaveCount || 0}
-                            valueStyle={{ color: "#faad14" }}
-                        />
-                    </Col>
-                    <Col span={4}>
-                        <Statistic
-                            title="Vắng mặt"
-                            value={summary.absentCount || 0}
-                            valueStyle={{ color: "#f5222d" }}
-                        />
-                    </Col>
-                    <Col span={4}>
-                        <Statistic
-                            title="Nghỉ phép"
-                            value={summary.onLeaveCount || 0}
-                            valueStyle={{ color: "#1890ff" }}
-                        />
-                    </Col>
-                    <Col span={4}>
-                        <Statistic
-                            title="Chưa xác định"
-                            value={summary.pendingCount || 0}
-                            valueStyle={{ color: "#bfbfbf" }}
-                        />
+                    <Col span={8}>
+                        <Card title="Thời gian & Lương" size="small">
+                            <Row gutter={[16, 16]}>
+                                <Col span={12}>
+                                    <Statistic
+                                        title="Giờ TB/ngày"
+                                        value={
+                                            summary.averageHoursPerDay?.toFixed(
+                                                1
+                                            ) || 0
+                                        }
+                                        suffix="giờ/ngày"
+                                        valueStyle={{ color: "#1890ff" }}
+                                    />
+                                </Col>
+                                <Col span={12}>
+                                    <Statistic
+                                        title="Lương TB/giờ"
+                                        value={
+                                            summary.totalWorkingHours &&
+                                            summary.estimatedSalary
+                                                ? Math.round(
+                                                      summary.estimatedSalary /
+                                                          summary.totalWorkingHours
+                                                  )
+                                                : 0
+                                        }
+                                        valueStyle={{ color: "#3f8600" }}
+                                        formatter={(value) => (
+                                            <span>
+                                                {formatCurrency(value)}/giờ
+                                            </span>
+                                        )}
+                                    />
+                                </Col>
+                            </Row>
+                        </Card>
                     </Col>
                 </Row>
             </Card>
@@ -479,6 +643,138 @@ const PayrollAttendancePage = () => {
         );
     };
 
+    // Create a new method to render a table of scheduled shifts
+    const renderEmployeeShifts = () => {
+        if (
+            !integrationData ||
+            !integrationData.employeeShifts ||
+            integrationData.employeeShifts.length === 0
+        ) {
+            return <Empty description="Không có dữ liệu ca làm việc" />;
+        }
+
+        const columns = [
+            {
+                title: "Ngày",
+                dataIndex: "date",
+                key: "date",
+                render: (date) => dayjs(date).format("DD/MM/YYYY"),
+            },
+            {
+                title: "Mã lịch",
+                dataIndex: "schedule_code",
+                key: "schedule_code",
+            },
+            {
+                title: "Ca làm việc",
+                key: "shift",
+                render: (_, record) => (
+                    <span>{record.shift?.name || "N/A"}</span>
+                ),
+            },
+            {
+                title: "Thời gian",
+                key: "time",
+                render: (_, record) => (
+                    <span>
+                        {record.shift?.start_time} - {record.shift?.end_time}
+                    </span>
+                ),
+            },
+            {
+                title: "Trạng thái",
+                dataIndex: "status",
+                key: "status",
+                render: (status) => {
+                    let color = "default";
+                    let text = status;
+
+                    if (status === "pending") {
+                        color = "warning";
+                        text = "Chờ xác nhận";
+                    } else if (status === "completed") {
+                        color = "success";
+                        text = "Hoàn thành";
+                    } else if (status === "missed") {
+                        color = "error";
+                        text = "Vắng mặt";
+                    }
+
+                    return <Tag color={color}>{text}</Tag>;
+                },
+            },
+            {
+                title: "Điểm danh",
+                key: "attendance",
+                render: (_, record) => {
+                    // Find matching attendance for this shift
+                    const attendance = integrationData.attendances.find(
+                        (att) =>
+                            dayjs(att.date).format("YYYY-MM-DD") ===
+                            dayjs(record.date).format("YYYY-MM-DD")
+                    );
+
+                    if (!attendance) {
+                        return <Tag color="default">Chưa điểm danh</Tag>;
+                    }
+
+                    let color = "default";
+                    let text = attendance.status;
+
+                    if (attendance.status === "approved") {
+                        color = "success";
+                        text = "Có mặt";
+                    } else if (attendance.status === "rejected") {
+                        color = "error";
+                        text = "Vắng mặt";
+                    } else if (attendance.status === "pending") {
+                        color = "warning";
+                        text = "Chờ xác nhận";
+                    }
+
+                    return <Tag color={color}>{text}</Tag>;
+                },
+            },
+            {
+                title: "Giờ làm việc",
+                key: "working_hours",
+                render: (_, record) => {
+                    // Find matching attendance for this shift
+                    const attendance = integrationData.attendances.find(
+                        (att) =>
+                            dayjs(att.date).format("YYYY-MM-DD") ===
+                            dayjs(record.date).format("YYYY-MM-DD")
+                    );
+
+                    if (!attendance || !attendance.working_hours) {
+                        return "-";
+                    }
+
+                    return `${attendance.working_hours.toFixed(1)} giờ`;
+                },
+            },
+        ];
+
+        return (
+            <Card
+                title={
+                    <Space>
+                        <CalendarOutlined />
+                        <span>Lịch trình ca làm việc</span>
+                    </Space>
+                }
+                style={{ marginBottom: 24 }}
+            >
+                <Table
+                    columns={columns}
+                    dataSource={integrationData.employeeShifts}
+                    rowKey="id"
+                    pagination={false}
+                />
+            </Card>
+        );
+    };
+
     return (
         <div className="payroll-attendance">
             <Card
@@ -558,10 +854,13 @@ const PayrollAttendancePage = () => {
                             <TabPane tab="Lịch chấm công" key="1">
                                 {renderAttendanceCalendar()}
                             </TabPane>
-                            <TabPane tab="Biểu đồ tương quan" key="2">
+                            <TabPane tab="Ca làm việc" key="2">
+                                {renderEmployeeShifts()}
+                            </TabPane>
+                            <TabPane tab="Biểu đồ tương quan" key="3">
                                 {renderCorrelationChart()}
                             </TabPane>
-                            <TabPane tab="Bảng lương" key="3">
+                            <TabPane tab="Bảng lương" key="4">
                                 {renderPayrollSummary()}
                             </TabPane>
                         </Tabs>

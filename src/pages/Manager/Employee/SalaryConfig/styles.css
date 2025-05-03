@@ -209,3 +209,18 @@
     padding: 2px 10px;
     font-weight: 500;
 }
+
+/* Highlight night shift related styles */
+.night-shift-input .ant-input-number-input {
+    color: #0050b3;
+    font-weight: bold;
+}
+
+.night-shift-input .ant-input-number-handler-wrap {
+    background-color: #e6f7ff;
+}
+
+.ant-table-cell .night-shift-value {
+    color: #0050b3;
+    font-weight: bold;
+}
