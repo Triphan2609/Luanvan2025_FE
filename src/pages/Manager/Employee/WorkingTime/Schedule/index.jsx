@@ -45,10 +45,15 @@ import {
     bulkUpdateEmployeeShiftStatus,
     bulkDeleteEmployeeShifts,
 } from "../../../../../api/employeeShiftsApi";
-import { getDepartments } from "../../../../../api/departmentsApi";
+import {
+    getDepartments,
+    getDepartmentsByBranch,
+} from "../../../../../api/departmentsApi";
+import { getBranches } from "../../../../../api/branchesApi";
 
 const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
+const { Option } = Select;
 
 // Constants
 const SCHEDULE_STATUS = {
@@ -62,9 +67,13 @@ export default function Schedule() {
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [selectedDate, setSelectedDate] = useState(null);
     const [selectedDepartment, setSelectedDepartment] = useState("all");
+    const [selectedBranch, setSelectedBranch] = useState(undefined);
     const [schedules, setSchedules] = useState([]);
     const [departments, setDepartments] = useState([]);
+    const [branches, setBranches] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [loadingDepartments, setLoadingDepartments] = useState(false);
+    const [loadingBranches, setLoadingBranches] = useState(false);
     const [tableParams, setTableParams] = useState({
         pagination: {
             current: 1,
@@ -86,21 +95,59 @@ export default function Schedule() {
 
     // Load schedules on component mount
     useEffect(() => {
+        loadBranches();
         loadDepartments();
         fetchSchedules();
     }, []);
 
-    // Load schedules when department filter changes
+    // Load schedules when department or branch filter changes
     useEffect(() => {
         fetchSchedules();
-    }, [selectedDepartment, dateRange]);
+    }, [selectedDepartment, selectedBranch, dateRange]);
+
+    // Load departments when branch filter changes
+    useEffect(() => {
+        loadDepartments();
+    }, [selectedBranch]);
+
+    const loadBranches = async () => {
+        try {
+            setLoadingBranches(true);
+            const data = await getBranches();
+            setBranches(data || []);
+        } catch (error) {
+            console.error("Lỗi khi tải danh sách chi nhánh:", error);
+        } finally {
+            setLoadingBranches(false);
+        }
+    };
 
     const loadDepartments = async () => {
         try {
-            const deptsData = await getDepartments();
+            setLoadingDepartments(true);
+            let deptsData;
+
+            if (selectedBranch) {
+                deptsData = await getDepartmentsByBranch(selectedBranch);
+            } else {
+                deptsData = await getDepartments();
+            }
+
             setDepartments(deptsData || []);
+
+            // Reset department selection if current selection is not in the new department list
+            if (selectedDepartment !== "all") {
+                const departmentExists = deptsData.some(
+                    (dept) => dept.id === Number(selectedDepartment)
+                );
+                if (!departmentExists) {
+                    setSelectedDepartment("all");
+                }
+            }
         } catch (error) {
             console.error("Lỗi khi tải danh sách phòng ban:", error);
+        } finally {
+            setLoadingDepartments(false);
         }
     };
 
@@ -121,6 +168,11 @@ export default function Schedule() {
             // Thêm filter theo phòng ban
             if (selectedDepartment !== "all") {
                 filter.department_id = Number(selectedDepartment);
+            }
+
+            // Thêm filter theo chi nhánh
+            if (selectedBranch) {
+                filter.branch_id = Number(selectedBranch);
             }
 
             const data = await getEmployeeShifts(filter);
@@ -146,11 +198,15 @@ export default function Schedule() {
                     departmentId: schedule.employee?.department?.id,
                     departmentCode:
                         schedule.employee?.department?.code || "unknown",
+                    branchId: schedule.employee?.branch?.id,
+                    branchName: schedule.employee?.branch?.name,
                     roleId: schedule.employee?.role?.id,
                     roleName:
                         schedule.employee?.role?.name || "Chưa có chức vụ",
                     shiftId: schedule.shift?.id,
                     shiftName: schedule.shift?.name,
+                    shiftBranchId: schedule.shift?.branch?.id,
+                    shiftBranchName: schedule.shift?.branch?.name,
                     shiftTime: `${schedule.shift?.start_time || ""} - ${
                         schedule.shift?.end_time || ""
                     }`,
@@ -326,157 +382,127 @@ export default function Schedule() {
             ),
         },
         {
+            title: "#",
+            dataIndex: "schedule_code",
+            key: "schedule_code",
+            width: 100,
+        },
+        {
             title: "Nhân viên",
             dataIndex: "employeeName",
             key: "employeeName",
-            sorter: true,
-            render: (text, record) => (
-                <Space direction="vertical" size={0}>
-                    <Text strong>{text}</Text>
-                    <Text type="secondary" style={{ fontSize: "11px" }}>
-                        {record.roleName || "Chưa có chức vụ"}
-                    </Text>
-                </Space>
-            ),
+            render: (text) => <Text strong>{text}</Text>,
         },
         {
-            title: "Chức vụ",
-            dataIndex: "roleName",
-            key: "roleName",
-            filters: Array.from(new Set(schedules.map((s) => s.roleName))).map(
-                (name) => ({
-                    text: name || "Chưa có chức vụ",
-                    value: name || "Chưa có chức vụ",
-                })
-            ),
-            onFilter: (value, record) => record.roleName === value,
-            render: (text) => (
-                <Tag color="geekblue">{text || "Chưa có chức vụ"}</Tag>
-            ),
+            title: "Chi nhánh",
+            key: "branch",
+            width: 150,
+            render: (_, record) => record.branchName || "Chưa phân chi nhánh",
         },
         {
-            title: "Bộ phận",
+            title: "Phòng ban",
             dataIndex: "department",
             key: "department",
-            filters: departments.map((d) => ({ text: d.name, value: d.name })),
-            onFilter: (value, record) => record.department === value,
-            render: (dept, record) => {
-                const colors = {
-                    "Lễ tân": "green",
-                    "Nhà hàng": "purple",
-                    "Buồng phòng": "orange",
-                    "Chưa phân loại": "gray",
-                };
-                return <Tag color={colors[dept] || "blue"}>{dept}</Tag>;
-            },
+            width: 150,
+            render: (text) => text,
+            filters: departments.map((dept) => ({
+                text: dept.name,
+                value: dept.id,
+            })),
+            filteredValue:
+                selectedDepartment !== "all" ? [selectedDepartment] : null,
         },
         {
             title: "Ca làm việc",
-            dataIndex: "shiftName",
-            key: "shiftName",
-            filters: Array.from(new Set(schedules.map((s) => s.shiftName))).map(
-                (name) => ({ text: name, value: name })
-            ),
-            onFilter: (value, record) => record.shiftName === value,
-            render: (text, record) => (
+            key: "shift",
+            width: 120,
+            render: (_, record) => (
                 <Space direction="vertical" size={0}>
-                    <span>{text}</span>
-                    <Text type="secondary" style={{ fontSize: "11px" }}>
+                    <Text>{record.shiftName}</Text>
+                    <Text type="secondary" style={{ fontSize: 12 }}>
                         {record.shiftTime}
                     </Text>
                 </Space>
             ),
         },
         {
+            title: "Chi nhánh ca",
+            key: "shift_branch",
+            width: 150,
+            render: (_, record) =>
+                record.shiftBranchName || "Chưa phân chi nhánh",
+        },
+        {
             title: "Ngày",
             dataIndex: "date",
             key: "date",
-            sorter: true,
-            defaultSortOrder: "descend",
-            render: (date) => <Text>{dayjs(date).format("DD/MM/YYYY")}</Text>,
+            width: 120,
+            render: (text) => dayjs(text).format("DD/MM/YYYY"),
+            sorter: (a, b) => dayjs(a.date).valueOf() - dayjs(b.date).valueOf(),
         },
         {
             title: "Trạng thái",
             dataIndex: "status",
             key: "status",
+            width: 120,
+            render: (status) => {
+                const color = getStatusTagColor(status);
+                return <Tag color={color}>{getStatusText(status)}</Tag>;
+            },
             filters: [
                 { text: "Chờ xác nhận", value: SCHEDULE_STATUS.PENDING },
                 { text: "Đã xác nhận", value: SCHEDULE_STATUS.CONFIRMED },
                 { text: "Đã hoàn thành", value: SCHEDULE_STATUS.COMPLETED },
             ],
-            onFilter: (value, record) => record.status === value,
-            render: (status, record) => {
-                return (
-                    <Select
-                        value={status}
-                        size="small"
-                        style={{ width: 130 }}
-                        onChange={(value) =>
-                            handleStatusChange(record.id, value)
-                        }
-                        dropdownMatchSelectWidth={false}
-                    >
-                        <Select.Option value={SCHEDULE_STATUS.PENDING}>
-                            <Badge status="warning" text="Chờ xác nhận" />
-                        </Select.Option>
-                        <Select.Option value={SCHEDULE_STATUS.CONFIRMED}>
-                            <Badge status="success" text="Đã xác nhận" />
-                        </Select.Option>
-                        <Select.Option value={SCHEDULE_STATUS.COMPLETED}>
-                            <Badge status="default" text="Đã hoàn thành" />
-                        </Select.Option>
-                    </Select>
-                );
-            },
+            filterMultiple: false,
         },
         {
             title: "Thao tác",
             key: "action",
-            width: 80,
-            render: (_, record) => (
-                <Dropdown
-                    overlay={
-                        <Menu>
-                            <Menu.Item
-                                key="1"
-                                icon={<CheckOutlined />}
-                                onClick={() =>
-                                    handleStatusChange(
-                                        record.id,
-                                        SCHEDULE_STATUS.CONFIRMED
-                                    )
-                                }
-                            >
-                                Xác nhận
-                            </Menu.Item>
-                            <Menu.Item
-                                key="2"
-                                icon={<CloseOutlined />}
-                                onClick={() =>
-                                    handleStatusChange(
-                                        record.id,
-                                        SCHEDULE_STATUS.COMPLETED
-                                    )
-                                }
-                            >
-                                Đánh dấu hoàn thành
-                            </Menu.Item>
-                            <Menu.Divider />
-                            <Menu.Item
-                                key="3"
-                                icon={<DeleteOutlined />}
-                                danger
-                                onClick={() => handleDeleteSchedule(record.id)}
-                            >
-                                Xóa
-                            </Menu.Item>
-                        </Menu>
-                    }
-                    trigger={["click"]}
-                >
-                    <Button type="text" icon={<EllipsisOutlined />} />
-                </Dropdown>
-            ),
+            width: 100,
+            render: (_, record) => {
+                const items = [
+                    {
+                        key: "1",
+                        label: "Xác nhận lịch",
+                        icon: <CheckOutlined />,
+                        disabled: record.status === SCHEDULE_STATUS.CONFIRMED,
+                        onClick: () =>
+                            handleStatusChange(
+                                record.id,
+                                SCHEDULE_STATUS.CONFIRMED
+                            ),
+                    },
+                    {
+                        key: "2",
+                        label: "Đánh dấu hoàn thành",
+                        icon: <CheckOutlined />,
+                        disabled: record.status === SCHEDULE_STATUS.COMPLETED,
+                        onClick: () =>
+                            handleStatusChange(
+                                record.id,
+                                SCHEDULE_STATUS.COMPLETED
+                            ),
+                    },
+                    {
+                        key: "3",
+                        label: "Xóa lịch làm việc",
+                        icon: <DeleteOutlined />,
+                        danger: true,
+                        onClick: () => handleDeleteSchedule(record.id),
+                    },
+                ];
+
+                return (
+                    <Dropdown
+                        menu={{ items }}
+                        trigger={["click"]}
+                        placement="bottomRight"
+                    >
+                        <Button icon={<EllipsisOutlined />} size="small" />
+                    </Dropdown>
+                );
+            },
         },
     ];
 
@@ -751,21 +777,41 @@ export default function Schedule() {
                                 </Col>
                                 <Col span={8}>
                                     <Select
+                                        value={selectedBranch}
+                                        onChange={setSelectedBranch}
+                                        style={{ width: "100%" }}
+                                        placeholder="Chọn chi nhánh"
+                                        allowClear
+                                        loading={loadingBranches}
+                                    >
+                                        {branches.map((branch) => (
+                                            <Option
+                                                key={branch.id}
+                                                value={branch.id}
+                                            >
+                                                {branch.name}
+                                            </Option>
+                                        ))}
+                                    </Select>
+                                </Col>
+                                <Col span={8}>
+                                    <Select
                                         value={selectedDepartment}
                                         onChange={setSelectedDepartment}
                                         style={{ width: "100%" }}
                                         placeholder="Chọn phòng ban"
+                                        loading={loadingDepartments}
                                     >
-                                        <Select.Option value="all">
-                                            Tất cả bộ phận
-                                        </Select.Option>
+                                        <Option value="all">
+                                            Tất cả phòng ban
+                                        </Option>
                                         {departments.map((dept) => (
-                                            <Select.Option
+                                            <Option
                                                 key={dept.id}
-                                                value={String(dept.id)}
+                                                value={dept.id.toString()}
                                             >
                                                 {dept.name}
-                                            </Select.Option>
+                                            </Option>
                                         ))}
                                     </Select>
                                 </Col>

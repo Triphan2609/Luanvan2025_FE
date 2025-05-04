@@ -1,6 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { Modal, Form, Input, Space, Button, Spin, Select } from "antd";
-import { getDepartments } from "../../../../../api/departmentsApi";
+import {
+    getDepartments,
+    getDepartmentsByBranch,
+} from "../../../../../api/departmentsApi";
+import { getBranches } from "../../../../../api/branchesApi";
 
 const { TextArea } = Input;
 const { Option } = Select;
@@ -10,23 +14,57 @@ const PositionForm = ({ open, onCancel, onSubmit, editingPosition }) => {
     const [loading, setLoading] = React.useState(false);
     const [departments, setDepartments] = useState([]);
     const [loadingDepartments, setLoadingDepartments] = useState(false);
+    const [branches, setBranches] = useState([]);
+    const [loadingBranches, setLoadingBranches] = useState(false);
+    const [selectedBranchId, setSelectedBranchId] = useState(null);
 
     useEffect(() => {
         if (open) {
-            fetchDepartments();
+            fetchBranches();
+            if (!selectedBranchId) {
+                fetchDepartments();
+            }
         }
     }, [open]);
 
     useEffect(() => {
         if (editingPosition) {
+            // Find branch ID from department
+            const departmentId = editingPosition.department?.id;
+            const branchId = editingPosition.department?.branch?.id;
+
             form.setFieldsValue({
                 ...editingPosition,
-                department_id: editingPosition.department?.id,
+                department_id: departmentId,
+                branch_id: branchId,
             });
+
+            if (branchId) {
+                setSelectedBranchId(branchId);
+                fetchDepartmentsByBranch(branchId);
+            }
         } else {
             form.resetFields();
         }
     }, [editingPosition, form]);
+
+    useEffect(() => {
+        if (selectedBranchId) {
+            fetchDepartmentsByBranch(selectedBranchId);
+        }
+    }, [selectedBranchId]);
+
+    const fetchBranches = async () => {
+        try {
+            setLoadingBranches(true);
+            const data = await getBranches();
+            setBranches(data || []);
+        } catch (error) {
+            console.error("Error fetching branches:", error);
+        } finally {
+            setLoadingBranches(false);
+        }
+    };
 
     const fetchDepartments = async () => {
         try {
@@ -38,6 +76,24 @@ const PositionForm = ({ open, onCancel, onSubmit, editingPosition }) => {
         } finally {
             setLoadingDepartments(false);
         }
+    };
+
+    const fetchDepartmentsByBranch = async (branchId) => {
+        try {
+            setLoadingDepartments(true);
+            const data = await getDepartmentsByBranch(branchId);
+            setDepartments(data || []);
+        } catch (error) {
+            console.error("Error fetching departments by branch:", error);
+        } finally {
+            setLoadingDepartments(false);
+        }
+    };
+
+    const handleBranchChange = (value) => {
+        setSelectedBranchId(value);
+        // Clear previously selected department when branch changes
+        form.setFieldsValue({ department_id: undefined });
     };
 
     const handleSubmit = async () => {
@@ -74,8 +130,38 @@ const PositionForm = ({ open, onCancel, onSubmit, editingPosition }) => {
             destroyOnClose
             bodyStyle={{ padding: "24px 32px" }}
         >
-            <Spin spinning={loading || loadingDepartments}>
+            <Spin spinning={loading || loadingDepartments || loadingBranches}>
                 <Form form={form} layout="vertical" onFinish={handleSubmit}>
+                    <Form.Item
+                        name="branch_id"
+                        label="Chi nhánh"
+                        rules={[
+                            {
+                                required: true,
+                                message: "Vui lòng chọn chi nhánh!",
+                            },
+                        ]}
+                    >
+                        <Select
+                            placeholder="Chọn chi nhánh"
+                            loading={loadingBranches}
+                            onChange={handleBranchChange}
+                            showSearch
+                            optionFilterProp="children"
+                            filterOption={(input, option) =>
+                                option.children
+                                    .toLowerCase()
+                                    .indexOf(input.toLowerCase()) >= 0
+                            }
+                        >
+                            {branches.map((branch) => (
+                                <Option key={branch.id} value={branch.id}>
+                                    {branch.name}
+                                </Option>
+                            ))}
+                        </Select>
+                    </Form.Item>
+
                     <Form.Item
                         name="name"
                         label="Tên chức vụ"
@@ -109,6 +195,7 @@ const PositionForm = ({ open, onCancel, onSubmit, editingPosition }) => {
                                     .toLowerCase()
                                     .indexOf(input.toLowerCase()) >= 0
                             }
+                            disabled={!selectedBranchId}
                         >
                             {departments.map((dept) => (
                                 <Option key={dept.id} value={dept.id}>

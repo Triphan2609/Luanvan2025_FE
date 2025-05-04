@@ -28,12 +28,10 @@ import {
     DollarOutlined,
     FileTextOutlined,
     CheckCircleOutlined,
-    LineChartOutlined,
     PlusCircleOutlined,
     MinusCircleOutlined,
 } from "@ant-design/icons";
 import dayjs from "dayjs";
-import { Line } from "@ant-design/charts";
 import { getEmployees } from "../../../../api/employeesApi";
 import { getAttendanceIntegration } from "../../../../api/salaryApi";
 
@@ -201,7 +199,7 @@ const PayrollAttendancePage = () => {
                                             {attendance.check_out}
                                         </div>
                                     )}
-                                    {attendance.working_hours && (
+                                    {attendance.working_hours !== undefined && (
                                         <div>
                                             <strong>Số giờ làm:</strong>{" "}
                                             {attendance.working_hours.toFixed(
@@ -260,7 +258,7 @@ const PayrollAttendancePage = () => {
                                     attendance.status
                                 )}
                                 text={
-                                    attendance.working_hours
+                                    attendance.working_hours !== undefined
                                         ? `${attendance.working_hours.toFixed(
                                               1
                                           )} giờ`
@@ -309,80 +307,30 @@ const PayrollAttendancePage = () => {
         );
     };
 
-    // Render payroll-attendance correlation chart
-    const renderCorrelationChart = () => {
-        if (
-            !integrationData ||
-            !integrationData.payrolls ||
-            !integrationData.dailyData
-        ) {
-            return <Empty description="Không có dữ liệu để hiển thị" />;
-        }
-
-        // Format daily data for the chart
-        const chartData = [];
-
-        integrationData.dailyData.forEach((item) => {
-            // Add working hours data point
-            chartData.push({
-                date: dayjs(item.date).format("DD/MM"),
-                value: item.working_hours || 0,
-                category: "Giờ làm việc",
-            });
-
-            // Add salary data point
-            chartData.push({
-                date: dayjs(item.date).format("DD/MM"),
-                value: item.daily_pay || 0,
-                category: "Lương ngày",
-            });
-        });
-
-        return (
-            <Card
-                title={
-                    <Space>
-                        <LineChartOutlined />
-                        <span>Tương quan giữa giờ làm và lương</span>
-                    </Space>
-                }
-                style={{ marginBottom: 24 }}
-            >
-                <Line
-                    data={chartData}
-                    xField="date"
-                    yField="value"
-                    seriesField="category"
-                    point
-                    smooth
-                    legend={{ position: "top" }}
-                    tooltip={{
-                        formatter: (datum) => {
-                            if (datum.category === "Lương ngày") {
-                                return {
-                                    name: datum.category,
-                                    value: formatCurrency(datum.value),
-                                };
-                            }
-                            return {
-                                name: datum.category,
-                                value: `${datum.value.toFixed(1)} giờ`,
-                            };
-                        },
-                    }}
-                    color={["#2196F3", "#FF9800"]}
-                />
-            </Card>
-        );
-    };
-
     // Render attendance summary
     const renderAttendanceSummary = () => {
         if (!integrationData || !integrationData.summary) {
             return null;
         }
 
-        const { summary } = integrationData;
+        const { summary, dailyData } = integrationData;
+
+        // Tính tổng lương ước tính từ dailyData nếu summary.estimatedSalary = 0
+        const calculatedEstimatedSalary =
+            summary.estimatedSalary > 0
+                ? summary.estimatedSalary
+                : dailyData && dailyData.length > 0
+                ? dailyData.reduce(
+                      (total, item) => total + (item.daily_pay || 0),
+                      0
+                  )
+                : 0;
+
+        // Tính lương trung bình theo giờ
+        const calculatedHourlyRate =
+            summary.totalWorkingHours > 0
+                ? calculatedEstimatedSalary / summary.totalWorkingHours
+                : 0;
 
         return (
             <Card
@@ -420,7 +368,7 @@ const PayrollAttendancePage = () => {
                     <Col span={6}>
                         <Statistic
                             title="Tổng lương ước tính"
-                            value={formatCurrency(summary.estimatedSalary || 0)}
+                            value={formatCurrency(calculatedEstimatedSalary)}
                             prefix={<DollarOutlined />}
                             valueStyle={{ color: "#3f8600" }}
                         />
@@ -521,30 +469,31 @@ const PayrollAttendancePage = () => {
                                     <Statistic
                                         title="Giờ TB/ngày"
                                         value={
-                                            summary.averageHoursPerDay?.toFixed(
-                                                1
-                                            ) || 0
+                                            summary.totalWorkingDays &&
+                                            summary.totalWorkingHours
+                                                ? summary.totalWorkingHours /
+                                                  summary.totalWorkingDays
+                                                : 0
                                         }
-                                        suffix="giờ/ngày"
+                                        formatter={(value) => (
+                                            <span>
+                                                {value.toFixed(1)} giờ/ngày
+                                            </span>
+                                        )}
                                         valueStyle={{ color: "#1890ff" }}
                                     />
                                 </Col>
                                 <Col span={12}>
                                     <Statistic
                                         title="Lương TB/giờ"
-                                        value={
-                                            summary.totalWorkingHours &&
-                                            summary.estimatedSalary
-                                                ? Math.round(
-                                                      summary.estimatedSalary /
-                                                          summary.totalWorkingHours
-                                                  )
-                                                : 0
-                                        }
+                                        value={calculatedHourlyRate}
                                         valueStyle={{ color: "#3f8600" }}
                                         formatter={(value) => (
                                             <span>
-                                                {formatCurrency(value)}/giờ
+                                                {value > 0
+                                                    ? formatCurrency(value)
+                                                    : "0 đ"}
+                                                /giờ
                                             </span>
                                         )}
                                     />
@@ -799,7 +748,7 @@ const PayrollAttendancePage = () => {
                             dayjs(record.date).format("YYYY-MM-DD")
                     );
 
-                    if (!attendance || !attendance.working_hours) {
+                    if (!attendance || attendance.working_hours === undefined) {
                         return "-";
                     }
 
@@ -910,10 +859,7 @@ const PayrollAttendancePage = () => {
                             <TabPane tab="Ca làm việc" key="2">
                                 {renderEmployeeShifts()}
                             </TabPane>
-                            <TabPane tab="Biểu đồ tương quan" key="3">
-                                {renderCorrelationChart()}
-                            </TabPane>
-                            <TabPane tab="Bảng lương" key="4">
+                            <TabPane tab="Bảng lương" key="3">
                                 {renderPayrollSummary()}
                             </TabPane>
                         </Tabs>

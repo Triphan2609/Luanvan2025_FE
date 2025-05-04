@@ -34,6 +34,7 @@ const SalaryConfigForm = ({
     form,
     salaryTypes,
     departments,
+    branches,
     roles,
     activeTab,
     setActiveTab,
@@ -41,10 +42,13 @@ const SalaryConfigForm = ({
     setSelectedDepartment,
     selectedRole,
     setSelectedRole,
+    selectedBranch,
+    setSelectedBranch,
     editingConfig,
     onFinish,
 }) => {
     const [filteredRoles, setFilteredRoles] = useState([]);
+    const [filteredDepartments, setFilteredDepartments] = useState([]);
     const [loadingRoles, setLoadingRoles] = useState(false);
 
     // Ensure salaryTypes is valid with fallback values
@@ -75,6 +79,24 @@ const SalaryConfigForm = ({
             filterRolesByDepartment(selectedDepartment);
         }
     }, [editingConfig, selectedDepartment]);
+
+    // Filter departments when branch changes
+    useEffect(() => {
+        if (selectedBranch) {
+            const deptsByBranch = departments.filter(
+                (dept) => dept.branch && dept.branch.id === selectedBranch
+            );
+            setFilteredDepartments(deptsByBranch);
+
+            // If not editing, reset department when branch changes
+            if (!editingConfig) {
+                form.setFieldsValue({ department_id: undefined });
+                setSelectedDepartment(null);
+            }
+        } else {
+            setFilteredDepartments(departments);
+        }
+    }, [selectedBranch, departments, form, editingConfig]);
 
     // Filter roles when department changes
     useEffect(() => {
@@ -179,6 +201,45 @@ const SalaryConfigForm = ({
                 <Row gutter={16}>
                     <Col span={12}>
                         <Form.Item
+                            name="branch_id"
+                            label="Chi nhánh"
+                            rules={[
+                                {
+                                    required: false,
+                                    message: "Vui lòng chọn chi nhánh!",
+                                },
+                            ]}
+                        >
+                            <Select
+                                showSearch
+                                placeholder="Chọn chi nhánh"
+                                optionFilterProp="children"
+                                disabled={false}
+                                onChange={(value) => {
+                                    setSelectedBranch(value);
+                                    // Reset department when branch changes
+                                    form.setFieldsValue({
+                                        department_id: undefined,
+                                        role_id: undefined,
+                                    });
+                                    setSelectedDepartment(null);
+                                    setSelectedRole(null);
+                                }}
+                            >
+                                {branches.map((branch) => (
+                                    <Option key={branch.id} value={branch.id}>
+                                        {branch.name}
+                                    </Option>
+                                ))}
+                            </Select>
+                            <HelperText text="Chọn chi nhánh để lọc phòng ban" />
+                        </Form.Item>
+                    </Col>
+                </Row>
+
+                <Row gutter={16}>
+                    <Col span={12}>
+                        <Form.Item
                             name="department_id"
                             label="Phòng ban"
                             rules={[
@@ -199,13 +260,11 @@ const SalaryConfigForm = ({
                                     form.setFieldsValue({ role_id: undefined });
                                     setSelectedRole(null);
                                 }}
-                                filterOption={(input, option) =>
-                                    option?.children
-                                        ?.toLowerCase()
-                                        ?.indexOf(input.toLowerCase()) >= 0
-                                }
                             >
-                                {departments.map((dept) => (
+                                {(selectedBranch
+                                    ? filteredDepartments
+                                    : departments
+                                ).map((dept) => (
                                     <Option key={dept.id} value={dept.id}>
                                         {dept.name}
                                     </Option>
@@ -213,7 +272,6 @@ const SalaryConfigForm = ({
                             </Select>
                         </Form.Item>
                     </Col>
-
                     <Col span={12}>
                         <Form.Item
                             name="role_id"
@@ -227,33 +285,10 @@ const SalaryConfigForm = ({
                         >
                             <Select
                                 showSearch
-                                placeholder={
-                                    selectedDepartment
-                                        ? loadingRoles
-                                            ? "Đang tải chức vụ..."
-                                            : "Chọn chức vụ"
-                                        : "Vui lòng chọn phòng ban trước"
-                                }
+                                placeholder="Chọn chức vụ"
                                 optionFilterProp="children"
-                                disabled={!selectedDepartment || loadingRoles}
-                                onChange={(value) => {
-                                    setSelectedRole(value);
-                                }}
-                                filterOption={(input, option) =>
-                                    option?.children
-                                        ?.toLowerCase()
-                                        ?.indexOf(input.toLowerCase()) >= 0
-                                }
-                                notFoundContent={
-                                    loadingRoles ? (
-                                        <Spin size="small" />
-                                    ) : selectedDepartment &&
-                                      filteredRoles.length === 0 ? (
-                                        "Phòng ban này không có chức vụ nào"
-                                    ) : (
-                                        "Vui lòng chọn phòng ban trước"
-                                    )
-                                }
+                                disabled={!selectedDepartment}
+                                onChange={(value) => setSelectedRole(value)}
                                 loading={loadingRoles}
                             >
                                 {filteredRoles.map((role) => (
@@ -262,15 +297,10 @@ const SalaryConfigForm = ({
                                     </Option>
                                 ))}
                             </Select>
-                        </Form.Item>
-                        {selectedDepartment &&
-                            !loadingRoles &&
-                            filteredRoles.length === 0 && (
-                                <HelperText text="Phòng ban này không có chức vụ nào. Vui lòng thêm chức vụ hoặc chọn phòng ban khác." />
+                            {!selectedDepartment && (
+                                <HelperText text="Vui lòng chọn phòng ban trước" />
                             )}
-                        {loadingRoles && (
-                            <HelperText text="Đang tải danh sách chức vụ..." />
-                        )}
+                        </Form.Item>
                     </Col>
                 </Row>
 

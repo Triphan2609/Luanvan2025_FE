@@ -6,6 +6,11 @@ import axios from "axios";
 // Lấy danh sách cấu hình lương
 export const getSalaryConfigs = async (filters = {}) => {
     try {
+        // Ensure branch_id is a number if provided
+        if (filters.branch_id) {
+            filters.branch_id = Number(filters.branch_id);
+        }
+
         const response = await apiClient.get("/salary-configs", {
             params: filters,
         });
@@ -139,6 +144,19 @@ export const getPayrolls = async (params = {}) => {
     try {
         console.log("API Request - getPayrolls with params:", params);
 
+        // Ensure numeric parameters are properly converted
+        if (params.branch_id) {
+            params.branch_id = Number(params.branch_id);
+        }
+
+        if (params.department_id) {
+            params.department_id = Number(params.department_id);
+        }
+
+        if (params.employee_id) {
+            params.employee_id = Number(params.employee_id);
+        }
+
         const response = await apiClient.get("/payrolls", {
             params: params,
         });
@@ -214,6 +232,14 @@ export const createPayroll = async (payrollData) => {
             "Creating payroll with data:",
             JSON.stringify(payrollData, null, 2)
         );
+
+        // Ensure branch_id is a number if provided
+        if (payrollData.branch_id) {
+            payrollData.branch_id = Number(payrollData.branch_id);
+            console.log(
+                `Converted branch_id to number: ${payrollData.branch_id}`
+            );
+        }
 
         // Đảm bảo ca đêm có hệ số nếu có giờ làm ca đêm
         if (
@@ -388,24 +414,41 @@ export const getPeriodPayrollSummary = async (params = {}) => {
     }
 };
 
-// Lấy thống kê bảng lương
-export const getPayrollStats = async (startDate, endDate, departmentId) => {
+// Lấy số liệu thống kê bảng lương
+export const getPayrollStats = async (
+    startDate,
+    endDate,
+    departmentId,
+    branchId
+) => {
     try {
-        const params = {
-            start_date: startDate,
-            end_date: endDate,
-        };
+        const params = {};
 
-        if (departmentId) {
-            params.department_id = departmentId;
+        if (startDate) {
+            params.start_date = startDate;
         }
 
+        if (endDate) {
+            params.end_date = endDate;
+        }
+
+        if (departmentId) {
+            params.department_id = Number(departmentId);
+        }
+
+        if (branchId) {
+            params.branch_id = Number(branchId);
+        }
+
+        console.log("Getting payroll stats with params:", params);
+
         const response = await apiClient.get("/payrolls/stats", {
-            params: params,
+            params,
         });
 
         return response.data;
     } catch (error) {
+        console.error("Error getting payroll stats:", error);
         throw error;
     }
 };
@@ -482,6 +525,11 @@ export const batchProcessPayrollPayments = async (ids, paymentDetails = {}) => {
 // Tạo bảng lương hàng loạt theo kỳ
 export const generateBatchPayrolls = async (batchData) => {
     try {
+        // Ensure branch_id is converted to number if provided
+        if (batchData.branch_id) {
+            batchData.branch_id = Number(batchData.branch_id);
+        }
+
         const response = await apiClient.post(
             "/payrolls/generate-batch",
             batchData

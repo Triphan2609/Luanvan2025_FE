@@ -10,6 +10,7 @@ import {
     message,
     Tooltip,
     Popconfirm,
+    Select,
 } from "antd";
 import { PlusOutlined, EditOutlined, DeleteOutlined } from "@ant-design/icons";
 import ShiftForm from "./ShiftForm";
@@ -19,8 +20,10 @@ import {
     updateShift,
     deleteShift,
 } from "../../../../../api/shiftsApi";
+import { getBranches } from "../../../../../api/branchesApi";
 
 const { Title } = Typography;
+const { Option } = Select;
 
 // Constants
 const SHIFT_TYPE = {
@@ -36,16 +39,46 @@ export default function Shifts() {
     const [selectedShift, setSelectedShift] = useState(null);
     const [shifts, setShifts] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [branches, setBranches] = useState([]);
+    const [loadingBranches, setLoadingBranches] = useState(false);
+    const [selectedBranch, setSelectedBranch] = useState(undefined);
 
-    // Fetch shifts on component mount
+    // Fetch shifts and branches on component mount
     useEffect(() => {
+        fetchBranches();
         fetchShifts();
     }, []);
+
+    // Fetch shifts when branch filter changes
+    useEffect(() => {
+        fetchShifts();
+    }, [selectedBranch]);
+
+    const fetchBranches = async () => {
+        try {
+            setLoadingBranches(true);
+            const data = await getBranches();
+            setBranches(data);
+        } catch (error) {
+            console.error("Error fetching branches:", error);
+            message.error("Không thể tải danh sách chi nhánh");
+        } finally {
+            setLoadingBranches(false);
+        }
+    };
 
     const fetchShifts = async () => {
         try {
             setLoading(true);
-            const data = await getShifts({ isActive: true });
+            const options = {
+                isActive: true,
+            };
+
+            if (selectedBranch) {
+                options.branch_id = selectedBranch;
+            }
+
+            const data = await getShifts(options);
 
             // Chuyển đổi dữ liệu từ backend sang định dạng frontend
             const formattedShifts = data.map((shift) => ({
@@ -59,6 +92,8 @@ export default function Shifts() {
                 workingHours: shift.working_hours,
                 description: shift.description || "",
                 is_active: shift.is_active,
+                branch_id: shift.branch_id,
+                branch: shift.branch,
             }));
 
             setShifts(formattedShifts);
@@ -81,6 +116,12 @@ export default function Shifts() {
             title: "Tên ca",
             dataIndex: "name",
             key: "name",
+        },
+        {
+            title: "Chi nhánh",
+            dataIndex: ["branch", "name"],
+            key: "branch",
+            render: (text) => text || "Chưa phân chi nhánh",
         },
         {
             title: "Loại ca",
@@ -180,6 +221,10 @@ export default function Shifts() {
         }
     };
 
+    const handleBranchChange = (value) => {
+        setSelectedBranch(value);
+    };
+
     const handleSubmit = async (values) => {
         try {
             // Chuyển đổi dữ liệu từ định dạng frontend sang backend
@@ -191,6 +236,7 @@ export default function Shifts() {
                 break_time: values.breakTime,
                 working_hours: values.workingHours,
                 description: values.description,
+                branch_id: values.branch_id,
                 is_active: true,
             };
 
@@ -226,13 +272,29 @@ export default function Shifts() {
                     </Title>
                 </Col>
                 <Col>
-                    <Button
-                        type="primary"
-                        icon={<PlusOutlined />}
-                        onClick={handleAdd}
-                    >
-                        Thêm ca làm việc
-                    </Button>
+                    <Space>
+                        <Select
+                            placeholder="Lọc theo chi nhánh"
+                            style={{ width: 200 }}
+                            allowClear
+                            loading={loadingBranches}
+                            onChange={handleBranchChange}
+                            value={selectedBranch}
+                        >
+                            {branches.map((branch) => (
+                                <Option key={branch.id} value={branch.id}>
+                                    {branch.name}
+                                </Option>
+                            ))}
+                        </Select>
+                        <Button
+                            type="primary"
+                            icon={<PlusOutlined />}
+                            onClick={handleAdd}
+                        >
+                            Thêm ca làm việc
+                        </Button>
+                    </Space>
                 </Col>
             </Row>
 

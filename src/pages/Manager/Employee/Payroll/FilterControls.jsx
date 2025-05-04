@@ -11,6 +11,7 @@ const { RangePicker } = DatePicker;
 
 const FilterControls = ({
     form,
+    branches = [],
     departments = [],
     employees = [],
     periodTypes = {},
@@ -21,6 +22,7 @@ const FilterControls = ({
     onSearch,
     onReset,
     onFetchData,
+    onBranchChange,
 }) => {
     return (
         <>
@@ -31,7 +33,36 @@ const FilterControls = ({
                 initialValues={{}}
             >
                 <Row gutter={16} className="filter-row">
-                    <Col xs={24} sm={12} lg={5}>
+                    <Col xs={24} sm={12} lg={4}>
+                        <Form.Item name="branch_id" label="Chi nhánh">
+                            <Select
+                                allowClear
+                                placeholder="Chọn chi nhánh"
+                                showSearch
+                                optionFilterProp="children"
+                                filterOption={(input, option) =>
+                                    option.children
+                                        .toLowerCase()
+                                        .indexOf(input.toLowerCase()) >= 0
+                                }
+                                onChange={(value) => {
+                                    if (onBranchChange) {
+                                        onBranchChange(value);
+                                    } else {
+                                        onFetchData();
+                                    }
+                                }}
+                                loading={loading}
+                            >
+                                {branches.map((branch) => (
+                                    <Option key={branch.id} value={branch.id}>
+                                        {branch.name}
+                                    </Option>
+                                ))}
+                            </Select>
+                        </Form.Item>
+                    </Col>
+                    <Col xs={24} sm={12} lg={4}>
                         <Form.Item name="department_id" label="Phòng ban">
                             <Select
                                 allowClear
@@ -82,7 +113,7 @@ const FilterControls = ({
                             </Select>
                         </Form.Item>
                     </Col>
-                    <Col xs={24} sm={12} lg={4}>
+                    <Col xs={24} sm={12} lg={3}>
                         <Form.Item name="period_type" label="Loại kỳ lương">
                             <Select
                                 allowClear
@@ -97,7 +128,7 @@ const FilterControls = ({
                             </Select>
                         </Form.Item>
                     </Col>
-                    <Col xs={24} sm={12} lg={6}>
+                    <Col xs={24} sm={12} lg={5}>
                         <Form.Item label="Khoảng thời gian">
                             <RangePicker
                                 value={dateRange}
@@ -107,7 +138,7 @@ const FilterControls = ({
                             />
                         </Form.Item>
                     </Col>
-                    <Col xs={24} sm={24} lg={4}>
+                    <Col xs={24} sm={24} lg={3}>
                         <Form.Item name="search" label="Tìm kiếm">
                             <Input
                                 placeholder="Tìm theo mã, tên..."

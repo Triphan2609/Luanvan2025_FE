@@ -30,6 +30,7 @@ const AdvancedFilterForm = ({
     form,
     departments = [],
     roles = [],
+    branches = [],
     onFinish,
     onReset,
     onSearch,
@@ -138,7 +139,27 @@ const AdvancedFilterForm = ({
                     <>
                         <Divider style={{ margin: "16px 0" }} />
                         <Row gutter={[16, 16]}>
-                            <Col xs={24} sm={12} md={8}>
+                            <Col xs={24} sm={12} md={6}>
+                                <Form.Item name="branch_id" label="Chi nhánh">
+                                    <Select
+                                        placeholder="Chọn chi nhánh"
+                                        allowClear
+                                        showSearch
+                                        optionFilterProp="children"
+                                    >
+                                        {branches.map((branch) => (
+                                            <Select.Option
+                                                key={branch.id}
+                                                value={branch.id}
+                                            >
+                                                {branch.name}
+                                            </Select.Option>
+                                        ))}
+                                    </Select>
+                                </Form.Item>
+                            </Col>
+
+                            <Col xs={24} sm={12} md={6}>
                                 <Form.Item
                                     name="department_id"
                                     label="Phòng ban"
@@ -161,7 +182,7 @@ const AdvancedFilterForm = ({
                                 </Form.Item>
                             </Col>
 
-                            <Col xs={24} sm={12} md={8}>
+                            <Col xs={24} sm={12} md={6}>
                                 <Form.Item name="role_id" label="Chức vụ">
                                     <Select
                                         placeholder="Chọn chức vụ"
@@ -181,7 +202,7 @@ const AdvancedFilterForm = ({
                                 </Form.Item>
                             </Col>
 
-                            <Col xs={24} sm={12} md={8}>
+                            <Col xs={24} sm={12} md={6}>
                                 <Form.Item name="status" label="Trạng thái">
                                     <Select
                                         placeholder="Chọn trạng thái"

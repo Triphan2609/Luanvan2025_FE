@@ -10,6 +10,18 @@ export const getDepartments = async () => {
     }
 };
 
+// Lấy danh sách phòng ban theo chi nhánh
+export const getDepartmentsByBranch = async (branchId) => {
+    try {
+        const response = await apiClient.get(
+            `/departments/by-branch/${branchId}`
+        );
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
 // Lấy chi tiết phòng ban theo ID
 export const getDepartmentById = async (id) => {
     try {

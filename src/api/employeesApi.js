@@ -427,3 +427,46 @@ export const bulkDeleteEmployees = async (ids) => {
         return handleApiError(error);
     }
 };
+
+// Lấy danh sách nhân viên theo phòng ban
+export const getEmployeesByDepartment = async (departmentId) => {
+    try {
+        // Validate departmentId
+        if (!departmentId || isNaN(parseInt(departmentId))) {
+            console.warn("Invalid department ID:", departmentId);
+            return { data: [], total: 0 };
+        }
+
+        const response = await apiClient.get("/employees", {
+            params: {
+                department_id: Number(departmentId),
+            },
+        });
+
+        // Kiểm tra nếu response có dữ liệu
+        if (!response.data) {
+            console.error("API không trả về dữ liệu");
+            return { data: [], total: 0 };
+        }
+
+        // Trả về đúng định dạng mà component cần
+        if (Array.isArray(response.data)) {
+            return {
+                data: response.data,
+                total: response.data.length,
+            };
+        } else if (response.data.data && Array.isArray(response.data.data)) {
+            // Nếu API trả về định dạng { data: [...], total: number }
+            return response.data;
+        } else {
+            console.warn(
+                "API trả về định dạng dữ liệu không mong đợi:",
+                response.data
+            );
+            return { data: response.data, total: 1 };
+        }
+    } catch (error) {
+        handleApiError(error);
+        return { data: [], total: 0 }; // Return empty data if error occurs
+    }
+};

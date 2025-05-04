@@ -115,6 +115,11 @@ const formatDataForExport = (data, options = {}) => {
                     ? employee.role.name
                     : "";
 
+            const branchName =
+                employee.branch && typeof employee.branch === "object"
+                    ? employee.branch.name
+                    : "";
+
             // Log thông tin để debug
             if (!deptName && employee.department) {
                 console.log(
@@ -127,6 +132,13 @@ const formatDataForExport = (data, options = {}) => {
                 console.log("Phát hiện chức vụ không có tên:", employee.role);
             }
 
+            if (!branchName && employee.branch) {
+                console.log(
+                    "Phát hiện chi nhánh không có tên:",
+                    employee.branch
+                );
+            }
+
             return {
                 "Mã NV": employee.employee_code || "",
                 "Họ và tên": employee.name || "",
@@ -134,6 +146,7 @@ const formatDataForExport = (data, options = {}) => {
                 "Số điện thoại": employee.phone || "",
                 "Phòng ban": deptName,
                 "Chức vụ": roleName,
+                "Chi nhánh": branchName,
                 "Ngày vào làm": formatDate(employee.join_date),
                 "Ngày sinh": formatDate(employee.birthday),
                 "Địa chỉ": employee.address || "",

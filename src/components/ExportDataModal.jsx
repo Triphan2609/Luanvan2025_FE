@@ -42,6 +42,7 @@ const ExportDataModal = ({
     fileName = "export",
     departments = [],
     roles = [],
+    branches = [],
 }) => {
     const [form] = Form.useForm();
     const [exportFormat, setExportFormat] = useState("excel");
@@ -56,6 +57,7 @@ const ExportDataModal = ({
         status: undefined,
         department: undefined,
         role: undefined,
+        branch: undefined,
     });
 
     // Định nghĩa các cột cho loại dữ liệu nhân viên
@@ -70,6 +72,11 @@ const ExportDataModal = ({
             dataIndex: ["department", "name"],
         },
         { key: "role", title: "Chức vụ", dataIndex: ["role", "name"] },
+        {
+            key: "branch",
+            title: "Chi nhánh",
+            dataIndex: ["branch", "name"],
+        },
         { key: "join_date", title: "Ngày vào làm", dataIndex: "join_date" },
         { key: "birthday", title: "Ngày sinh", dataIndex: "birthday" },
         { key: "address", title: "Địa chỉ", dataIndex: "address" },
@@ -110,6 +117,11 @@ const ExportDataModal = ({
 
             // Lọc theo chức vụ
             if (filters.role && item.role?.id !== filters.role) {
+                return false;
+            }
+
+            // Lọc theo chi nhánh
+            if (filters.branch && item.branch?.id !== filters.branch) {
                 return false;
             }
 
@@ -346,95 +358,127 @@ const ExportDataModal = ({
                 </Divider>
 
                 {showFilters && (
-                    <Row gutter={16} style={{ marginBottom: 16 }}>
-                        {dataType === "employees" && (
-                            <>
-                                <Col span={8}>
-                                    <Form.Item label="Trạng thái">
-                                        <Select
-                                            placeholder="Tất cả trạng thái"
-                                            value={filters.status}
-                                            onChange={(value) =>
-                                                handleFilterChange(
-                                                    "status",
-                                                    value
-                                                )
-                                            }
-                                            allowClear
-                                            style={{ width: "100%" }}
-                                        >
-                                            {Object.entries(
-                                                EMPLOYEE_STATUS
-                                            ).map(([key, value]) => (
-                                                <Option
-                                                    key={value}
-                                                    value={value}
-                                                >
-                                                    {
-                                                        EMPLOYEE_STATUS_LABELS[
-                                                            value
-                                                        ]
-                                                    }
-                                                </Option>
-                                            ))}
-                                        </Select>
-                                    </Form.Item>
-                                </Col>
+                    <>
+                        <Row gutter={16} style={{ marginBottom: 16 }}>
+                            {dataType === "employees" && (
+                                <>
+                                    <Col span={8}>
+                                        <Form.Item label="Trạng thái">
+                                            <Select
+                                                placeholder="Tất cả trạng thái"
+                                                value={filters.status}
+                                                onChange={(value) =>
+                                                    handleFilterChange(
+                                                        "status",
+                                                        value
+                                                    )
+                                                }
+                                                allowClear
+                                                style={{ width: "100%" }}
+                                            >
+                                                {Object.entries(
+                                                    EMPLOYEE_STATUS
+                                                ).map(([key, value]) => (
+                                                    <Option
+                                                        key={value}
+                                                        value={value}
+                                                    >
+                                                        {
+                                                            EMPLOYEE_STATUS_LABELS[
+                                                                value
+                                                            ]
+                                                        }
+                                                    </Option>
+                                                ))}
+                                            </Select>
+                                        </Form.Item>
+                                    </Col>
 
-                                <Col span={8}>
-                                    <Form.Item label="Phòng ban">
-                                        <Select
-                                            placeholder="Tất cả phòng ban"
-                                            value={filters.department}
-                                            onChange={(value) =>
-                                                handleFilterChange(
-                                                    "department",
-                                                    value
-                                                )
-                                            }
-                                            allowClear
-                                            style={{ width: "100%" }}
-                                        >
-                                            {departments.map((dept) => (
-                                                <Option
-                                                    key={dept.id}
-                                                    value={dept.id}
-                                                >
-                                                    {dept.name}
-                                                </Option>
-                                            ))}
-                                        </Select>
-                                    </Form.Item>
-                                </Col>
+                                    <Col span={8}>
+                                        <Form.Item label="Phòng ban">
+                                            <Select
+                                                placeholder="Tất cả phòng ban"
+                                                value={filters.department}
+                                                onChange={(value) =>
+                                                    handleFilterChange(
+                                                        "department",
+                                                        value
+                                                    )
+                                                }
+                                                allowClear
+                                                style={{ width: "100%" }}
+                                            >
+                                                {departments.map((dept) => (
+                                                    <Option
+                                                        key={dept.id}
+                                                        value={dept.id}
+                                                    >
+                                                        {dept.name}
+                                                    </Option>
+                                                ))}
+                                            </Select>
+                                        </Form.Item>
+                                    </Col>
 
+                                    <Col span={8}>
+                                        <Form.Item label="Chức vụ">
+                                            <Select
+                                                placeholder="Tất cả chức vụ"
+                                                value={filters.role}
+                                                onChange={(value) =>
+                                                    handleFilterChange(
+                                                        "role",
+                                                        value
+                                                    )
+                                                }
+                                                allowClear
+                                                style={{ width: "100%" }}
+                                            >
+                                                {roles.map((role) => (
+                                                    <Option
+                                                        key={role.id}
+                                                        value={role.id}
+                                                    >
+                                                        {role.name}
+                                                    </Option>
+                                                ))}
+                                            </Select>
+                                        </Form.Item>
+                                    </Col>
+                                </>
+                            )}
+                        </Row>
+
+                        <Row gutter={16} style={{ marginBottom: 16 }}>
+                            {dataType === "employees" && (
                                 <Col span={8}>
-                                    <Form.Item label="Chức vụ">
+                                    <Form.Item label="Chi nhánh">
                                         <Select
-                                            placeholder="Tất cả chức vụ"
-                                            value={filters.role}
+                                            placeholder="Tất cả chi nhánh"
+                                            value={filters.branch}
                                             onChange={(value) =>
                                                 handleFilterChange(
-                                                    "role",
+                                                    "branch",
                                                     value
                                                 )
                                             }
                                             allowClear
                                             style={{ width: "100%" }}
                                         >
-                                            {roles.map((role) => (
+                                            {branches.map((branch) => (
                                                 <Option
-                                                    key={role.id}
-                                                    value={role.id}
+                                                    key={branch.id}
+                                                    value={branch.id}
                                                 >
-                                                    {role.name}
+                                                    {branch.name}
                                                 </Option>
                                             ))}
                                         </Select>
                                     </Form.Item>
                                 </Col>
-                            </>
-                        )}
-                    </Row>
+                            )}
+                        </Row>
+                    </>
                 )}
 
                 <Divider>

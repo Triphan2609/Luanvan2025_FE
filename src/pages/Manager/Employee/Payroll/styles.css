@@ -240,3 +240,175 @@
     color: #f5222d;
     font-weight: 500;
 }
+
+/* Styles for print view */
+.print-content {
+    padding: 20px;
+    background: white;
+    color: #333;
+    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    width: 210mm; /* Kích thước A4 */
+    min-height: 297mm; /* Chiều cao tối thiểu A4 */
+    margin: 0 auto;
+}
+
+.print-content .ant-descriptions-item-label {
+    font-weight: 600;
+    color: #555;
+}
+
+.print-content .ant-divider {
+    margin: 16px 0;
+}
+
+.print-header {
+    margin-bottom: 24px;
+}
+
+.company-logo {
+    text-align: center;
+    color: #1890ff;
+    font-size: 48px;
+}
+
+.document-info {
+    text-align: right;
+    line-height: 1.6;
+}
+
+.signature-box {
+    text-align: center;
+    margin-top: 40px;
+}
+
+.signature-box .signature-line {
+    border-bottom: 1px solid #d9d9d9;
+    margin: 30px auto 10px;
+    width: 80%;
+    min-height: 60px;
+    position: relative;
+}
+
+.signature-box .signature-line::after {
+    content: "";
+    display: block;
+    height: 60px;
+}
+
+.print-footer {
+    margin-top: 40px;
+    color: #888;
+    font-size: 12px;
+}
+
+.net-pay-box {
+    background-color: #f8f8f8;
+    border: 1px solid #d9d9d9;
+    border-radius: 8px;
+    padding: 16px;
+    margin-top: 16px;
+}
+
+/* Định dạng cho phiếu lương compact */
+.payroll-detail-compact {
+    font-size: 12px;
+}
+
+/* Định dạng bảng compact */
+.compact-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+
+.compact-table td {
+    padding: 4px;
+    vertical-align: top;
+    line-height: 1.3;
+}
+
+.compact-table td:nth-child(odd) {
+    width: 25%;
+    font-weight: 500;
+}
+
+.compact-table td:nth-child(even) {
+    width: 25%;
+}
+
+/* Section blocks trong phiếu lương compact */
+.section-block {
+    border: 1px solid #f0f0f0;
+    border-radius: 4px;
+    padding: 8px;
+    margin-bottom: 8px;
+    background-color: #fafafa;
+}
+
+.total-salary-block {
+    background-color: #f6ffed;
+    border-color: #b7eb8f;
+}
+
+/* Signature line cho compact */
+.signature-line-compact {
+    border-bottom: 1px solid #d9d9d9;
+    margin: 15px auto 5px;
+    width: 80%;
+    min-height: 30px;
+    position: relative;
+}
+
+.signature-line-compact::after {
+    content: "";
+    display: block;
+    height: 30px;
+}
+
+/* Media queries cho in ấn */
+@media print {
+    @page {
+        size: A4;
+        margin: 10mm;
+    }
+
+    body * {
+        visibility: hidden;
+    }
+
+    .print-content,
+    .print-content * {
+        visibility: visible;
+    }
+
+    .print-content {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: auto;
+        padding: 0;
+        margin: 0;
+    }
+
+    .ant-modal-footer,
+    .ant-modal-header,
+    .ant-modal-close {
+        display: none !important;
+    }
+
+    .section-block {
+        page-break-inside: avoid;
+    }
+
+    /* Đảm bảo phần chữ ký nằm ở cuối trang */
+    .print-signatures {
+        position: relative;
+        margin-top: 20px;
+    }
+
+    .print-footer {
+        position: relative;
+        margin-top: 10px;
+    }
+}

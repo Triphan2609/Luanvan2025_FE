@@ -1,24 +1,20 @@
-import axios from "axios";
+import apiClient from "../configs/apiClient";
 
-const API_URL = "http://localhost:8000";
+const API_URL = "/shifts";
 
 // Lấy danh sách ca làm việc
-export const getShifts = async (params = {}) => {
+export const getShifts = async (options = {}) => {
     try {
-        const { type, isActive } = params;
-        let url = `${API_URL}/api/shifts`;
+        const { type, isActive, branch_id } = options;
 
-        // Xây dựng query params
         const queryParams = new URLSearchParams();
         if (type) queryParams.append("type", type);
         if (isActive !== undefined) queryParams.append("isActive", isActive);
+        if (branch_id) queryParams.append("branch_id", branch_id);
 
-        const queryString = queryParams.toString();
-        if (queryString) {
-            url += `?${queryString}`;
-        }
-
-        const response = await axios.get(url);
+        const response = await apiClient.get(
+            `${API_URL}?${queryParams.toString()}`
+        );
         return response.data;
     } catch (error) {
         console.error("Error fetching shifts:", error);
@@ -26,10 +22,23 @@ export const getShifts = async (params = {}) => {
     }
 };
 
+// Lấy danh sách ca làm việc theo chi nhánh
+export const getShiftsByBranch = async (branchId) => {
+    try {
+        const response = await apiClient.get(
+            `${API_URL}/by-branch/${branchId}`
+        );
+        return response.data;
+    } catch (error) {
+        console.error(`Error fetching shifts for branch ${branchId}:`, error);
+        throw error;
+    }
+};
+
 // Lấy danh sách ca làm việc đang hoạt động
 export const getActiveShifts = async () => {
     try {
-        const response = await axios.get(`${API_URL}/api/shifts/active`);
+        const response = await apiClient.get(`${API_URL}/active`);
         return response.data;
     } catch (error) {
         console.error("Error fetching active shifts:", error);
@@ -40,7 +49,7 @@ export const getActiveShifts = async () => {
 // Lấy chi tiết ca làm việc theo ID
 export const getShiftById = async (id) => {
     try {
-        const response = await axios.get(`${API_URL}/api/shifts/${id}`);
+        const response = await apiClient.get(`${API_URL}/${id}`);
         return response.data;
     } catch (error) {
         console.error(`Error fetching shift with id ${id}:`, error);
@@ -48,10 +57,10 @@ export const getShiftById = async (id) => {
     }
 };
 
-// Lấy ca làm việc theo mã
+// Lấy chi tiết ca làm việc theo mã
 export const getShiftByCode = async (code) => {
     try {
-        const response = await axios.get(`${API_URL}/api/shifts/code/${code}`);
+        const response = await apiClient.get(`${API_URL}/code/${code}`);
         return response.data;
     } catch (error) {
         console.error(`Error fetching shift with code ${code}:`, error);
@@ -62,7 +71,7 @@ export const getShiftByCode = async (code) => {
 // Tạo ca làm việc mới
 export const createShift = async (data) => {
     try {
-        const response = await axios.post(`${API_URL}/api/shifts`, data);
+        const response = await apiClient.post(`${API_URL}`, data);
         return response.data;
     } catch (error) {
         console.error("Error creating shift:", error);
@@ -73,7 +82,7 @@ export const createShift = async (data) => {
 // Cập nhật ca làm việc
 export const updateShift = async (id, data) => {
     try {
-        const response = await axios.patch(`${API_URL}/api/shifts/${id}`, data);
+        const response = await apiClient.patch(`${API_URL}/${id}`, data);
         return response.data;
     } catch (error) {
         console.error("Error updating shift:", error);
@@ -84,9 +93,7 @@ export const updateShift = async (id, data) => {
 // Kích hoạt ca làm việc
 export const activateShift = async (id) => {
     try {
-        const response = await axios.patch(
-            `${API_URL}/api/shifts/${id}/activate`
-        );
+        const response = await apiClient.patch(`${API_URL}/${id}/activate`);
         return response.data;
     } catch (error) {
         console.error(`Error activating shift ${id}:`, error);
@@ -97,9 +104,7 @@ export const activateShift = async (id) => {
 // Vô hiệu hóa ca làm việc
 export const deactivateShift = async (id) => {
     try {
-        const response = await axios.patch(
-            `${API_URL}/api/shifts/${id}/deactivate`
-        );
+        const response = await apiClient.patch(`${API_URL}/${id}/deactivate`);
         return response.data;
     } catch (error) {
         console.error(`Error deactivating shift ${id}:`, error);
@@ -110,7 +115,7 @@ export const deactivateShift = async (id) => {
 // Xóa ca làm việc
 export const deleteShift = async (id) => {
     try {
-        await axios.delete(`${API_URL}/api/shifts/${id}`);
+        await apiClient.delete(`${API_URL}/${id}`);
         return true;
     } catch (error) {
         console.error("Error deleting shift:", error);

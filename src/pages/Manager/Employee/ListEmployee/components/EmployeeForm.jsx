@@ -25,6 +25,7 @@ import {
     createEmployee,
     updateEmployee,
 } from "../../../../../api/employeesApi";
+import { getDepartmentsByBranch } from "../../../../../api/departmentsApi";
 import { EMPLOYEE_STATUS_LABELS } from "../../../../../constants/employee";
 import dayjs from "dayjs";
 import AvatarUpload from "../../../../../components/AvatarUpload";
@@ -39,11 +40,14 @@ export default function EmployeeForm({
     editingEmployee,
     departments,
     roles,
+    branches,
 }) {
     const [form] = Form.useForm();
     const [loading, setLoading] = useState(false);
     const [formError, setFormError] = useState("");
     const [selectedDepartment, setSelectedDepartment] = useState(null);
+    const [selectedBranch, setSelectedBranch] = useState(null);
+    const [filteredDepartments, setFilteredDepartments] = useState([]);
     const [filteredRoles, setFilteredRoles] = useState([]);
     const [avatarUrl, setAvatarUrl] = useState("");
 
@@ -60,8 +64,15 @@ export default function EmployeeForm({
                 join_date: dayjs(editingEmployee.join_date),
                 department_id: editingEmployee.department?.id,
                 role_id: editingEmployee.role?.id,
+                branch_id: editingEmployee.branch?.id,
                 avatar: avatarValue,
             });
+
+            if (editingEmployee.branch) {
+                setSelectedBranch(editingEmployee.branch.id);
+                loadDepartmentsByBranch(editingEmployee.branch.id);
+            }
+
             if (editingEmployee.department) {
                 setSelectedDepartment(editingEmployee.department.id);
             }
@@ -72,10 +83,12 @@ export default function EmployeeForm({
                 join_date: dayjs(),
             });
             setSelectedDepartment(null);
+            setSelectedBranch(null);
+            setFilteredDepartments([]);
             setAvatarUrl("");
         }
         setFormError("");
-    }, [editingEmployee, form, open, departments, roles]);
+    }, [editingEmployee, form, open, departments, roles, branches]);
 
     useEffect(() => {
         if (selectedDepartment && roles.length > 0) {
@@ -99,6 +112,25 @@ export default function EmployeeForm({
         }
     }, [selectedDepartment, roles, form]);
 
+    const loadDepartmentsByBranch = async (branchId) => {
+        if (!branchId) {
+            setFilteredDepartments([]);
+            return;
+        }
+
+        try {
+            setLoading(true);
+            const branchDepartments = await getDepartmentsByBranch(branchId);
+            setFilteredDepartments(branchDepartments || []);
+        } catch (error) {
+            console.error("Error loading departments by branch:", error);
+            message.error("Không thể tải danh sách phòng ban theo chi nhánh");
+            setFilteredDepartments([]);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleSubmit = async () => {
         try {
             setLoading(true);
@@ -113,13 +145,16 @@ export default function EmployeeForm({
                 ...otherValues
             } = values;
 
-            // Đảm bảo department_id và role_id là số nguyên (number)
+            // Đảm bảo department_id, role_id và branch_id là số nguyên (number)
             const formData = {
                 ...otherValues,
                 department_id: values.department_id
                     ? Number(values.department_id)
                     : undefined,
                 role_id: values.role_id ? Number(values.role_id) : undefined,
+                branch_id: values.branch_id
+                    ? Number(values.branch_id)
+                    : undefined,
             };
 
             if (birthdayValue) {
@@ -174,10 +209,33 @@ export default function EmployeeForm({
         form.setFieldValue("role_id", undefined);
     };
 
+    const handleBranchChange = (value) => {
+        setSelectedBranch(value);
+        // Reset department and role when branch changes
+        form.setFieldsValue({
+            department_id: undefined,
+            role_id: undefined,
+        });
+        setSelectedDepartment(null);
+
+        // Load departments for this branch
+        loadDepartmentsByBranch(value);
+    };
+
     const handleAvatarChange = (url) => {
         setAvatarUrl(url);
         form.setFieldsValue({ avatar: url });
     };
+
+    // Get only active branches
+    const activeBranches = branches.filter(
+        (branch) => branch.status === "active"
+    );
+
+    // Determine which departments to show in the dropdown
+    const departmentsToShow = selectedBranch
+        ? filteredDepartments
+        : departments;
 
     return (
         <Modal
@@ -198,17 +256,15 @@ export default function EmployeeForm({
             onCancel={onCancel}
             onOk={handleSubmit}
             okText={editingEmployee ? "Cập nhật" : "Thêm mới"}
-            okButtonProps={{ loading }}
             cancelText="Hủy"
-            width={900}
-            destroyOnClose
-            maskClosable={false}
-            closable={!loading}
+            width={800}
+            confirmLoading={loading}
         >
             <Spin spinning={loading}>
                 <Form
                     form={form}
                     layout="vertical"
+                    name="employeeForm"
                     initialValues={{
                         status: "active",
                         join_date: dayjs(),
@@ -216,239 +272,138 @@ export default function EmployeeForm({
                 >
                     {formError && (
                         <Alert
-                            message="Lỗi khi lưu thông tin"
-                            description={formError}
                             type="error"
-                            showIcon
+                            message="Lỗi"
+                            description={formError}
                             style={{ marginBottom: 16 }}
+                            showIcon
                         />
                     )}
 
-                    <Row gutter={24}>
-                        <Col span={6} style={{ textAlign: "center" }}>
-                            <Form.Item name="avatar" label="Ảnh đại diện">
-                                <AvatarUpload
-                                    value={avatarUrl}
-                                    onChange={handleAvatarChange}
+                    <Row gutter={16}>
+                        <Col span={24} style={{ textAlign: "center" }}>
+                            <Form.Item name="avatar" hidden>
+                                <Input />
+                            </Form.Item>
+                            <AvatarUpload
+                                value={avatarUrl}
+                                onChange={handleAvatarChange}
+                            />
+                        </Col>
+                    </Row>
+
+                    <Row gutter={16}>
+                        <Col span={12}>
+                            <Form.Item
+                                name="employee_code"
+                                label="Mã nhân viên"
+                                rules={[
+                                    {
+                                        required: true,
+                                        message: "Vui lòng nhập mã nhân viên!",
+                                    },
+                                ]}
+                            >
+                                <Input
+                                    prefix={<IdcardOutlined />}
+                                    placeholder="Mã nhân viên (NV001)"
                                 />
                             </Form.Item>
                         </Col>
-                        <Col span={18}>
-                            <Row gutter={16}>
-                                <Col span={12}>
-                                    <Form.Item
-                                        name="employee_code"
-                                        label="Mã nhân viên"
-                                        rules={[
-                                            {
-                                                required: true,
-                                                message:
-                                                    "Vui lòng nhập mã nhân viên",
-                                            },
-                                            {
-                                                pattern: /^[A-Za-z0-9]{3,10}$/,
-                                                message:
-                                                    "Mã nhân viên phải từ 3-10 ký tự, chỉ gồm chữ và số",
-                                            },
-                                        ]}
-                                    >
-                                        <Input
-                                            placeholder="Nhập mã nhân viên"
-                                            prefix={<IdcardOutlined />}
-                                        />
-                                    </Form.Item>
-                                </Col>
-                                <Col span={12}>
-                                    <Form.Item
-                                        name="name"
-                                        label="Họ và tên"
-                                        rules={[
-                                            {
-                                                required: true,
-                                                message:
-                                                    "Vui lòng nhập họ và tên",
-                                            },
-                                            {
-                                                min: 3,
-                                                message:
-                                                    "Tên phải có ít nhất 3 ký tự",
-                                            },
-                                        ]}
-                                    >
-                                        <Input
-                                            placeholder="Nhập họ và tên"
-                                            prefix={<UserOutlined />}
-                                        />
-                                    </Form.Item>
-                                </Col>
-                            </Row>
-
-                            <Row gutter={16}>
-                                <Col span={12}>
-                                    <Form.Item
-                                        name="email"
-                                        label="Email"
-                                        rules={[
-                                            {
-                                                required: true,
-                                                message: "Vui lòng nhập email",
-                                            },
-                                            {
-                                                type: "email",
-                                                message: "Email không hợp lệ",
-                                            },
-                                        ]}
-                                    >
-                                        <Input
-                                            placeholder="Nhập email"
-                                            prefix={<MailOutlined />}
-                                        />
-                                    </Form.Item>
-                                </Col>
-                                <Col span={12}>
-                                    <Form.Item
-                                        name="phone"
-                                        label="Số điện thoại"
-                                        rules={[
-                                            {
-                                                required: true,
-                                                message:
-                                                    "Vui lòng nhập số điện thoại",
-                                            },
-                                            {
-                                                pattern: /^[0-9]{10}$/,
-                                                message:
-                                                    "Số điện thoại không hợp lệ",
-                                            },
-                                        ]}
-                                    >
-                                        <Input
-                                            placeholder="Nhập số điện thoại"
-                                            prefix={<PhoneOutlined />}
-                                        />
-                                    </Form.Item>
-                                </Col>
-                            </Row>
-                        </Col>
-                    </Row>
-
-                    <Divider style={{ margin: "16px 0" }} />
-
-                    <Row gutter={24}>
-                        <Col span={24}>
-                            <Row gutter={16}>
-                                <Col span={8}>
-                                    <Form.Item
-                                        name="department_id"
-                                        label="Phòng ban"
-                                        rules={[
-                                            {
-                                                required: true,
-                                                message:
-                                                    "Vui lòng chọn phòng ban",
-                                            },
-                                        ]}
-                                    >
-                                        <Select
-                                            placeholder="Chọn phòng ban"
-                                            showSearch
-                                            optionFilterProp="children"
-                                            onChange={handleDepartmentChange}
-                                        >
-                                            {departments &&
-                                                departments.map((dept) => (
-                                                    <Option
-                                                        key={dept.id}
-                                                        value={dept.id}
-                                                    >
-                                                        {dept.name}
-                                                    </Option>
-                                                ))}
-                                        </Select>
-                                    </Form.Item>
-                                </Col>
-                                <Col span={8}>
-                                    <Form.Item
-                                        name="role_id"
-                                        label="Chức vụ"
-                                        rules={[
-                                            {
-                                                required: true,
-                                                message:
-                                                    "Vui lòng chọn chức vụ",
-                                            },
-                                        ]}
-                                    >
-                                        <Select
-                                            placeholder={
-                                                selectedDepartment
-                                                    ? "Chọn chức vụ"
-                                                    : "Vui lòng chọn phòng ban trước"
-                                            }
-                                            showSearch
-                                            optionFilterProp="children"
-                                            disabled={!selectedDepartment}
-                                            notFoundContent={
-                                                filteredRoles.length === 0
-                                                    ? "Không có chức vụ phù hợp"
-                                                    : null
-                                            }
-                                        >
-                                            {filteredRoles.map((role) => (
-                                                <Option
-                                                    key={role.id}
-                                                    value={role.id}
-                                                >
-                                                    {role.name}
-                                                </Option>
-                                            ))}
-                                        </Select>
-                                    </Form.Item>
-                                </Col>
-                                <Col span={8}>
-                                    <Form.Item
-                                        name="status"
-                                        label="Trạng thái"
-                                        rules={[
-                                            {
-                                                required: true,
-                                                message:
-                                                    "Vui lòng chọn trạng thái",
-                                            },
-                                        ]}
-                                    >
-                                        <Select placeholder="Chọn trạng thái">
-                                            {Object.entries(
-                                                EMPLOYEE_STATUS_LABELS
-                                            ).map(([value, label]) => (
-                                                <Option
-                                                    key={value}
-                                                    value={value}
-                                                >
-                                                    {label}
-                                                </Option>
-                                            ))}
-                                        </Select>
-                                    </Form.Item>
-                                </Col>
-                            </Row>
-                        </Col>
-                    </Row>
-
-                    <Row gutter={24}>
                         <Col span={12}>
-                            <Form.Item name="birthday" label="Ngày sinh">
+                            <Form.Item
+                                name="name"
+                                label="Tên nhân viên"
+                                rules={[
+                                    {
+                                        required: true,
+                                        message: "Vui lòng nhập tên nhân viên!",
+                                    },
+                                ]}
+                            >
+                                <Input
+                                    prefix={<UserOutlined />}
+                                    placeholder="Tên nhân viên"
+                                />
+                            </Form.Item>
+                        </Col>
+                    </Row>
+
+                    <Row gutter={16}>
+                        <Col span={12}>
+                            <Form.Item
+                                name="email"
+                                label="Email"
+                                rules={[
+                                    {
+                                        required: true,
+                                        message: "Vui lòng nhập email!",
+                                    },
+                                    {
+                                        type: "email",
+                                        message: "Email không hợp lệ!",
+                                    },
+                                ]}
+                            >
+                                <Input
+                                    prefix={<MailOutlined />}
+                                    placeholder="Email"
+                                />
+                            </Form.Item>
+                        </Col>
+                        <Col span={12}>
+                            <Form.Item
+                                name="phone"
+                                label="Số điện thoại"
+                                rules={[
+                                    {
+                                        required: true,
+                                        message: "Vui lòng nhập số điện thoại!",
+                                    },
+                                ]}
+                            >
+                                <Input
+                                    prefix={<PhoneOutlined />}
+                                    placeholder="Số điện thoại"
+                                />
+                            </Form.Item>
+                        </Col>
+                    </Row>
+
+                    <Row gutter={16}>
+                        <Col span={12}>
+                            <Form.Item
+                                name="address"
+                                label="Địa chỉ"
+                                rules={[
+                                    {
+                                        required: false,
+                                    },
+                                ]}
+                            >
+                                <Input placeholder="Địa chỉ" />
+                            </Form.Item>
+                        </Col>
+                        <Col span={12}>
+                            <Form.Item
+                                name="birthday"
+                                label="Ngày sinh"
+                                rules={[
+                                    {
+                                        required: false,
+                                    },
+                                ]}
+                            >
                                 <DatePicker
                                     style={{ width: "100%" }}
-                                    format="DD/MM/YYYY"
-                                    disabledDate={(current) =>
-                                        current &&
-                                        current > dayjs().endOf("day")
-                                    }
                                     placeholder="Chọn ngày sinh"
+                                    format="DD/MM/YYYY"
                                 />
                             </Form.Item>
                         </Col>
+                    </Row>
+
+                    <Row gutter={16}>
                         <Col span={12}>
                             <Form.Item
                                 name="join_date"
@@ -456,32 +411,121 @@ export default function EmployeeForm({
                                 rules={[
                                     {
                                         required: true,
-                                        message: "Vui lòng chọn ngày vào làm",
+                                        message: "Vui lòng chọn ngày vào làm!",
                                     },
                                 ]}
                             >
                                 <DatePicker
                                     style={{ width: "100%" }}
-                                    format="DD/MM/YYYY"
-                                    disabledDate={(current) =>
-                                        current &&
-                                        current > dayjs().endOf("day")
-                                    }
                                     placeholder="Chọn ngày vào làm"
+                                    format="DD/MM/YYYY"
                                 />
+                            </Form.Item>
+                        </Col>
+                        <Col span={12}>
+                            <Form.Item
+                                name="status"
+                                label="Trạng thái"
+                                rules={[
+                                    {
+                                        required: true,
+                                        message: "Vui lòng chọn trạng thái!",
+                                    },
+                                ]}
+                            >
+                                <Select placeholder="Chọn trạng thái">
+                                    {Object.entries(EMPLOYEE_STATUS_LABELS).map(
+                                        ([value, label]) => (
+                                            <Option key={value} value={value}>
+                                                {label}
+                                            </Option>
+                                        )
+                                    )}
+                                </Select>
                             </Form.Item>
                         </Col>
                     </Row>
 
-                    <Divider style={{ margin: "16px 0" }} />
-
-                    <Row gutter={24}>
-                        <Col span={24}>
-                            <Form.Item name="address" label="Địa chỉ">
-                                <Input.TextArea
-                                    placeholder="Nhập địa chỉ"
-                                    rows={3}
-                                />
+                    <Row gutter={16}>
+                        <Col span={8}>
+                            <Form.Item
+                                name="branch_id"
+                                label="Chi nhánh"
+                                rules={[
+                                    {
+                                        required: true,
+                                        message: "Vui lòng chọn chi nhánh!",
+                                    },
+                                ]}
+                            >
+                                <Select
+                                    placeholder="Chọn chi nhánh"
+                                    onChange={handleBranchChange}
+                                >
+                                    {activeBranches.map((branch) => (
+                                        <Option
+                                            key={branch.id}
+                                            value={branch.id}
+                                        >
+                                            {branch.name}
+                                        </Option>
+                                    ))}
+                                </Select>
+                            </Form.Item>
+                        </Col>
+                        <Col span={8}>
+                            <Form.Item
+                                name="department_id"
+                                label="Phòng ban"
+                                rules={[
+                                    {
+                                        required: true,
+                                        message: "Vui lòng chọn phòng ban!",
+                                    },
+                                ]}
+                            >
+                                <Select
+                                    placeholder={
+                                        selectedBranch
+                                            ? "Chọn phòng ban"
+                                            : "Chọn chi nhánh trước"
+                                    }
+                                    onChange={handleDepartmentChange}
+                                    disabled={!selectedBranch}
+                                >
+                                    {departmentsToShow.map((dept) => (
+                                        <Option key={dept.id} value={dept.id}>
+                                            {dept.name}
+                                        </Option>
+                                    ))}
+                                </Select>
+                            </Form.Item>
+                        </Col>
+                        <Col span={8}>
+                            <Form.Item
+                                name="role_id"
+                                label="Chức vụ"
+                                rules={[
+                                    {
+                                        required: true,
+                                        message: "Vui lòng chọn chức vụ!",
+                                    },
+                                ]}
+                            >
+                                <Select
+                                    placeholder={
+                                        selectedDepartment
+                                            ? "Chọn chức vụ"
+                                            : "Chọn phòng ban trước"
+                                    }
+                                    disabled={!selectedDepartment}
+                                >
+                                    {filteredRoles.map((role) => (
+                                        <Option key={role.id} value={role.id}>
+                                            {role.name}
+                                        </Option>
+                                    ))}
+                                </Select>
                             </Form.Item>
                         </Col>
                     </Row>

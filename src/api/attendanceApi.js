@@ -14,6 +14,11 @@ export const createAttendance = async (attendanceData) => {
 // Lấy danh sách dữ liệu chấm công
 export const getAttendances = async (params = {}) => {
     try {
+        // Ensure branch_id is correctly passed in the params
+        if (params.branch_id) {
+            params.branch_id = Number(params.branch_id);
+        }
+
         const response = await apiClient.get("/attendances", {
             params: params,
         });
@@ -232,7 +237,12 @@ export const rejectAttendanceAdjustment = async (id, data) => {
 };
 
 // Lấy thống kê chấm công
-export const getAttendanceStats = async (startDate, endDate, departmentId) => {
+export const getAttendanceStats = async (
+    startDate,
+    endDate,
+    departmentId,
+    branchId
+) => {
     try {
         const params = {
             start_date: startDate,
@@ -244,12 +254,17 @@ export const getAttendanceStats = async (startDate, endDate, departmentId) => {
             params.department_id = Number(departmentId);
         }
 
+        // Chuyển branchId thành số nếu có
+        if (branchId !== undefined && branchId !== null) {
+            params.branch_id = Number(branchId);
+        }
+
         const response = await apiClient.get("/attendances/stats", {
             params,
         });
         return response.data;
     } catch (error) {
-        console.error("Error fetching attendance statistics:", error);
+        console.error("Error getting attendance stats:", error);
         throw error;
     }
 };

@@ -58,6 +58,7 @@ import {
     bulkUpdateStatus,
     bulkDeleteEmployees,
 } from "../../../../api/employeesApi";
+import { getBranches } from "../../../../api/branchesApi";
 import {
     EMPLOYEE_STATUS,
     EMPLOYEE_STATUS_LABELS,
@@ -77,6 +78,7 @@ export default function ListEmployee() {
     const [employees, setEmployees] = useState([]);
     const [departments, setDepartments] = useState([]);
     const [roles, setRoles] = useState([]);
+    const [branches, setBranches] = useState([]);
     const [pagination, setPagination] = useState({
         current: 1,
         pageSize: 10,
@@ -86,6 +88,7 @@ export default function ListEmployee() {
         search: "",
         department_id: undefined,
         role_id: undefined,
+        branch_id: undefined,
         status: undefined,
     });
     const [modalVisible, setModalVisible] = useState({
@@ -103,13 +106,15 @@ export default function ListEmployee() {
         async function loadInitialData() {
             setLoading(true);
             try {
-                // Fetch departments, roles, and employees in parallel
-                const [deptData, roleData] = await Promise.all([
+                // Fetch departments, roles, branches and employees in parallel
+                const [deptData, roleData, branchData] = await Promise.all([
                     getDepartments(),
                     getRoles(),
+                    getBranches(),
                 ]);
                 setDepartments(deptData || []);
                 setRoles(roleData || []);
+                setBranches(branchData || []);
 
                 // Now fetch employees
                 await fetchEmployees();
@@ -139,6 +144,7 @@ export default function ListEmployee() {
             search: filters.search,
             department_id: filters.department_id,
             role_id: filters.role_id,
+            branch_id: filters.branch_id,
             status: filters.status,
         });
     }, [filters, form]);
@@ -229,6 +235,7 @@ export default function ListEmployee() {
             search: "",
             department_id: undefined,
             role_id: undefined,
+            branch_id: undefined,
             status: undefined,
         };
 
@@ -432,6 +439,7 @@ export default function ListEmployee() {
             search: values.search || "",
             department_id: values.department_id,
             role_id: values.role_id,
+            branch_id: values.branch_id,
             status: values.status,
         });
 
@@ -506,6 +514,17 @@ export default function ListEmployee() {
                 (a.role?.name || "").localeCompare(b.role?.name || ""),
             render: (_, record) => (
                 <Tag color="purple">{record.role?.name || "Chưa có"}</Tag>
+            ),
+        },
+        {
+            title: "Chi nhánh",
+            dataIndex: ["branch", "name"],
+            key: "branch",
+            width: 150,
+            sorter: (a, b) =>
+                (a.branch?.name || "").localeCompare(b.branch?.name || ""),
+            render: (_, record) => (
+                <Tag color="cyan">{record.branch?.name || "Chưa có"}</Tag>
             ),
         },
         {
@@ -805,6 +824,104 @@ export default function ListEmployee() {
         });
     };
 
+    // Update the filter controls to include branch filter
+    const renderFilterControls = () => (
+        <Form form={form} layout="inline" style={{ marginBottom: 16 }}>
+            <Form.Item name="search" style={{ marginBottom: 8, minWidth: 200 }}>
+                <Input
+                    placeholder="Tìm theo tên, email..."
+                    prefix={<SearchOutlined />}
+                    allowClear
+                    onChange={(e) =>
+                        handleFilterChange("search", e.target.value)
+                    }
+                    value={filters.search}
+                />
+            </Form.Item>
+
+            <Form.Item
+                name="branch_id"
+                style={{ marginBottom: 8, minWidth: 180 }}
+            >
+                <Select
+                    placeholder="Chi nhánh"
+                    allowClear
+                    onChange={(value) => handleFilterChange("branch_id", value)}
+                    value={filters.branch_id}
+                >
+                    {branches
+                        .filter((b) => b.status === "active")
+                        .map((branch) => (
+                            <Select.Option key={branch.id} value={branch.id}>
+                                {branch.name}
+                            </Select.Option>
+                        ))}
+                </Select>
+            </Form.Item>
+
+            <Form.Item
+                name="department_id"
+                style={{ marginBottom: 8, minWidth: 180 }}
+            >
+                <Select
+                    placeholder="Phòng ban"
+                    allowClear
+                    onChange={(value) =>
+                        handleFilterChange("department_id", value)
+                    }
+                    value={filters.department_id}
+                >
+                    {departments.map((dept) => (
+                        <Select.Option key={dept.id} value={dept.id}>
+                            {dept.name}
+                        </Select.Option>
+                    ))}
+                </Select>
+            </Form.Item>
+
+            <Form.Item
+                name="role_id"
+                style={{ marginBottom: 8, minWidth: 180 }}
+            >
+                <Select
+                    placeholder="Chức vụ"
+                    allowClear
+                    onChange={(value) => handleFilterChange("role_id", value)}
+                    value={filters.role_id}
+                >
+                    {roles.map((role) => (
+                        <Select.Option key={role.id} value={role.id}>
+                            {role.name}
+                        </Select.Option>
+                    ))}
+                </Select>
+            </Form.Item>
+
+            <Form.Item name="status" style={{ marginBottom: 8, minWidth: 180 }}>
+                <Select
+                    placeholder="Trạng thái"
+                    allowClear
+                    onChange={(value) => handleFilterChange("status", value)}
+                    value={filters.status}
+                >
+                    {Object.entries(EMPLOYEE_STATUS_LABELS).map(
+                        ([value, label]) => (
+                            <Select.Option key={value} value={value}>
+                                {label}
+                            </Select.Option>
+                        )
+                    )}
+                </Select>
+            </Form.Item>
+
+            <Form.Item style={{ marginBottom: 8 }}>
+                <Button onClick={handleReset} icon={<ReloadOutlined />}>
+                    Đặt lại
+                </Button>
+            </Form.Item>
+        </Form>
+    );
+
     return (
         <div className="employee-list">
             <style jsx="true">{`
@@ -877,6 +994,7 @@ export default function ListEmployee() {
             {(filters.search ||
                 filters.department_id ||
                 filters.role_id ||
+                filters.branch_id ||
                 filters.status) && (
                 <Alert
                     style={{ marginBottom: 16 }}
@@ -905,6 +1023,16 @@ export default function ListEmployee() {
                                     {
                                         roles.find(
                                             (r) => r.id === filters.role_id
+                                        )?.name
+                                    }
+                                </Tag>
+                            )}
+                            {filters.branch_id && (
+                                <Tag color="cyan">
+                                    Chi nhánh:{" "}
+                                    {
+                                        branches.find(
+                                            (b) => b.id === filters.branch_id
                                         )?.name
                                     }
                                 </Tag>
@@ -939,6 +1067,7 @@ export default function ListEmployee() {
                     form={form}
                     departments={departments}
                     roles={roles}
+                    branches={branches}
                     onFinish={handleAdvancedFilterSubmit}
                     onReset={handleReset}
                     loading={loading}
@@ -1123,12 +1252,15 @@ export default function ListEmployee() {
             <EmployeeForm
                 open={modalVisible.form}
                 onCancel={() =>
-                    setModalVisible({ ...modalVisible, form: false })
+                    setModalVisible((prev) => ({ ...prev, form: false }))
                 }
-                onSubmit={handleFormSubmit}
+                onSubmit={() => {
+                    handleFormSubmit();
+                }}
                 editingEmployee={selectedEmployee}
                 departments={departments}
                 roles={roles}
+                branches={branches}
             >
                 <Form.Item
                     name="avatar"
@@ -1158,6 +1290,7 @@ export default function ListEmployee() {
                 fileName="danh_sach_nhan_vien"
                 departments={departments}
                 roles={roles}
+                branches={branches}
             />
         </div>
     );

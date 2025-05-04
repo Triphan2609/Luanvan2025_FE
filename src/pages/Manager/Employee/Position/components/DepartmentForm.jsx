@@ -1,19 +1,42 @@
-import React, { useEffect } from "react";
-import { Form, Input, Space, Button, Spin } from "antd";
+import React, { useEffect, useState } from "react";
+import { Form, Input, Space, Button, Spin, Select } from "antd";
+import { getBranches } from "../../../../../api/branchesApi";
 
 const { TextArea } = Input;
+const { Option } = Select;
 
 const DepartmentForm = ({ onSubmit, editingDepartment }) => {
     const [form] = Form.useForm();
     const [loading, setLoading] = React.useState(false);
+    const [branches, setBranches] = useState([]);
+    const [loadingBranches, setLoadingBranches] = useState(false);
+
+    useEffect(() => {
+        fetchBranches();
+    }, []);
 
     useEffect(() => {
         if (editingDepartment) {
-            form.setFieldsValue(editingDepartment);
+            form.setFieldsValue({
+                ...editingDepartment,
+                branch_id: editingDepartment.branch?.id,
+            });
         } else {
             form.resetFields();
         }
     }, [editingDepartment, form]);
+
+    const fetchBranches = async () => {
+        try {
+            setLoadingBranches(true);
+            const data = await getBranches();
+            setBranches(data || []);
+        } catch (error) {
+            console.error("Error fetching branches:", error);
+        } finally {
+            setLoadingBranches(false);
+        }
+    };
 
     const handleSubmit = async () => {
         try {
@@ -29,13 +52,42 @@ const DepartmentForm = ({ onSubmit, editingDepartment }) => {
     };
 
     return (
-        <Spin spinning={loading}>
+        <Spin spinning={loading || loadingBranches}>
             <Form
                 form={form}
                 layout="vertical"
                 onFinish={handleSubmit}
                 style={{ height: "100%" }}
             >
+                <Form.Item
+                    name="branch_id"
+                    label="Chi nhánh"
+                    rules={[
+                        {
+                            required: true,
+                            message: "Vui lòng chọn chi nhánh!",
+                        },
+                    ]}
+                >
+                    <Select
+                        placeholder="Chọn chi nhánh"
+                        loading={loadingBranches}
+                        showSearch
+                        optionFilterProp="children"
+                        filterOption={(input, option) =>
+                            option.children
+                                .toLowerCase()
+                                .indexOf(input.toLowerCase()) >= 0
+                        }
+                    >
+                        {branches.map((branch) => (
+                            <Option key={branch.id} value={branch.id}>
+                                {branch.name}
+                            </Option>
+                        ))}
+                    </Select>
+                </Form.Item>
+
                 <Form.Item
                     name="name"
                     label="Tên phòng ban"

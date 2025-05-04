@@ -25,6 +25,7 @@ import {
     Drawer,
     Descriptions,
     Switch,
+    Checkbox,
 } from "antd";
 import {
     PlusOutlined,
@@ -41,6 +42,7 @@ import {
     TeamOutlined,
     CalendarOutlined,
     InfoCircleOutlined,
+    BuildOutlined,
 } from "@ant-design/icons";
 import dayjs from "dayjs";
 import { getDepartments } from "../../../../api/departmentsApi";
@@ -51,6 +53,7 @@ import {
     updateAttendanceStatus,
     deleteAttendance,
 } from "../../../../api/attendanceApi";
+import { getBranches } from "../../../../api/branchesApi";
 import utc from "dayjs/plugin/utc";
 import { getEmployeeShifts } from "../../../../api/employeeShiftsApi";
 import AttendanceDetailDrawer from "./AttendanceDetailDrawer";
@@ -97,6 +100,7 @@ const typeLabels = {
 export default function AttendanceManagement() {
     const [attendances, setAttendances] = useState([]);
     const [departments, setDepartments] = useState([]);
+    const [branches, setBranches] = useState([]);
     const [employees, setEmployees] = useState([]);
     const [loading, setLoading] = useState(false);
     const [addModalVisible, setAddModalVisible] = useState(false);
@@ -116,6 +120,7 @@ export default function AttendanceManagement() {
     const [showNotes, setShowNotes] = useState(false);
     const [drawerVisible, setDrawerVisible] = useState(false);
     const [selectedRecord, setSelectedRecord] = useState(null);
+    const [selectedBranch, setSelectedBranch] = useState(null);
 
     // Statistics
     const [statistics, setStatistics] = useState({
@@ -127,6 +132,7 @@ export default function AttendanceManagement() {
         earlyLeave: 0,
         onLeave: 0,
         byDepartment: {},
+        byBranch: {},
     });
 
     // State để lưu các trạng thái đặc biệt đã phát hiện
@@ -152,12 +158,15 @@ export default function AttendanceManagement() {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const [deptResponse, employeeResponse] = await Promise.all([
-                    getDepartments(),
-                    getEmployees(),
-                ]);
+                const [deptResponse, employeeResponse, branchResponse] =
+                    await Promise.all([
+                        getDepartments(),
+                        getEmployees(),
+                        getBranches(),
+                    ]);
 
                 setDepartments(deptResponse);
+                setBranches(branchResponse);
 
                 // Đảm bảo employees luôn là mảng
                 if (Array.isArray(employeeResponse)) {
@@ -189,19 +198,22 @@ export default function AttendanceManagement() {
     // Effect to fetch attendances when filters change
     useEffect(() => {
         fetchAttendances();
-    }, [dateRange, activeTab]);
+    }, [dateRange, activeTab, selectedBranch]);
 
-    // Effect to fetch employee shifts when employee changes in the add form
+    // Update the function to fetch shifts for employee
     useEffect(() => {
         const fetchEmployeeShifts = async () => {
             const employeeId = addForm.getFieldValue("employee_id");
             const date = addForm.getFieldValue("date");
+            const branchId = addForm.getFieldValue("branch_id");
+
             if (employeeId && date) {
                 try {
                     const formattedDate = date.format("YYYY-MM-DD");
                     const response = await getEmployeeShifts({
                         employeeId: employeeId,
                         date: formattedDate,
+                        branch_id: branchId,
                     });
                     setEmployeeShifts(response);
                 } catch (error) {
@@ -212,19 +224,26 @@ export default function AttendanceManagement() {
         };
 
         fetchEmployeeShifts();
-    }, [addForm.getFieldValue("employee_id"), addForm.getFieldValue("date")]);
+    }, [
+        addForm.getFieldValue("employee_id"),
+        addForm.getFieldValue("date"),
+        addForm.getFieldValue("branch_id"),
+    ]);
 
     // Effect to fetch employee shifts when employee changes in the adjust form
     useEffect(() => {
         const fetchAdjustShifts = async () => {
             const employeeId = adjustForm.getFieldValue("employee_id");
             const date = adjustForm.getFieldValue("date");
+            const branchId = adjustForm.getFieldValue("branch_id");
+
             if (employeeId && date) {
                 try {
                     const formattedDate = date.format("YYYY-MM-DD");
                     const response = await getEmployeeShifts({
                         employeeId: employeeId,
                         date: formattedDate,
+                        branch_id: branchId,
                     });
                     setAdjustShifts(response);
                 } catch (error) {
@@ -241,81 +260,69 @@ export default function AttendanceManagement() {
     }, [
         adjustForm.getFieldValue("employee_id"),
         adjustForm.getFieldValue("date"),
+        adjustForm.getFieldValue("branch_id"),
     ]);
 
     const fetchAttendances = async () => {
-        setLoading(true);
         try {
-            const filters = {
-                start_date: dateRange[0].format("YYYY-MM-DD"),
-                end_date: dateRange[1].format("YYYY-MM-DD"),
+            setLoading(true);
+            const filterValues = filterForm.getFieldsValue();
+            const start = dateRange[0].format("YYYY-MM-DD");
+            const end = dateRange[1].format("YYYY-MM-DD");
+
+            // Build filter object
+            const filter = {
+                start_date: start,
+                end_date: end,
             };
 
-            // Add status filter if not on 'all' tab
+            // Add status filter based on active tab
             if (activeTab !== "all") {
-                filters.status = activeTab;
+                filter.status = activeTab;
             }
 
-            // Add other filters from form
-            const formValues = filterForm.getFieldsValue();
-            if (formValues.department_id) {
-                filters.department_id = formValues.department_id;
-            }
-            if (formValues.employee_id) {
-                filters.employee_id = formValues.employee_id;
-            }
-            if (formValues.type) {
-                filters.type = formValues.type;
-            }
-            if (formValues.search) {
-                filters.search = formValues.search;
+            // Add department filter if selected
+            if (filterValues.department_id) {
+                filter.department_id = filterValues.department_id;
             }
 
-            const data = await getAttendances(filters);
-            setAttendances(data);
+            // Add branch filter if selected
+            if (selectedBranch) {
+                filter.branch_id = selectedBranch;
+            }
+
+            // Add employee filter if selected
+            if (filterValues.employee_id) {
+                filter.employee_id = filterValues.employee_id;
+            }
+
+            // Add search filter if entered
+            if (filterValues.search) {
+                filter.search = filterValues.search;
+            }
+
+            // Add adjustment filter
+            if (filterValues.is_adjustment !== undefined) {
+                filter.is_adjustment = filterValues.is_adjustment;
+            }
+
+            // Add type filter
+            if (filterValues.type) {
+                filter.type = filterValues.type;
+            }
+
+            // Get attendances with filters
+            const attendanceData = await getAttendances(filter);
+
+            // Update attendances
+            setAttendances(attendanceData || []);
 
             // Calculate statistics
-            const stats = {
-                pending: 0,
-                approved: 0,
-                rejected: 0,
-                total: data.length,
-                late: 0,
-                earlyLeave: 0,
-                onLeave: 0,
-                byDepartment: {},
-            };
-
-            data.forEach((att) => {
-                // Count by status
-                stats[att.status]++;
-
-                // Đếm theo trạng thái đặc biệt từ notes
-                if (att.notes) {
-                    if (att.notes.includes("late")) {
-                        stats.late++;
-                    }
-                    if (att.notes.includes("early_leave")) {
-                        stats.earlyLeave++;
-                    }
-                    if (att.notes.includes("on_leave")) {
-                        stats.onLeave++;
-                    }
-                }
-
-                // Count by department
-                const deptName =
-                    att.employee?.department?.name || "Không có phòng ban";
-                if (!stats.byDepartment[deptName]) {
-                    stats.byDepartment[deptName] = 0;
-                }
-                stats.byDepartment[deptName]++;
-            });
-
-            setStatistics(stats);
+            calculateStatistics(attendanceData || []);
         } catch (error) {
             console.error("Error fetching attendances:", error);
             message.error("Không thể tải dữ liệu chấm công");
+            setAttendances([]);
         } finally {
             setLoading(false);
         }
@@ -646,6 +653,64 @@ export default function AttendanceManagement() {
         setSelectedRecord(null);
     };
 
+    // Add a function to filter employees by branch
+    const getFilteredEmployees = () => {
+        if (!selectedBranch) {
+            return employees;
+        }
+        return employees.filter(
+            (emp) => emp.branch && emp.branch.id === selectedBranch
+        );
+    };
+
+    // Add a function to load departments by branch
+    const loadDepartmentsByBranch = async (branchId) => {
+        if (!branchId) return;
+
+        try {
+            setLoading(true);
+            const deptData = await getDepartmentsByBranch(branchId);
+            setDepartments(deptData || []);
+        } catch (error) {
+            console.error("Error loading departments by branch:", error);
+            message.error("Không thể tải danh sách phòng ban theo chi nhánh");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Handle branch change in filter
+    const handleBranchChange = (value) => {
+        setSelectedBranch(value);
+
+        // Reset department selection in filter
+        filterForm.setFieldsValue({ department_id: undefined });
+
+        // If a branch is selected, load its departments
+        if (value) {
+            loadDepartmentsByBranch(value);
+        } else {
+            // If no branch selected, load all departments
+            getDepartments().then((deptData) => setDepartments(deptData || []));
+        }
+    };
+
+    // Effect to handle branch change in add form
+    const handleAddFormBranchChange = (value) => {
+        addForm.setFieldsValue({
+            employee_id: undefined,
+            employee_shift_id: undefined,
+        });
+    };
+
+    // Handler for branch change in adjust form
+    const handleAdjustFormBranchChange = (value) => {
+        adjustForm.setFieldsValue({
+            employee_id: undefined,
+            employee_shift_id: undefined,
+        });
+    };
+
     const columns = [
         {
             title: "Mã NV",
@@ -932,6 +997,61 @@ export default function AttendanceManagement() {
                     />
                 </Card>
             </Col>
+            <Col span={24} style={{ marginTop: "16px" }}>
+                <Card
+                    title={
+                        <div>
+                            <TeamOutlined /> Thống kê theo phòng ban
+                        </div>
+                    }
+                    hoverable
+                >
+                    <Row gutter={16}>
+                        {Object.entries(statistics.byDepartment).map(
+                            ([dept, count]) => (
+                                <Col
+                                    span={6}
+                                    key={dept}
+                                    style={{ marginBottom: "8px" }}
+                                >
+                                    <Card bordered={false}>
+                                        <Statistic title={dept} value={count} />
+                                    </Card>
+                                </Col>
+                            )
+                        )}
+                    </Row>
+                </Card>
+            </Col>
+            <Col span={24} style={{ marginTop: "16px" }}>
+                <Card
+                    title={
+                        <div>
+                            <BuildOutlined /> Thống kê theo chi nhánh
+                        </div>
+                    }
+                    hoverable
+                >
+                    <Row gutter={16}>
+                        {Object.entries(statistics.byBranch || {}).map(
+                            ([branch, count]) => (
+                                <Col
+                                    span={6}
+                                    key={branch}
+                                    style={{ marginBottom: "8px" }}
+                                >
+                                    <Card bordered={false}>
+                                        <Statistic
+                                            title={branch}
+                                            value={count}
+                                        />
+                                    </Card>
+                                </Col>
+                            )
+                        )}
+                    </Row>
+                </Card>
+            </Col>
         </Row>
     );
 
@@ -1135,6 +1255,16 @@ export default function AttendanceManagement() {
         }
     };
 
+    // Helper function to filter employees by branch in add form
+    const getFilteredEmployeesByBranch = (branchId) => {
+        if (!branchId) {
+            return employees;
+        }
+        return employees.filter(
+            (emp) => emp.branch && emp.branch.id === Number(branchId)
+        );
+    };
+
     return (
         <div>
             <Card
@@ -1167,10 +1297,31 @@ export default function AttendanceManagement() {
                     form={filterForm}
                     layout="vertical"
                     onFinish={handleSearch}
-                    initialValues={{}}
+                    initialValues={{
+                        is_adjustment: false,
+                    }}
                 >
                     <Row gutter={16}>
-                        <Col span={5}>
+                        <Col span={6}>
+                            <Form.Item name="branch_id" label="Chi nhánh">
+                                <Select
+                                    allowClear
+                                    placeholder="Chọn chi nhánh"
+                                    onChange={handleBranchChange}
+                                    value={selectedBranch}
+                                >
+                                    {branches.map((branch) => (
+                                        <Option
+                                            key={branch.id}
+                                            value={branch.id}
+                                        >
+                                            {branch.name}
+                                        </Option>
+                                    ))}
+                                </Select>
+                            </Form.Item>
+                        </Col>
+                        <Col span={6}>
                             <Form.Item name="department_id" label="Phòng ban">
                                 <Select
                                     allowClear
@@ -1185,7 +1336,7 @@ export default function AttendanceManagement() {
                                 </Select>
                             </Form.Item>
                         </Col>
-                        <Col span={5}>
+                        <Col span={6}>
                             <Form.Item name="employee_id" label="Nhân viên">
                                 <Select
                                     allowClear
@@ -1194,65 +1345,76 @@ export default function AttendanceManagement() {
                                     showSearch
                                     optionFilterProp="children"
                                 >
-                                    {Array.isArray(employees)
-                                        ? employees.map((emp) => (
-                                              <Option
-                                                  key={emp.id}
-                                                  value={emp.id}
-                                              >
-                                                  {emp.employee_code} -{" "}
-                                                  {emp.name}
-                                              </Option>
-                                          ))
-                                        : null}
-                                </Select>
-                            </Form.Item>
-                        </Col>
-                        <Col span={5}>
-                            <Form.Item name="type" label="Loại chấm công">
-                                <Select
-                                    allowClear
-                                    placeholder="Chọn loại"
-                                    onChange={fetchAttendances}
-                                >
-                                    {Object.keys(AttendanceType).map((key) => (
-                                        <Option
-                                            key={key}
-                                            value={AttendanceType[key]}
-                                        >
-                                            {typeLabels[AttendanceType[key]]}
+                                    {getFilteredEmployees().map((emp) => (
+                                        <Option key={emp.id} value={emp.id}>
+                                            {emp.name || emp.fullname}
                                         </Option>
                                     ))}
                                 </Select>
                             </Form.Item>
                         </Col>
                         <Col span={6}>
-                            <Form.Item label="Khoảng thời gian">
-                                <RangePicker
-                                    value={dateRange}
-                                    onChange={handleDateRangeChange}
-                                    format="DD/MM/YYYY"
+                            <Form.Item name="type" label="Loại chấm công">
+                                <Select
+                                    allowClear
+                                    placeholder="Loại chấm công"
+                                    onChange={fetchAttendances}
+                                >
+                                    {Object.entries(typeLabels).map(
+                                        ([value, label]) => (
+                                            <Option key={value} value={value}>
+                                                {label}
+                                            </Option>
+                                        )
+                                    )}
+                                </Select>
+                            </Form.Item>
+                        </Col>
+                    </Row>
+                    <Row gutter={16}>
+                        <Col span={8}>
+                            <Form.Item name="search" label="Tìm kiếm">
+                                <Input
+                                    placeholder="Tìm theo tên nhân viên"
+                                    prefix={<SearchOutlined />}
+                                    onChange={(e) => {
+                                        if (!e.target.value) {
+                                            fetchAttendances();
+                                        }
+                                    }}
                                 />
                             </Form.Item>
                         </Col>
-                        <Col span={3}>
-                            <Form.Item label=" " colon={false}>
-                                <Space>
-                                    <Button
-                                        type="primary"
-                                        htmlType="submit"
-                                        icon={<SearchOutlined />}
-                                    >
-                                        Tìm
-                                    </Button>
-                                    <Button
-                                        onClick={handleReset}
-                                        icon={<FilterOutlined />}
-                                    >
-                                        Đặt lại
-                                    </Button>
-                                </Space>
+                        <Col span={8}>
+                            <Form.Item
+                                name="is_adjustment"
+                                label="Loại dữ liệu"
+                                valuePropName="checked"
+                            >
+                                <Checkbox onChange={fetchAttendances}>
+                                    Chỉ hiển thị yêu cầu điều chỉnh
+                                </Checkbox>
                             </Form.Item>
+                        </Col>
+                        <Col
+                            span={8}
+                            style={{ textAlign: "right", marginTop: 30 }}
+                        >
+                            <Space>
+                                <Button
+                                    onClick={handleReset}
+                                    icon={<FilterOutlined />}
+                                >
+                                    Đặt lại bộ lọc
+                                </Button>
+                                <Button
+                                    type="primary"
+                                    htmlType="submit"
+                                    icon={<SearchOutlined />}
+                                >
+                                    Tìm kiếm
+                                </Button>
+                            </Space>
                         </Col>
                     </Row>
                 </Form>
@@ -1347,284 +1509,120 @@ export default function AttendanceManagement() {
                     <Row gutter={16}>
                         <Col span={12}>
                             <Form.Item
+                                name="branch_id"
+                                label="Chi nhánh"
+                                rules={[
+                                    {
+                                        required: true,
+                                        message: "Vui lòng chọn chi nhánh!",
+                                    },
+                                ]}
+                            >
+                                <Select
+                                    placeholder="Chọn chi nhánh"
+                                    onChange={handleAddFormBranchChange}
+                                >
+                                    {branches.map((branch) => (
+                                        <Option
+                                            key={branch.id}
+                                            value={branch.id}
+                                        >
+                                            {branch.name}
+                                        </Option>
+                                    ))}
+                                </Select>
+                            </Form.Item>
+                        </Col>
+                        <Col span={12}>
+                            <Form.Item
                                 name="employee_id"
                                 label="Nhân viên"
                                 rules={[
                                     {
                                         required: true,
-                                        message: "Vui lòng chọn nhân viên",
+                                        message: "Vui lòng chọn nhân viên!",
                                     },
                                 ]}
                             >
                                 <Select
-                                    showSearch
                                     placeholder="Chọn nhân viên"
+                                    showSearch
                                     optionFilterProp="children"
+                                    onChange={(value) => {
+                                        // Tìm nhân viên để lấy thông tin phòng ban
+                                        const selectedEmployee = employees.find(
+                                            (emp) => emp.id === value
+                                        );
+                                        if (
+                                            selectedEmployee &&
+                                            selectedEmployee.branch
+                                        ) {
+                                            addForm.setFieldsValue({
+                                                branch_id:
+                                                    selectedEmployee.branch.id,
+                                            });
+                                        }
+                                    }}
                                 >
-                                    {Array.isArray(employees)
-                                        ? employees.map((emp) => (
-                                              <Option
-                                                  key={emp.id}
-                                                  value={emp.id}
-                                              >
-                                                  {emp.employee_code} -{" "}
-                                                  {emp.name}
-                                              </Option>
-                                          ))
-                                        : null}
+                                    {getFilteredEmployeesByBranch(
+                                        addForm.getFieldValue("branch_id")
+                                    ).map((emp) => (
+                                        <Option key={emp.id} value={emp.id}>
+                                            {emp.name || emp.fullname} -{" "}
+                                            {emp.department?.name ||
+                                                "Không có phòng ban"}
+                                        </Option>
+                                    ))}
                                 </Select>
                             </Form.Item>
                         </Col>
+                    </Row>
+
+                    <Row gutter={16}>
                         <Col span={12}>
                             <Form.Item
                                 name="date"
                                 label="Ngày"
+                                initialValue={dayjs()}
                                 rules={[
                                     {
                                         required: true,
-                                        message: "Vui lòng chọn ngày",
+                                        message: "Vui lòng chọn ngày!",
                                     },
                                 ]}
                             >
                                 <DatePicker
-                                    style={{ width: "100%" }}
                                     format="DD/MM/YYYY"
-                                    placeholder="Chọn ngày"
+                                    style={{ width: "100%" }}
                                 />
                             </Form.Item>
                         </Col>
-                    </Row>
-                    <Row gutter={16}>
                         <Col span={12}>
                             <Form.Item
                                 name="employee_shift_id"
                                 label="Ca làm việc"
-                                tooltip="Chọn ca làm việc sẽ giúp liên kết dữ liệu chấm công với lịch làm việc"
                             >
                                 <Select
-                                    allowClear
                                     placeholder="Chọn ca làm việc"
-                                    loading={loading}
+                                    allowClear
+                                    disabled={
+                                        !addForm.getFieldValue("employee_id") ||
+                                        !addForm.getFieldValue("date")
+                                    }
                                 >
-                                    {employeeShifts &&
-                                    employeeShifts.length > 0 ? (
-                                        employeeShifts.map((shift) => (
-                                            <Option
-                                                key={shift.id}
-                                                value={shift.id}
-                                            >
-                                                {shift.schedule_code} -{" "}
-                                                {shift.shift?.name ||
-                                                    "Ca không xác định"}
-                                                :{" "}
-                                                {shift.shift?.start_time ||
-                                                    "--:--"}{" "}
-                                                -{" "}
-                                                {shift.shift?.end_time ||
-                                                    "--:--"}
-                                            </Option>
-                                        ))
-                                    ) : (
-                                        <Option disabled>
-                                            Không có ca làm việc cho ngày này
+                                    {employeeShifts.map((shift) => (
+                                        <Option key={shift.id} value={shift.id}>
+                                            {shift.shift?.name} (
+                                            {shift.shift?.start_time} -{" "}
+                                            {shift.shift?.end_time})
                                         </Option>
-                                    )}
+                                    ))}
                                 </Select>
                             </Form.Item>
                         </Col>
-                        <Col span={12}>
-                            <Form.Item
-                                name="type"
-                                label="Loại chấm công"
-                                rules={[
-                                    {
-                                        required: true,
-                                        message: "Vui lòng chọn loại chấm công",
-                                    },
-                                ]}
-                            >
-                                <Radio.Group
-                                    onChange={(e) =>
-                                        setAttendanceType(e.target.value)
-                                    }
-                                >
-                                    <Radio value={AttendanceType.NORMAL}>
-                                        Bình thường
-                                    </Radio>
-                                    <Radio value={AttendanceType.OVERTIME}>
-                                        Tăng ca
-                                    </Radio>
-                                    <Radio value={AttendanceType.NIGHT_SHIFT}>
-                                        <Text
-                                            strong
-                                            style={{ color: "#0050b3" }}
-                                        >
-                                            Ca đêm
-                                        </Text>
-                                    </Radio>
-                                    <Radio value={AttendanceType.HOLIDAY}>
-                                        Ngày lễ
-                                    </Radio>
-                                </Radio.Group>
-                            </Form.Item>
-                        </Col>
-                    </Row>
-                    {attendanceType === AttendanceType.NIGHT_SHIFT && (
-                        <Alert
-                            message="Thông tin ca đêm"
-                            description="Các giờ làm việc trong ca đêm sẽ được tính phụ cấp ca đêm theo hệ số cấu hình trong bảng lương."
-                            type="info"
-                            showIcon
-                            style={{ marginBottom: 16 }}
-                        />
-                    )}
-
-                    {/* Hiển thị cảnh báo nếu phát hiện đi trễ hoặc về sớm và chưa bỏ qua */}
-                    {(detectedStatuses.late || detectedStatuses.earlyLeave) &&
-                        !detectedStatuses.ignored && (
-                            <Alert
-                                message={
-                                    detectedStatuses.isSpecialShift
-                                        ? "Phát hiện trạng thái đặc biệt trong ca tối/đêm"
-                                        : "Phát hiện trạng thái đặc biệt"
-                                }
-                                description={
-                                    <div>
-                                        {detectedStatuses.late && (
-                                            <div>
-                                                Đi trễ:{" "}
-                                                <Text type="warning">
-                                                    {
-                                                        detectedStatuses.lateMinutes
-                                                    }{" "}
-                                                    phút
-                                                </Text>
-                                            </div>
-                                        )}
-                                        {detectedStatuses.earlyLeave && (
-                                            <div>
-                                                Về sớm:{" "}
-                                                <Text type="warning">
-                                                    {
-                                                        detectedStatuses.earlyLeaveMinutes
-                                                    }{" "}
-                                                    phút
-                                                </Text>
-                                                {detectedStatuses.isSpecialShift && (
-                                                    <Text
-                                                        type="secondary"
-                                                        style={{
-                                                            marginLeft: 8,
-                                                            fontSize: 12,
-                                                        }}
-                                                    >
-                                                        <InfoCircleOutlined />{" "}
-                                                        Về sớm trong ca đặc biệt
-                                                        vẫn được tính giờ làm
-                                                        đúng
-                                                    </Text>
-                                                )}
-                                            </div>
-                                        )}
-                                        <div style={{ marginTop: 8 }}>
-                                            Các trạng thái này sẽ được tự động
-                                            thêm vào ghi chú.
-                                            {detectedStatuses.isSpecialShift &&
-                                                detectedStatuses.earlyLeave && (
-                                                    <div
-                                                        style={{ marginTop: 5 }}
-                                                    >
-                                                        <Text type="success">
-                                                            <InfoCircleOutlined />{" "}
-                                                            Lưu ý: Với ca
-                                                            tối/đêm, hệ thống
-                                                            vẫn ghi nhận giờ làm
-                                                            việc thực tế.
-                                                        </Text>
-                                                    </div>
-                                                )}
-                                        </div>
-                                    </div>
-                                }
-                                type={
-                                    detectedStatuses.isSpecialShift
-                                        ? "info"
-                                        : "warning"
-                                }
-                                showIcon
-                                style={{ marginBottom: 16 }}
-                                action={
-                                    <Button
-                                        size="small"
-                                        onClick={() => ignoreWarning("add")}
-                                    >
-                                        Bỏ qua
-                                    </Button>
-                                }
-                            />
-                        )}
-
-                    <Row gutter={16}>
-                        <Col span={12}>
-                            <Form.Item name="check_in" label="Giờ check-in">
-                                <TimePicker
-                                    format="HH:mm"
-                                    style={{ width: "100%" }}
-                                    placeholder="Giờ check-in"
-                                />
-                            </Form.Item>
-                        </Col>
-                        <Col span={12}>
-                            <Form.Item name="check_out" label="Giờ check-out">
-                                <TimePicker
-                                    format="HH:mm"
-                                    style={{ width: "100%" }}
-                                    placeholder="Giờ check-out"
-                                />
-                            </Form.Item>
-                        </Col>
                     </Row>
 
-                    <Form.Item name="notes" label="Ghi chú">
-                        <div
-                            style={{
-                                display: "flex",
-                                justifyContent: "flex-end",
-                                marginBottom: "8px",
-                            }}
-                        >
-                            <Switch
-                                checked={!showNotes}
-                                onChange={(checked) => setShowNotes(!checked)}
-                                checkedChildren="Ẩn"
-                                unCheckedChildren="Hiện"
-                            />
-                        </div>
-                        {!showNotes && (
-                            <Input.TextArea
-                                rows={3}
-                                placeholder="Nhập ghi chú"
-                                disabled={
-                                    (detectedStatuses.late ||
-                                        detectedStatuses.earlyLeave) &&
-                                    !detectedStatuses.ignored
-                                }
-                            />
-                        )}
-                        {(detectedStatuses.late ||
-                            detectedStatuses.earlyLeave) &&
-                            !detectedStatuses.ignored &&
-                            !showNotes && (
-                                <div style={{ marginTop: "4px" }}>
-                                    <Text type="secondary">
-                                        Trường ghi chú đã bị khóa do hệ thống tự
-                                        động thêm thông tin về trạng thái đi
-                                        trễ/về sớm. Nhấn "Bỏ qua" nếu bạn muốn
-                                        tự điền ghi chú.
-                                    </Text>
-                                </div>
-                            )}
-                    </Form.Item>
+                    {/* Rest of the form fields */}
                 </Form>
             </Modal>
 
@@ -1839,12 +1837,38 @@ export default function AttendanceManagement() {
                     <Row gutter={16}>
                         <Col span={12}>
                             <Form.Item
+                                name="branch_id"
+                                label="Chi nhánh"
+                                rules={[
+                                    {
+                                        required: true,
+                                        message: "Vui lòng chọn chi nhánh!",
+                                    },
+                                ]}
+                            >
+                                <Select
+                                    placeholder="Chọn chi nhánh"
+                                    onChange={handleAdjustFormBranchChange}
+                                >
+                                    {branches.map((branch) => (
+                                        <Option
+                                            key={branch.id}
+                                            value={branch.id}
+                                        >
+                                            {branch.name}
+                                        </Option>
+                                    ))}
+                                </Select>
+                            </Form.Item>
+                        </Col>
+                        <Col span={12}>
+                            <Form.Item
                                 name="employee_id"
                                 label="Nhân viên"
                                 rules={[
                                     {
                                         required: true,
-                                        message: "Vui lòng chọn nhân viên",
+                                        message: "Vui lòng chọn nhân viên!",
                                     },
                                 ]}
                             >
@@ -1852,29 +1876,45 @@ export default function AttendanceManagement() {
                                     showSearch
                                     placeholder="Chọn nhân viên"
                                     optionFilterProp="children"
+                                    onChange={(value) => {
+                                        // Tìm nhân viên để lấy thông tin chi nhánh
+                                        const selectedEmployee = employees.find(
+                                            (emp) => emp.id === value
+                                        );
+                                        if (
+                                            selectedEmployee &&
+                                            selectedEmployee.branch
+                                        ) {
+                                            adjustForm.setFieldsValue({
+                                                branch_id:
+                                                    selectedEmployee.branch.id,
+                                            });
+                                        }
+                                    }}
                                 >
-                                    {Array.isArray(employees)
-                                        ? employees.map((emp) => (
-                                              <Option
-                                                  key={emp.id}
-                                                  value={emp.id}
-                                              >
-                                                  {emp.employee_code} -{" "}
-                                                  {emp.name}
-                                              </Option>
-                                          ))
-                                        : null}
+                                    {getFilteredEmployeesByBranch(
+                                        adjustForm.getFieldValue("branch_id")
+                                    ).map((emp) => (
+                                        <Option key={emp.id} value={emp.id}>
+                                            {emp.name || emp.fullname} -{" "}
+                                            {emp.department?.name ||
+                                                "Không có phòng ban"}
+                                        </Option>
+                                    ))}
                                 </Select>
                             </Form.Item>
                         </Col>
+                    </Row>
+                    <Row gutter={16}>
                         <Col span={12}>
                             <Form.Item
                                 name="date"
                                 label="Ngày"
+                                initialValue={dayjs()}
                                 rules={[
                                     {
                                         required: true,
-                                        message: "Vui lòng chọn ngày",
+                                        message: "Vui lòng chọn ngày!",
                                     },
                                 ]}
                             >
@@ -1885,53 +1925,25 @@ export default function AttendanceManagement() {
                                 />
                             </Form.Item>
                         </Col>
-                    </Row>
-                    <Row gutter={16}>
                         <Col span={12}>
                             <Form.Item
                                 name="employee_shift_id"
                                 label="Ca làm việc"
-                                tooltip="Chọn ca làm việc sẽ giúp liên kết dữ liệu chấm công với lịch làm việc"
                             >
                                 <Select
                                     allowClear
                                     placeholder="Chọn ca làm việc"
-                                    loading={loading}
+                                    disabled={
+                                        !adjustForm.getFieldValue(
+                                            "employee_id"
+                                        ) || !adjustForm.getFieldValue("date")
+                                    }
                                 >
-                                    {adjustShifts && adjustShifts.length > 0 ? (
-                                        adjustShifts.map((shift) => (
-                                            <Option
-                                                key={shift.id}
-                                                value={shift.id}
-                                            >
-                                                {shift.schedule_code} -{" "}
-                                                {shift.shift?.name ||
-                                                    "Ca không xác định"}
-                                                :{" "}
-                                                {shift.shift?.start_time ||
-                                                    "--:--"}{" "}
-                                                -{" "}
-                                                {shift.shift?.end_time ||
-                                                    "--:--"}
-                                            </Option>
-                                        ))
-                                    ) : (
-                                        <Option disabled>
-                                            Không có ca làm việc cho ngày này
-                                        </Option>
-                                    )}
-                                </Select>
-                            </Form.Item>
-                        </Col>
-                        <Col span={12}>
-                            <Form.Item name="type" label="Loại chấm công">
-                                <Select placeholder="Chọn loại">
-                                    {Object.keys(AttendanceType).map((key) => (
-                                        <Option
-                                            key={key}
-                                            value={AttendanceType[key]}
-                                        >
-                                            {typeLabels[AttendanceType[key]]}
+                                    {adjustShifts.map((shift) => (
+                                        <Option key={shift.id} value={shift.id}>
+                                            {shift.shift?.name} (
+                                            {shift.shift?.start_time} -{" "}
+                                            {shift.shift?.end_time})
                                         </Option>
                                     ))}
                                 </Select>

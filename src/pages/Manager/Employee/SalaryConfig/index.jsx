@@ -39,6 +39,7 @@ import {
     SettingOutlined,
     ExclamationCircleOutlined,
     EyeOutlined,
+    BuildOutlined,
 } from "@ant-design/icons";
 import {
     getSalaryConfigs,
@@ -49,8 +50,12 @@ import {
     getSalaryTypes,
     getSalaryConfigById,
 } from "../../../../api/salaryApi";
-import { getDepartments } from "../../../../api/departmentsApi";
+import {
+    getDepartments,
+    getDepartmentsByBranch,
+} from "../../../../api/departmentsApi";
 import { getRoles } from "../../../../api/rolesEmployeeApi";
+import { getBranches } from "../../../../api/branchesApi";
 import SalaryConfigForm from "./SalaryConfigForm";
 import "./styles.css";
 
@@ -62,6 +67,7 @@ const SalaryConfigPage = () => {
     const [form] = Form.useForm();
     const [salaryConfigs, setSalaryConfigs] = useState([]);
     const [departments, setDepartments] = useState([]);
+    const [branches, setBranches] = useState([]);
     const [roles, setRoles] = useState([]);
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
@@ -72,6 +78,7 @@ const SalaryConfigPage = () => {
     const [activeTab, setActiveTab] = useState("monthly");
     const [departmentFilter, setDepartmentFilter] = useState(null);
     const [roleFilter, setRoleFilter] = useState(null);
+    const [branchFilter, setBranchFilter] = useState(null);
     const [statusFilter, setStatusFilter] = useState(null);
     const [searchText, setSearchText] = useState("");
     const [drawerWidth, setDrawerWidth] = useState(700);
@@ -81,6 +88,7 @@ const SalaryConfigPage = () => {
         inactive: 0,
         byType: {},
         byDepartment: {},
+        byBranch: {},
     });
     const [salaryTypes, setSalaryTypes] = useState({
         types: ["monthly", "hourly", "shift"],
@@ -92,6 +100,7 @@ const SalaryConfigPage = () => {
     });
     const [viewingConfig, setViewingConfig] = useState(null);
     const [detailModalVisible, setDetailModalVisible] = useState(false);
+    const [selectedBranch, setSelectedBranch] = useState(null);
 
     // Fetch salary configurations
     const fetchSalaryConfigs = async (filters = {}) => {
@@ -113,6 +122,11 @@ const SalaryConfigPage = () => {
             // Xử lý tìm kiếm
             if (searchText && !queryParams.search) {
                 queryParams.search = searchText.trim();
+            }
+
+            // Add branch filter
+            if (branchFilter) {
+                queryParams.branch_id = branchFilter;
             }
 
             const configs = await getSalaryConfigs(queryParams);
@@ -148,56 +162,63 @@ const SalaryConfigPage = () => {
             byDepartment[deptName] = (byDepartment[deptName] || 0) + 1;
         });
 
+        // Count by branch
+        const byBranch = {};
+        configs.forEach((config) => {
+            const branchName =
+                config.department?.branch?.name || "Không xác định";
+            byBranch[branchName] = (byBranch[branchName] || 0) + 1;
+        });
+
         setStats({
             total,
             active,
             inactive,
             byType,
             byDepartment,
+            byBranch,
         });
     };
 
-    // Fetch departments, roles, and salary types
+    // Fetch departments, branches, roles, and salary types
     const fetchDepartmentsAndRoles = async () => {
         setLoading(true);
 
-        // Fetch departments
         try {
+            // Fetch branches
+            const branchesResponse = await getBranches();
+            setBranches(branchesResponse || []);
+
+            // Fetch departments
             const deptsResponse = await getDepartments();
-            setDepartments(deptsResponse);
-        } catch (error) {
-            message.error(
-                "Không thể tải dữ liệu phòng ban. Vui lòng thử lại sau."
-            );
-        }
+            setDepartments(deptsResponse || []);
 
-        // Fetch ALL roles - these will be filtered by department client-side
-        try {
+            // Fetch ALL roles
             const rolesResponse = await getRoles();
-            setRoles(rolesResponse);
+            setRoles(rolesResponse || []);
+
+            // Fetch salary types but use default values if API fails
+            try {
+                const typesResponse = await getSalaryTypes();
+                // Set salary types if API returns valid data
+                if (
+                    typesResponse &&
+                    typesResponse.types &&
+                    typesResponse.types.length > 0
+                ) {
+                    setSalaryTypes(typesResponse);
+                }
+                // If API returns invalid data, we'll keep using the default values
+            } catch (error) {
+                // Sử dụng giá trị mặc định khi API lỗi
+            }
         } catch (error) {
             message.error(
-                "Không thể tải dữ liệu chức vụ. Vui lòng thử lại sau."
+                "Không thể tải dữ liệu ban đầu. Vui lòng thử lại sau."
             );
+        } finally {
+            setLoading(false);
         }
-
-        // Fetch salary types but use default values if API fails
-        try {
-            const typesResponse = await getSalaryTypes();
-            // Set salary types if API returns valid data
-            if (
-                typesResponse &&
-                typesResponse.types &&
-                typesResponse.types.length > 0
-            ) {
-                setSalaryTypes(typesResponse);
-            }
-            // If API returns invalid data, we'll keep using the default values
-        } catch (error) {
-            // Sử dụng giá trị mặc định khi API lỗi
-        }
-
-        setLoading(false);
     };
 
     useEffect(() => {
@@ -208,12 +229,20 @@ const SalaryConfigPage = () => {
         const filters = {};
         if (departmentFilter) filters.department_id = departmentFilter;
         if (roleFilter) filters.role_id = roleFilter;
+        if (branchFilter) filters.branch_id = branchFilter;
         if (statusFilter !== null) filters.is_active = statusFilter;
         if (activeTab !== "all") filters.salary_type = activeTab;
         if (searchText) filters.search = searchText;
 
         fetchSalaryConfigs(filters);
-    }, [departmentFilter, roleFilter, statusFilter, activeTab, searchText]);
+    }, [
+        departmentFilter,
+        roleFilter,
+        branchFilter,
+        statusFilter,
+        activeTab,
+        searchText,
+    ]);
 
     // Adjust drawer width based on screen size
     useEffect(() => {
@@ -316,80 +345,83 @@ const SalaryConfigPage = () => {
 
     // Handle showing the form drawer
     const showDrawer = async (config = null) => {
-        // Clear previous state first
-        form.resetFields();
-        setSelectedDepartment(null);
-        setSelectedRole(null);
-        setEditingConfig(null);
+        setSubmitting(false); // Reset submitting state
+        let editConfig = null;
 
-        // Set drawer visible first so form can mount
-        setDrawerVisible(true);
+        // If editing existing config, fetch details
+        if (config) {
+            try {
+                // Nếu có ID, fetch đầy đủ thông tin cấu hình
+                if (config.id) {
+                    setLoading(true);
+                    const configDetail = await getSalaryConfigById(config.id);
+                    setLoading(false);
+                    editConfig = configDetail;
 
-        // Short timeout to ensure drawer is open and form is mounted
-        setTimeout(() => {
-            if (config) {
-                // Normalize salary_type
-                const normalizedType = normalizeSalaryType(config.salary_type);
-
-                // Ensure department_id and role_id are numbers
-                const departmentId = parseInt(config.department_id, 10);
-                const roleId = parseInt(config.role_id, 10);
-
-                // Set edit config
-                setEditingConfig(config);
-
-                // Set active tab
-                setActiveTab(normalizedType);
-
-                // Set the department ID first to trigger role filtering
-                setSelectedDepartment(departmentId);
-
-                // Set the role after a short delay to ensure department is set
-                setTimeout(() => {
-                    // Set all form values
+                    // Chuẩn bị dữ liệu form
                     form.setFieldsValue({
-                        department_id: departmentId,
-                        role_id: roleId,
-                        salary_type: normalizedType,
-                        base_salary: config.base_salary,
-                        hourly_rate: config.hourly_rate,
-                        shift_rate: config.shift_rate,
-                        overtime_multiplier: config.overtime_multiplier,
-                        night_shift_multiplier: config.night_shift_multiplier,
-                        holiday_multiplier: config.holiday_multiplier,
-                        meal_allowance: config.meal_allowance,
-                        transport_allowance: config.transport_allowance,
-                        housing_allowance: config.housing_allowance,
-                        position_allowance: config.position_allowance,
-                        attendance_bonus: config.attendance_bonus,
-                        tax_rate: config.tax_rate,
-                        insurance_rate: config.insurance_rate,
-                        standard_hours_per_day:
-                            config.standard_hours_per_day || 8,
-                        standard_days_per_month:
-                            config.standard_days_per_month || 22,
-                        is_active: config.is_active,
-                        description: config.description,
+                        ...configDetail,
+                        salary_type: configDetail.salary_type,
+                        department_id: configDetail.department_id,
+                        role_id: configDetail.role_id,
+                        branch_id: configDetail.department?.branch_id || null,
                     });
 
-                    // Set the role after form values are set
-                    setSelectedRole(roleId);
-                }, 300); // Shorter delay as we don't need to fetch roles from API
-            } else {
-                // Set default values for new config
-                form.setFieldsValue({
-                    salary_type: activeTab,
-                    overtime_multiplier: 1.5,
-                    night_shift_multiplier: 1.3,
-                    holiday_multiplier: 2.0,
-                    tax_rate: 0.1,
-                    insurance_rate: 0.105,
-                    standard_hours_per_day: 8,
-                    standard_days_per_month: 22,
-                    is_active: true,
-                });
+                    // Set active tab based on salary type
+                    if (configDetail.salary_type) {
+                        // Force as string for safety
+                        const salaryTypeStr = String(
+                            configDetail.salary_type
+                        ).toLowerCase();
+
+                        // Set active tab if valid type
+                        if (
+                            salaryTypes &&
+                            salaryTypes.types.includes(salaryTypeStr)
+                        ) {
+                            setActiveTab(salaryTypeStr);
+                        } else {
+                            // Fallback to monthly if invalid type
+                            setActiveTab("monthly");
+                        }
+                    }
+
+                    // Set selected department/role for dropdown filters
+                    setSelectedDepartment(configDetail.department_id);
+                    setSelectedRole(configDetail.role_id);
+                    setSelectedBranch(
+                        configDetail.department?.branch_id || null
+                    );
+                }
+            } catch (error) {
+                console.error("Error fetching config details:", error);
+                message.error(
+                    "Không thể tải thông tin cấu hình. Vui lòng thử lại."
+                );
+                form.resetFields();
             }
-        }, 100);
+        } else {
+            // If creating new config, reset form
+            form.resetFields();
+            form.setFieldsValue({
+                overtime_multiplier: 1.5,
+                night_shift_multiplier: 1.3,
+                holiday_multiplier: 2.0,
+                tax_rate: 0.1,
+                insurance_rate: 0.105,
+                standard_hours_per_day: 8,
+                standard_days_per_month: 22,
+                is_active: true,
+                // Default base_salary to avoid NaN issues
+                base_salary: 0,
+            });
+
+            // For new config use current active tab
+            form.setFieldsValue({ salary_type: activeTab });
+        }
+
+        setEditingConfig(editConfig);
+        setDrawerVisible(true);
     };
 
     // Handle status change
@@ -479,13 +511,52 @@ const SalaryConfigPage = () => {
 
     // Reset filters
     const resetFilters = () => {
+        setSearchText("");
         setDepartmentFilter(null);
         setRoleFilter(null);
+        setBranchFilter(null);
         setStatusFilter(null);
         setActiveTab("monthly");
-        setSearchText("");
-        // Gọi API để lấy tất cả dữ liệu
+
+        // Reset all departments list
+        getDepartments()
+            .then((deptsResponse) => {
+                setDepartments(deptsResponse || []);
+            })
+            .catch((error) => {
+                console.error("Error fetching departments:", error);
+            });
+
         fetchSalaryConfigs({});
+    };
+
+    // Handle branch change
+    const handleBranchChange = async (value) => {
+        setBranchFilter(value);
+
+        // Reset department filter when branch changes
+        setDepartmentFilter(null);
+
+        if (value) {
+            try {
+                // Fetch departments for the selected branch
+                const deptsByBranch = await getDepartmentsByBranch(value);
+                setDepartments(deptsByBranch || []);
+            } catch (error) {
+                console.error("Error fetching departments by branch:", error);
+                message.error(
+                    "Không thể tải danh sách phòng ban theo chi nhánh"
+                );
+            }
+        } else {
+            // If no branch selected, load all departments
+            try {
+                const allDepts = await getDepartments();
+                setDepartments(allDepts || []);
+            } catch (error) {
+                console.error("Error fetching all departments:", error);
+            }
+        }
     };
 
     // Table columns definition
@@ -838,291 +909,196 @@ const SalaryConfigPage = () => {
 
     // Filter controls component
     const FilterControls = () => (
-        <>
-            <Row gutter={[16, 16]} className="filter-row" align="middle">
-                <Col xs={24} sm={12} lg={6}>
-                    <Select
-                        placeholder="Lọc theo phòng ban"
-                        allowClear
-                        showSearch
-                        style={{ width: "100%" }}
-                        value={departmentFilter}
-                        onChange={(value) => setDepartmentFilter(value)}
-                        options={departments.map((dept) => ({
-                            value: dept.id,
-                            label: dept.name,
-                        }))}
-                        filterOption={(input, option) =>
-                            (option?.label ?? "")
-                                .toLowerCase()
-                                .includes(input.toLowerCase())
-                        }
-                        loading={loading}
-                    />
-                </Col>
-                <Col xs={24} sm={12} lg={6}>
-                    <Select
-                        placeholder="Lọc theo chức vụ"
-                        allowClear
-                        showSearch
-                        style={{ width: "100%" }}
-                        value={roleFilter}
-                        onChange={(value) => setRoleFilter(value)}
-                        options={roles.map((role) => ({
-                            value: role.id,
-                            label: role.name,
-                        }))}
-                        filterOption={(input, option) =>
-                            (option?.label ?? "")
-                                .toLowerCase()
-                                .includes(input.toLowerCase())
-                        }
-                        disabled={!departmentFilter && roles.length > 30}
-                        loading={loading}
-                    />
-                    {!departmentFilter && roles.length > 30 && (
-                        <Text
-                            type="secondary"
-                            style={{ fontSize: "12px", display: "block" }}
-                        >
-                            Vui lòng chọn phòng ban trước để lọc chức vụ
-                        </Text>
-                    )}
-                </Col>
-                <Col xs={24} sm={12} lg={4}>
-                    <Select
-                        placeholder="Loại lương"
-                        allowClear
-                        style={{ width: "100%" }}
-                        value={activeTab !== "all" ? activeTab : undefined}
-                        onChange={(value) => setActiveTab(value || "all")}
-                        options={[
-                            ...salaryTypes.types.map((type) => ({
-                                value: type,
-                                label: salaryTypes.labels[type] || type,
-                            })),
-                            { value: "all", label: "Tất cả loại lương" },
-                        ]}
-                    />
-                </Col>
-                <Col xs={24} sm={12} lg={4}>
-                    <Select
-                        placeholder="Trạng thái"
-                        allowClear
-                        style={{ width: "100%" }}
-                        value={statusFilter}
-                        onChange={(value) => setStatusFilter(value)}
-                        options={[
-                            { value: true, label: "Đang sử dụng" },
-                            { value: false, label: "Đã khóa" },
-                        ]}
-                    />
-                </Col>
-                <Col xs={24} lg={4}>
-                    <Input.Search
-                        placeholder="Tìm kiếm..."
-                        allowClear
-                        enterButton
-                        value={searchText}
-                        onChange={(e) => setSearchText(e.target.value)}
-                        onSearch={(value) => {
-                            setSearchText(value);
-                            // Thực hiện tìm kiếm ngay khi người dùng nhấn Enter hoặc nút tìm kiếm
-                            const filters = {};
-                            if (departmentFilter)
-                                filters.department_id = departmentFilter;
-                            if (roleFilter) filters.role_id = roleFilter;
-                            if (statusFilter !== null)
-                                filters.is_active = statusFilter;
-                            if (activeTab !== "all")
-                                filters.salary_type = activeTab;
-                            filters.search = value;
-                            fetchSalaryConfigs(filters);
-                        }}
-                    />
-                </Col>
-            </Row>
-            <Row justify="end" style={{ marginTop: 16 }}>
-                <Space>
-                    <Button
-                        icon={<SearchOutlined />}
-                        onClick={() => {
-                            const filters = {};
-                            if (departmentFilter)
-                                filters.department_id = departmentFilter;
-                            if (roleFilter) filters.role_id = roleFilter;
-                            if (statusFilter !== null)
-                                filters.is_active = statusFilter;
-                            if (activeTab !== "all")
-                                filters.salary_type = activeTab;
-                            if (searchText) filters.search = searchText;
-                            fetchSalaryConfigs(filters);
-                        }}
-                    >
-                        Tìm kiếm
-                    </Button>
-                    <Button
-                        icon={<UnorderedListOutlined />}
-                        onClick={resetFilters}
-                    >
-                        Xóa bộ lọc
-                    </Button>
-                    <Button
-                        icon={<SearchOutlined />}
-                        loading={loading}
-                        onClick={() => fetchSalaryConfigs({})}
-                    >
-                        Tải lại
-                    </Button>
-                </Space>
-            </Row>
-        </>
+        <Row gutter={[16, 16]} className="mb-3">
+            <Col xs={24} sm={12} md={8} lg={6}>
+                <Select
+                    placeholder="Chọn chi nhánh"
+                    style={{ width: "100%" }}
+                    allowClear
+                    value={branchFilter}
+                    onChange={handleBranchChange}
+                    suffixIcon={<BuildOutlined />}
+                >
+                    {branches.map((branch) => (
+                        <Option key={branch.id} value={branch.id}>
+                            {branch.name}
+                        </Option>
+                    ))}
+                </Select>
+            </Col>
+            <Col xs={24} sm={12} md={8} lg={6}>
+                <Select
+                    placeholder="Chọn phòng ban"
+                    style={{ width: "100%" }}
+                    allowClear
+                    value={departmentFilter}
+                    onChange={setDepartmentFilter}
+                    suffixIcon={<TeamOutlined />}
+                >
+                    {departments.map((department) => (
+                        <Option key={department.id} value={department.id}>
+                            {department.name}
+                        </Option>
+                    ))}
+                </Select>
+            </Col>
+            <Col xs={24} sm={12} md={8} lg={6}>
+                <Select
+                    placeholder="Chọn chức vụ"
+                    style={{ width: "100%" }}
+                    allowClear
+                    value={roleFilter}
+                    onChange={setRoleFilter}
+                    suffixIcon={<UserOutlined />}
+                >
+                    {roles.map((role) => (
+                        <Option key={role.id} value={role.id}>
+                            {role.name}
+                        </Option>
+                    ))}
+                </Select>
+            </Col>
+            <Col xs={24} sm={12} md={8} lg={6}>
+                <Select
+                    placeholder="Trạng thái"
+                    style={{ width: "100%" }}
+                    allowClear
+                    value={statusFilter}
+                    onChange={setStatusFilter}
+                    suffixIcon={<CheckCircleOutlined />}
+                >
+                    <Option value={true}>Hoạt động</Option>
+                    <Option value={false}>Không hoạt động</Option>
+                </Select>
+            </Col>
+            <Col xs={24} sm={12} md={8} lg={12}>
+                <Input
+                    placeholder="Tìm kiếm..."
+                    value={searchText}
+                    onChange={(e) => setSearchText(e.target.value)}
+                    onPressEnter={() =>
+                        fetchSalaryConfigs({ search: searchText })
+                    }
+                    allowClear
+                    prefix={<SearchOutlined />}
+                />
+            </Col>
+            <Col xs={24} sm={12} md={8} lg={6}>
+                <Button
+                    type="primary"
+                    icon={<SearchOutlined />}
+                    onClick={() => fetchSalaryConfigs()}
+                    style={{ marginRight: 8 }}
+                >
+                    Tìm kiếm
+                </Button>
+                <Button icon={<CloseCircleOutlined />} onClick={resetFilters}>
+                    Đặt lại
+                </Button>
+            </Col>
+        </Row>
     );
 
     // Stats cards component
     const StatsCards = () => (
-        <Row gutter={[16, 16]} className="stats-row">
-            <Col xs={24} sm={12} md={8} lg={6}>
-                <Card className="stat-card" hoverable>
-                    <Statistic
-                        title="Tổng cấu hình lương"
-                        value={stats.total}
-                        prefix={<SettingOutlined />}
-                        valueStyle={{ color: "#1677ff" }}
-                    />
-                    <div className="stat-footer">
-                        <Button
-                            type="link"
-                            size="small"
-                            onClick={() => {
-                                resetFilters();
-                                fetchSalaryConfigs({});
-                            }}
-                        >
-                            Xem tất cả
-                        </Button>
-                    </div>
-                </Card>
-            </Col>
-            <Col xs={24} sm={12} md={8} lg={6}>
-                <Card className="stat-card" hoverable>
-                    <Statistic
-                        title="Đang sử dụng"
-                        value={stats.active}
-                        valueStyle={{ color: "#3f8600" }}
-                        prefix={<CheckCircleOutlined />}
-                        suffix={
-                            <small style={{ fontSize: "14px" }}>
-                                {stats.total > 0
-                                    ? ` (${Math.round(
-                                          (stats.active / stats.total) * 100
-                                      )}%)`
-                                    : ""}
-                            </small>
-                        }
-                    />
-                    <div className="stat-footer">
-                        <Button
-                            type="link"
-                            size="small"
-                            onClick={() => {
-                                resetFilters();
-                                setStatusFilter(true);
-                                fetchSalaryConfigs({ is_active: true });
-                            }}
-                        >
-                            Lọc theo trạng thái
-                        </Button>
-                    </div>
-                </Card>
-            </Col>
-            <Col xs={24} sm={12} md={8} lg={6}>
-                <Card className="stat-card" hoverable>
-                    <Statistic
-                        title="Đã khóa"
-                        value={stats.inactive}
-                        valueStyle={{ color: "#cf1322" }}
-                        prefix={<CloseCircleOutlined />}
-                        suffix={
-                            <small style={{ fontSize: "14px" }}>
-                                {stats.total > 0
-                                    ? ` (${Math.round(
-                                          (stats.inactive / stats.total) * 100
-                                      )}%)`
-                                    : ""}
-                            </small>
-                        }
-                    />
-                    <div className="stat-footer">
-                        <Button
-                            type="link"
-                            size="small"
-                            onClick={() => {
-                                resetFilters();
-                                setStatusFilter(false);
-                                fetchSalaryConfigs({ is_active: false });
-                            }}
-                        >
-                            Lọc theo trạng thái
-                        </Button>
-                    </div>
-                </Card>
-            </Col>
-            <Col xs={24} sm={12} md={8} lg={6}>
-                <Card className="stat-card" hoverable>
-                    <Statistic
-                        title={`Lương ${
-                            activeTab !== "all"
-                                ? (salaryTypes.labels &&
-                                      salaryTypes.labels[activeTab]) ||
-                                  activeTab
-                                : "tất cả"
-                        }`}
-                        value={
-                            activeTab !== "all"
-                                ? stats.byType[activeTab] || 0
-                                : stats.total
-                        }
-                        prefix={
-                            activeTab === "monthly" ? (
-                                <BankOutlined />
-                            ) : activeTab === "hourly" ? (
-                                <ClockCircleOutlined />
-                            ) : activeTab === "shift" ? (
-                                <TeamOutlined />
-                            ) : (
-                                <DollarOutlined />
-                            )
-                        }
-                        valueStyle={{
-                            color:
-                                activeTab === "monthly"
-                                    ? "#1677ff"
-                                    : activeTab === "hourly"
-                                    ? "#52c41a"
-                                    : activeTab === "shift"
-                                    ? "#fa8c16"
-                                    : "#722ed1",
-                        }}
-                    />
-                    <div className="stat-footer">
-                        <Button
-                            type="link"
-                            size="small"
-                            onClick={() => {
-                                setActiveTab(
-                                    activeTab === "all" ? "monthly" : "all"
-                                );
-                            }}
-                        >
-                            {activeTab === "all"
-                                ? "Lọc theo loại"
-                                : "Xem tất cả loại"}
-                        </Button>
-                    </div>
-                </Card>
-            </Col>
-        </Row>
+        <div className="stats-container">
+            <Row gutter={[16, 16]}>
+                <Col xs={24} sm={12} md={8} lg={6}>
+                    <Card className="stat-card">
+                        <Statistic
+                            title="Tổng số cấu hình"
+                            value={stats.total}
+                            prefix={<DollarOutlined />}
+                        />
+                    </Card>
+                </Col>
+                <Col xs={24} sm={12} md={8} lg={6}>
+                    <Card className="stat-card">
+                        <Statistic
+                            title="Đang hoạt động"
+                            value={stats.active}
+                            valueStyle={{ color: "#52c41a" }}
+                            prefix={<CheckCircleOutlined />}
+                        />
+                    </Card>
+                </Col>
+                <Col xs={24} sm={12} md={8} lg={6}>
+                    <Card className="stat-card">
+                        <Statistic
+                            title="Không hoạt động"
+                            value={stats.inactive}
+                            valueStyle={{ color: "#f5222d" }}
+                            prefix={<CloseCircleOutlined />}
+                        />
+                    </Card>
+                </Col>
+                <Col xs={24} sm={12} md={8} lg={6}>
+                    <Card className="stat-card">
+                        <Statistic
+                            title="Số lương loại"
+                            value={Object.keys(stats.byType).length}
+                            prefix={<SettingOutlined />}
+                        />
+                    </Card>
+                </Col>
+            </Row>
+
+            <Divider orientation="left">Thống kê theo loại lương</Divider>
+            <Row gutter={[16, 16]}>
+                {Object.entries(stats.byType).map(([type, count]) => (
+                    <Col xs={24} sm={12} md={8} lg={6} key={type}>
+                        <Card className="stat-card">
+                            <Statistic
+                                title={
+                                    salaryTypes.labels[type] ||
+                                    `Loại lương ${type}`
+                                }
+                                value={count}
+                                prefix={
+                                    type === "monthly" ? (
+                                        <BankOutlined />
+                                    ) : type === "hourly" ? (
+                                        <ClockCircleOutlined />
+                                    ) : (
+                                        <TeamOutlined />
+                                    )
+                                }
+                            />
+                        </Card>
+                    </Col>
+                ))}
+            </Row>
+
+            <Divider orientation="left">Thống kê theo chi nhánh</Divider>
+            <Row gutter={[16, 16]}>
+                {Object.entries(stats.byBranch).map(([branch, count]) => (
+                    <Col xs={24} sm={12} md={8} lg={6} key={branch}>
+                        <Card className="stat-card">
+                            <Statistic
+                                title={branch}
+                                value={count}
+                                prefix={<BuildOutlined />}
+                            />
+                        </Card>
+                    </Col>
+                ))}
+            </Row>
+
+            <Divider orientation="left">Thống kê theo phòng ban</Divider>
+            <Row gutter={[16, 16]}>
+                {Object.entries(stats.byDepartment).map(([dept, count]) => (
+                    <Col xs={24} sm={12} md={8} lg={6} key={dept}>
+                        <Card className="stat-card">
+                            <Statistic
+                                title={dept}
+                                value={count}
+                                prefix={<TeamOutlined />}
+                            />
+                        </Card>
+                    </Col>
+                ))}
+            </Row>
+        </div>
     );
 
     // Component for displaying the config details in a modal
@@ -1575,25 +1551,45 @@ const SalaryConfigPage = () => {
                 }
                 placement="right"
                 closable={true}
-                onClose={() => setDrawerVisible(false)}
+                onClose={() => {
+                    setDrawerVisible(false);
+                    setEditingConfig(null);
+                    setSelectedDepartment(null);
+                    setSelectedRole(null);
+                    setSelectedBranch(null);
+                    form.resetFields();
+                }}
                 open={drawerVisible}
                 width={drawerWidth}
-                className="salary-drawer"
+                bodyStyle={{ paddingBottom: 80 }}
+                destroyOnClose={true}
                 footer={
-                    <div style={{ textAlign: "right" }}>
+                    <div
+                        style={{
+                            textAlign: "right",
+                        }}
+                    >
                         <Button
-                            onClick={() => setDrawerVisible(false)}
+                            onClick={() => {
+                                setDrawerVisible(false);
+                                setEditingConfig(null);
+                                setSelectedDepartment(null);
+                                setSelectedRole(null);
+                                setSelectedBranch(null);
+                                form.resetFields();
+                            }}
                             style={{ marginRight: 8 }}
-                            disabled={submitting}
                         >
                             Hủy
                         </Button>
                         <Button
                             type="primary"
-                            onClick={() => form.submit()}
+                            onClick={() => {
+                                form.submit();
+                            }}
                             loading={submitting}
                         >
-                            {editingConfig ? "Cập nhật" : "Tạo mới"}
+                            {editingConfig ? "Cập nhật" : "Thêm mới"}
                         </Button>
                     </div>
                 }
@@ -1602,6 +1598,7 @@ const SalaryConfigPage = () => {
                     form={form}
                     salaryTypes={salaryTypes}
                     departments={departments}
+                    branches={branches}
                     roles={roles}
                     activeTab={activeTab}
                     setActiveTab={setActiveTab}
@@ -1609,6 +1606,8 @@ const SalaryConfigPage = () => {
                     setSelectedDepartment={setSelectedDepartment}
                     selectedRole={selectedRole}
                     setSelectedRole={setSelectedRole}
+                    selectedBranch={selectedBranch}
+                    setSelectedBranch={setSelectedBranch}
                     editingConfig={editingConfig}
                     onFinish={handleSubmit}
                 />

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
     Card,
     Button,
@@ -46,10 +46,18 @@ import {
     ReloadOutlined,
     InfoCircleOutlined,
     MoreOutlined,
+    FilePdfOutlined,
+    CloseCircleOutlined,
+    TeamOutlined,
+    BranchesOutlined,
 } from "@ant-design/icons";
 import dayjs from "dayjs";
-import { getDepartments } from "../../../../api/departmentsApi";
+import {
+    getDepartments,
+    getDepartmentsByBranch,
+} from "../../../../api/departmentsApi";
 import { getEmployees } from "../../../../api/employeesApi";
+import { getBranches } from "../../../../api/branchesApi";
 import {
     createPayroll,
     getPayrolls,
@@ -62,6 +70,10 @@ import PayrollDetail from "./PayrollDetail";
 import FilterControls from "./FilterControls";
 import StatisticsCards from "./StatisticsCards";
 import "./styles.css";
+import { useReactToPrint } from "react-to-print";
+import html2canvas from "html2canvas";
+import { jsPDF } from "jspdf";
+import PayrollForm from "./PayrollForm";
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -100,6 +112,7 @@ export default function PayrollPage() {
     // State for data
     const [payrolls, setPayrolls] = useState([]);
     const [departments, setDepartments] = useState([]);
+    const [branches, setBranches] = useState([]);
     const [employees, setEmployees] = useState([]);
     const [currentPayroll, setCurrentPayroll] = useState(null);
 
@@ -118,6 +131,7 @@ export default function PayrollPage() {
     const [activeTab, setActiveTab] = useState("all");
     const [searchText, setSearchText] = useState("");
     const [departmentFilter, setDepartmentFilter] = useState(null);
+    const [branchFilter, setBranchFilter] = useState(null);
     const [dateRange, setDateRange] = useState([
         dayjs().startOf("month"),
         dayjs().endOf("month"),
@@ -131,18 +145,24 @@ export default function PayrollPage() {
         totalNetPay: 0,
         byStatus: {},
         byDepartment: {},
+        byBranch: {},
     });
+
+    const printComponentRef = useRef();
 
     // Initial data load
     useEffect(() => {
         const fetchDepartmentsAndEmployees = async () => {
             try {
-                const [departmentsData, employeesData] = await Promise.all([
-                    getDepartments(),
-                    getEmployees(),
-                ]);
+                const [departmentsData, employeesData, branchesData] =
+                    await Promise.all([
+                        getDepartments(),
+                        getEmployees(),
+                        getBranches(),
+                    ]);
 
                 setDepartments(departmentsData || []);
+                setBranches(branchesData || []);
                 // Employee API returns {data: [...], total: number}
                 setEmployees(employeesData.data || []);
             } catch (error) {
@@ -162,6 +182,55 @@ export default function PayrollPage() {
         fetchPayrollStats();
     }, [dateRange, activeTab]);
 
+    // Handle branch filter changes
+    const handleBranchChange = async (value) => {
+        setBranchFilter(value);
+
+        // Clear department filter
+        filterForm.setFieldsValue({ department_id: undefined });
+        setDepartmentFilter(null);
+
+        if (value) {
+            try {
+                // Fetch departments for the selected branch
+                const deptsByBranch = await getDepartmentsByBranch(value);
+                setDepartments(deptsByBranch || []);
+
+                // Filter employees by branch
+                if (employees.length > 0) {
+                    const filteredEmps = employees.filter(
+                        (emp) => emp.branch && emp.branch.id === value
+                    );
+                    setEmployees(filteredEmps);
+                }
+            } catch (error) {
+                console.error("Error fetching departments by branch:", error);
+                message.error(
+                    "Không thể tải danh sách phòng ban theo chi nhánh"
+                );
+            }
+        } else {
+            // If no branch selected, load all departments and employees
+            try {
+                const [allDepts, allEmps] = await Promise.all([
+                    getDepartments(),
+                    getEmployees(),
+                ]);
+                setDepartments(allDepts || []);
+                setEmployees(allEmps?.data || allEmps || []);
+            } catch (error) {
+                console.error(
+                    "Error fetching all departments and employees:",
+                    error
+                );
+            }
+        }
+
+        // Refresh data with the new filters
+        fetchPayrolls();
+        fetchPayrollStats();
+    };
+
     // Fetch payrolls with filters
     const fetchPayrolls = async () => {
         setLoading(true);
@@ -179,6 +248,14 @@ export default function PayrollPage() {
 
             // Add other filters from form
             const formValues = filterForm.getFieldsValue();
+
+            // Ensure branch_id is a number if present
+            if (formValues.branch_id) {
+                filters.branch_id = Number(formValues.branch_id);
+                if (isNaN(filters.branch_id)) {
+                    delete filters.branch_id;
+                }
+            }
 
             // Ensure department_id is a number if present
             if (formValues.department_id) {
@@ -201,50 +278,16 @@ export default function PayrollPage() {
             }
 
             if (formValues.search) {
-                filters.search = formValues.search.trim();
+                filters.search = formValues.search;
             }
 
             console.log("Fetching payrolls with filters:", filters);
 
-            // Thêm timestamp vào query để tránh cache
-            filters._t = new Date().getTime();
-
             const data = await getPayrolls(filters);
-
-            // Kiểm tra dữ liệu nhận về và xử lý phù hợp
-            console.log("Received payroll data:", data);
-
-            if (data && Array.isArray(data)) {
-                setPayrolls(data);
-                console.log(`Retrieved ${data.length} payrolls`);
-
-                // Hiển thị thông báo nếu không có dữ liệu
-                if (data.length === 0) {
-                    message.info(
-                        "Không tìm thấy bảng lương nào phù hợp với bộ lọc"
-                    );
-                }
-            } else {
-                console.warn("Định dạng dữ liệu không hợp lệ:", data);
-                setPayrolls([]);
-                message.error("Dữ liệu bảng lương không đúng định dạng");
-            }
-
-            // Show search results message
-            const hasFilters = Object.keys(filters).length > 0;
-            if (hasFilters && formValues.search && data && data.length > 0) {
-                message.success(`Đã tìm thấy ${data.length} bảng lương`);
-            }
+            setPayrolls(data);
         } catch (error) {
             console.error("Error fetching payrolls:", error);
-            console.error(
-                "Error details:",
-                error.response?.data || error.message
-            );
-            message.error(
-                "Không thể tải dữ liệu bảng lương. Vui lòng thử lại sau."
-            );
-            setPayrolls([]);
+            message.error("Không thể tải dữ liệu bảng lương");
         } finally {
             setLoading(false);
         }
@@ -253,14 +296,11 @@ export default function PayrollPage() {
     // Fetch payroll statistics
     const fetchPayrollStats = async () => {
         try {
-            // Format dates correctly
-            const startDateStr = dateRange[0].format("YYYY-MM-DD");
-            const endDateStr = dateRange[1].format("YYYY-MM-DD");
-
-            // Get department_id from form if present
+            const startDate = dateRange[0].format("YYYY-MM-DD");
+            const endDate = dateRange[1].format("YYYY-MM-DD");
             const formValues = filterForm.getFieldsValue();
-            let departmentId = undefined;
 
+            let departmentId = undefined;
             if (formValues.department_id) {
                 departmentId = Number(formValues.department_id);
                 if (isNaN(departmentId)) {
@@ -268,38 +308,24 @@ export default function PayrollPage() {
                 }
             }
 
-            const stats = await getPayrollStats(
-                startDateStr,
-                endDateStr,
-                departmentId
-            );
-
-            setStatistics(
-                stats || {
-                    totalPayrolls: 0,
-                    totalEmployees: 0,
-                    totalGrossPay: 0,
-                    totalNetPay: 0,
-                    byStatus: {},
-                    byDepartment: {},
+            let branchId = undefined;
+            if (formValues.branch_id) {
+                branchId = Number(formValues.branch_id);
+                if (isNaN(branchId)) {
+                    branchId = undefined;
                 }
-            );
-        } catch (error) {
-            console.error("Error fetching payroll stats:", error);
-            // Set default empty statistics on error
-            setStatistics({
-                totalPayrolls: 0,
-                totalEmployees: 0,
-                totalGrossPay: 0,
-                totalNetPay: 0,
-                byStatus: {},
-                byDepartment: {},
-            });
-
-            // Only show error message if it's not a 400 validation error
-            if (!error.response || error.response.status !== 400) {
-                message.error("Không thể tải thống kê bảng lương");
             }
+
+            const stats = await getPayrollStats(
+                startDate,
+                endDate,
+                departmentId,
+                branchId
+            );
+            setStatistics(stats);
+        } catch (error) {
+            console.error("Error fetching payroll statistics:", error);
+            // Keep the current stats if error
         }
     };
 
@@ -313,93 +339,51 @@ export default function PayrollPage() {
             const periodStartDate = values.period?.[0].format("YYYY-MM-DD");
             const periodEndDate = values.period?.[1].format("YYYY-MM-DD");
 
-            // Prepare attendance data if provided
-            const attendanceData = {};
-            if (values.attendance) {
-                if (values.attendance.working_days) {
-                    attendanceData.working_days =
-                        values.attendance.working_days;
-                }
-                if (values.attendance.total_working_hours) {
-                    attendanceData.total_working_hours =
-                        values.attendance.total_working_hours;
-                }
-                if (values.attendance.overtime_hours) {
-                    attendanceData.overtime_hours =
-                        values.attendance.overtime_hours;
-                }
-                if (values.attendance.night_shift_hours) {
-                    attendanceData.night_shift_hours =
-                        values.attendance.night_shift_hours;
-                }
-                if (values.attendance.night_shift_multiplier) {
-                    attendanceData.night_shift_multiplier =
-                        values.attendance.night_shift_multiplier;
-                } else if (
-                    values.attendance.night_shift_hours &&
-                    values.attendance.night_shift_hours > 0
-                ) {
-                    // Đảm bảo luôn có hệ số nếu có giờ làm ca đêm
-                    attendanceData.night_shift_multiplier = 1.3; // Hệ số mặc định
-                    console.log("Auto-added night shift multiplier 1.3");
-                }
-                if (values.attendance.holiday_hours) {
-                    attendanceData.holiday_hours =
-                        values.attendance.holiday_hours;
-                }
-            }
-
-            // Validate night shift data for explicit log
-            if (
-                attendanceData.night_shift_hours &&
-                attendanceData.night_shift_hours > 0
-            ) {
-                console.log(
-                    `Night shift validation: ${
-                        attendanceData.night_shift_hours
-                    } hours with multiplier ${
-                        attendanceData.night_shift_multiplier ||
-                        "(not set - will use default)"
-                    }`
-                );
-
-                // Double ensure night shift multiplier is present
-                if (!attendanceData.night_shift_multiplier) {
-                    attendanceData.night_shift_multiplier = 1.3;
-                    console.log(
-                        "Double ensured night shift multiplier is set to 1.3"
-                    );
-                }
-            }
-
-            // Create payroll
+            // Prepare data for API call
             const payrollData = {
                 employee_id: values.employee_id,
+                branch_id: values.branch_id,
                 period_start: periodStartDate,
                 period_end: periodEndDate,
                 period_type: values.period_type,
+                base_salary: values.base_salary,
+                working_days: values.working_days,
+                total_working_hours: values.total_working_hours,
+                overtime_hours: values.overtime_hours,
+                night_shift_hours: values.night_shift_hours,
+                night_shift_multiplier: values.night_shift_multiplier,
+                holiday_hours: values.holiday_hours,
+                allowances: values.allowances || {},
+                deductions: values.deductions || {},
                 notes: values.notes,
-                ...attendanceData,
             };
 
-            // Log dữ liệu trước khi gửi
-            console.log("Submitting payroll data:", payrollData);
+            // Convert numbers to ensure they're passed correctly
+            if (payrollData.branch_id) {
+                payrollData.branch_id = Number(payrollData.branch_id);
+            }
 
-            await createPayroll(payrollData);
+            if (payrollData.employee_id) {
+                payrollData.employee_id = Number(payrollData.employee_id);
+            }
 
-            message.success("Tạo bảng lương thành công");
+            // Create payroll
+            const result = await createPayroll(payrollData);
+
             setCreateModalVisible(false);
             createForm.resetFields();
+            message.success("Tạo bảng lương thành công");
+
+            // Refresh payroll list
             fetchPayrolls();
             fetchPayrollStats();
         } catch (error) {
             console.error("Error creating payroll:", error);
-
-            if (error.response?.data?.message) {
-                message.error(`Lỗi: ${error.response.data.message}`);
-            } else {
-                message.error("Không thể tạo bảng lương. Vui lòng thử lại.");
-            }
+            message.error(
+                error.response?.data?.message ||
+                    error.message ||
+                    "Không thể tạo bảng lương. Vui lòng thử lại."
+            );
         } finally {
             setSubmitting(false);
         }
@@ -495,12 +479,154 @@ export default function PayrollPage() {
 
     // Reset filters
     const handleReset = () => {
+        // Reset form fields
         filterForm.resetFields();
+
+        // Reset filter state
         setSearchText("");
         setDepartmentFilter(null);
-        setActiveTab("all");
-        fetchPayrolls();
-        fetchPayrollStats();
+        setBranchFilter(null);
+
+        // Reset to default date range (current month)
+        setDateRange([dayjs().startOf("month"), dayjs().endOf("month")]);
+
+        // Reload all departments and employees
+        Promise.all([getDepartments(), getEmployees(), getBranches()])
+            .then(([deptsData, empsData, branchesData]) => {
+                setDepartments(deptsData || []);
+                setBranches(branchesData || []);
+                setEmployees(empsData?.data || empsData || []);
+
+                // Fetch data with reset filters
+                fetchPayrolls();
+                fetchPayrollStats();
+            })
+            .catch((error) => {
+                console.error("Error reloading data:", error);
+                message.error(
+                    "Không thể tải lại dữ liệu. Vui lòng thử lại sau."
+                );
+            });
+    };
+
+    // Cấu hình in phiếu lương
+    const handlePrint = useReactToPrint({
+        content: () => printComponentRef.current,
+        documentTitle: `Phiếu lương_${
+            currentPayroll?.payroll_code || "Bảng_lương"
+        }`,
+        onBeforeGetContent: () => {
+            message.loading({
+                content: "Đang chuẩn bị bản in...",
+                key: "print",
+            });
+            return new Promise((resolve) => {
+                setTimeout(() => {
+                    message.success({
+                        content: "Sẵn sàng in!",
+                        key: "print",
+                        duration: 2,
+                    });
+                    resolve();
+                }, 1000);
+            });
+        },
+        onAfterPrint: () => message.success("In phiếu lương thành công!"),
+    });
+
+    // Tạo và tải xuống PDF từ HTML
+    const handleExportPDF = async () => {
+        message.loading({
+            content: "Đang tạo file PDF...",
+            key: "export-pdf",
+            duration: 0,
+        });
+
+        try {
+            const element = printComponentRef.current;
+
+            // Đảm bảo element đã được render đầy đủ
+            if (!element) {
+                throw new Error("Không thể tìm thấy nội dung để xuất PDF");
+            }
+
+            // Thiết lập kích thước A4
+            const PDF_WIDTH = 210; // mm, chiều rộng A4
+            const PDF_HEIGHT = 297; // mm, chiều cao A4
+            const MARGIN = 10; // mm, lề
+
+            // Sử dụng html2canvas để chuyển đổi HTML thành hình ảnh
+            const canvas = await html2canvas(element, {
+                scale: 2, // Scale cao hơn cho chất lượng tốt hơn
+                useCORS: true, // Cho phép tải hình ảnh từ các domain khác
+                logging: false,
+                width: element.offsetWidth,
+                height: element.offsetHeight,
+                x: 0,
+                y: 0,
+                scrollX: 0,
+                scrollY: 0,
+                windowWidth: element.offsetWidth,
+                windowHeight: element.offsetHeight,
+            });
+
+            // Tạo tài liệu PDF với kích thước A4
+            const pdf = new jsPDF({
+                orientation: "portrait",
+                unit: "mm",
+                format: "a4",
+            });
+
+            // Lấy tỷ lệ để fit vừa chiều rộng A4 (trừ lề)
+            const contentWidth = PDF_WIDTH - 2 * MARGIN;
+            const contentHeight = PDF_HEIGHT - 2 * MARGIN;
+
+            // Tính toán tỷ lệ co giãn để vừa với trang A4
+            const imgWidth = canvas.width;
+            const imgHeight = canvas.height;
+
+            // Tỷ lệ giữa chiều rộng thực tế và chiều rộng nội dung PDF
+            const ratio = Math.min(
+                contentWidth / imgWidth,
+                contentHeight / imgHeight
+            );
+
+            // Kích thước sau khi scale
+            const scaledWidth = imgWidth * ratio;
+            const scaledHeight = imgHeight * ratio;
+
+            // Tính toán vị trí để căn giữa trang
+            const x = (PDF_WIDTH - scaledWidth) / 2;
+            const y = (PDF_HEIGHT - scaledHeight) / 2;
+
+            // Thêm hình ảnh vào PDF
+            pdf.addImage(
+                canvas.toDataURL("image/jpeg", 1.0),
+                "JPEG",
+                x,
+                y,
+                scaledWidth,
+                scaledHeight
+            );
+
+            // Lưu tệp PDF
+            pdf.save(
+                `Phiếu lương_${
+                    currentPayroll?.payroll_code || "Bảng_lương"
+                }.pdf`
+            );
+
+            message.success({
+                content: "Xuất PDF thành công!",
+                key: "export-pdf",
+            });
+        } catch (error) {
+            console.error("Error exporting PDF:", error);
+            message.error({
+                content: `Không thể xuất file PDF: ${error.message}`,
+                key: "export-pdf",
+            });
+        }
     };
 
     // Table columns definition
@@ -856,39 +982,114 @@ export default function PayrollPage() {
                     )}
 
                     {record.status === PayrollStatus.FINALIZED && (
-                        <Tooltip title="Đánh dấu đã thanh toán">
-                            <Button
-                                type="primary"
-                                ghost
-                                icon={<DollarOutlined />}
-                                onClick={() =>
-                                    Modal.confirm({
-                                        title: "Đánh dấu đã thanh toán",
-                                        icon: (
-                                            <DollarOutlined
-                                                style={{ color: "#13c2c2" }}
-                                            />
-                                        ),
-                                        content: `Bạn có chắc chắn muốn đánh dấu bảng lương cho nhân viên ${
-                                            record.employee?.name || "này"
-                                        } là đã thanh toán?`,
-                                        okText: "Xác nhận",
-                                        cancelText: "Hủy",
-                                        onOk: () =>
-                                            handleStatusChange(
-                                                record.id,
-                                                PayrollStatus.PAID
+                        <>
+                            <Tooltip title="Đánh dấu đã thanh toán">
+                                <Button
+                                    type="primary"
+                                    ghost
+                                    icon={<DollarOutlined />}
+                                    onClick={() =>
+                                        Modal.confirm({
+                                            title: "Đánh dấu đã thanh toán",
+                                            icon: (
+                                                <DollarOutlined
+                                                    style={{ color: "#13c2c2" }}
+                                                />
                                             ),
-                                    })
+                                            content: `Bạn có chắc chắn muốn đánh dấu bảng lương cho nhân viên ${
+                                                record.employee?.name || "này"
+                                            } là đã thanh toán?`,
+                                            okText: "Xác nhận",
+                                            cancelText: "Hủy",
+                                            onOk: () =>
+                                                handleStatusChange(
+                                                    record.id,
+                                                    PayrollStatus.PAID
+                                                ),
+                                        })
+                                    }
+                                    loading={statusChangeLoading[record.id]}
+                                />
+                            </Tooltip>
+                            <Popconfirm
+                                title="Xóa bảng lương"
+                                description="Bạn có chắc chắn muốn xóa bảng lương đã hoàn thiện này?"
+                                icon={
+                                    <InfoCircleOutlined
+                                        style={{ color: "#ff4d4f" }}
+                                    />
                                 }
-                                loading={statusChangeLoading[record.id]}
-                            />
-                        </Tooltip>
+                                onConfirm={() => handleDelete(record.id)}
+                                okText="Xóa"
+                                cancelText="Hủy"
+                                okButtonProps={{ danger: true }}
+                            >
+                                <Tooltip title="Xóa">
+                                    <Button
+                                        type="primary"
+                                        danger
+                                        ghost
+                                        icon={<DeleteOutlined />}
+                                        loading={statusChangeLoading[record.id]}
+                                    />
+                                </Tooltip>
+                            </Popconfirm>
+                        </>
                     )}
 
-                    <Tooltip title="In bảng lương">
-                        <Button type="default" icon={<PrinterOutlined />} />
-                    </Tooltip>
+                    {record.status === PayrollStatus.PAID && (
+                        <>
+                            <Tooltip title="In bảng lương">
+                                <Button
+                                    type="default"
+                                    icon={<PrinterOutlined />}
+                                    onClick={() => {
+                                        handleViewDetail(record.id);
+                                        // Sau khi lấy dữ liệu chi tiết, sẽ hiển thị modal chi tiết và có thể in
+                                        // Chờ một chút để dữ liệu được tải xong
+                                        setTimeout(() => {
+                                            handlePrint();
+                                        }, 1000);
+                                    }}
+                                />
+                            </Tooltip>
+                            <Popconfirm
+                                title="Xóa bảng lương đã thanh toán"
+                                description={
+                                    <div>
+                                        <p>
+                                            Bạn có chắc chắn muốn xóa bảng lương
+                                            đã thanh toán này?
+                                        </p>
+                                        <p style={{ color: "#ff4d4f" }}>
+                                            Lưu ý: Thao tác này sẽ xóa hoàn toàn
+                                            dữ liệu lương đã thanh toán và không
+                                            thể khôi phục.
+                                        </p>
+                                    </div>
+                                }
+                                icon={
+                                    <InfoCircleOutlined
+                                        style={{ color: "#ff4d4f" }}
+                                    />
+                                }
+                                onConfirm={() => handleDelete(record.id)}
+                                okText="Xóa vĩnh viễn"
+                                cancelText="Hủy"
+                                okButtonProps={{ danger: true }}
+                            >
+                                <Tooltip title="Xóa bảng lương đã thanh toán">
+                                    <Button
+                                        type="primary"
+                                        danger
+                                        ghost
+                                        icon={<DeleteOutlined />}
+                                        loading={statusChangeLoading[record.id]}
+                                    />
+                                </Tooltip>
+                            </Popconfirm>
+                        </>
+                    )}
                 </Space>
             ),
         },
@@ -929,6 +1130,7 @@ export default function PayrollPage() {
                     form={filterForm}
                     departments={departments}
                     employees={employees}
+                    branches={branches}
                     periodTypes={PayrollPeriodType}
                     periodTypeLabels={periodTypeLabels}
                     dateRange={dateRange}
@@ -937,6 +1139,7 @@ export default function PayrollPage() {
                     onSearch={handleSearch}
                     onReset={handleReset}
                     onFetchData={fetchPayrolls}
+                    onBranchChange={handleBranchChange}
                 />
             </Card>
 
@@ -1061,622 +1264,50 @@ export default function PayrollPage() {
                 }}
                 onOk={handleCreate}
                 confirmLoading={submitting}
-                width={700}
+                width={800}
                 maskClosable={false}
             >
-                <Form
+                <PayrollForm
                     form={createForm}
-                    layout="vertical"
-                    initialValues={{
-                        period_type: PayrollPeriodType.MONTHLY,
-                    }}
-                >
-                    <Row gutter={16}>
-                        <Col span={24}>
-                            <Form.Item
-                                name="employee_id"
-                                label="Nhân viên"
-                                rules={[
-                                    {
-                                        required: true,
-                                        message: "Vui lòng chọn nhân viên",
-                                    },
-                                ]}
-                            >
-                                <Select
-                                    showSearch
-                                    placeholder="Chọn nhân viên"
-                                    optionFilterProp="children"
-                                    filterOption={(input, option) =>
-                                        option.children
-                                            .toLowerCase()
-                                            .indexOf(input.toLowerCase()) >= 0
-                                    }
-                                >
-                                    {employees.map((emp) => (
-                                        <Option key={emp.id} value={emp.id}>
-                                            {emp.employee_code
-                                                ? `${emp.employee_code} - `
-                                                : ""}
-                                            {emp.name} -{" "}
-                                            {emp.department?.name ||
-                                                "Chưa có phòng ban"}
-                                        </Option>
-                                    ))}
-                                </Select>
-                            </Form.Item>
-                        </Col>
-                    </Row>
-                    <Row gutter={16}>
-                        <Col span={12}>
-                            <Form.Item
-                                name="period"
-                                label="Kỳ lương"
-                                rules={[
-                                    {
-                                        required: true,
-                                        message: "Vui lòng chọn kỳ lương",
-                                    },
-                                ]}
-                            >
-                                <RangePicker
-                                    style={{ width: "100%" }}
-                                    format="DD/MM/YYYY"
-                                    placeholder={["Từ ngày", "Đến ngày"]}
-                                />
-                            </Form.Item>
-                        </Col>
-                        <Col span={12}>
-                            <Form.Item
-                                name="period_type"
-                                label="Loại kỳ lương"
-                                rules={[
-                                    {
-                                        required: true,
-                                        message: "Vui lòng chọn loại kỳ lương",
-                                    },
-                                ]}
-                            >
-                                <Select placeholder="Chọn loại kỳ lương">
-                                    {Object.keys(PayrollPeriodType).map(
-                                        (key) => (
-                                            <Option
-                                                key={key}
-                                                value={PayrollPeriodType[key]}
-                                            >
-                                                {
-                                                    periodTypeLabels[
-                                                        PayrollPeriodType[key]
-                                                    ]
-                                                }
-                                            </Option>
-                                        )
-                                    )}
-                                </Select>
-                            </Form.Item>
-                        </Col>
-                    </Row>
-                    <Divider orientation="left">Thông tin chấm công</Divider>
-                    <Alert
-                        message="Nếu không điền các thông tin dưới đây, hệ thống sẽ tự động tính toán dựa trên dữ liệu chấm công đã được phê duyệt."
-                        type="info"
-                        showIcon
-                        style={{ marginBottom: 16 }}
-                    />
-                    <Row gutter={16}>
-                        <Col span={8}>
-                            <Form.Item
-                                name={["attendance", "working_days"]}
-                                label="Số ngày công"
-                            >
-                                <InputNumber
-                                    min={0}
-                                    style={{ width: "100%" }}
-                                    placeholder="Số ngày công"
-                                />
-                            </Form.Item>
-                        </Col>
-                        <Col span={8}>
-                            <Form.Item
-                                name={["attendance", "total_working_hours"]}
-                                label="Tổng số giờ làm việc"
-                            >
-                                <InputNumber
-                                    min={0}
-                                    step={0.5}
-                                    style={{ width: "100%" }}
-                                    placeholder="Tổng số giờ làm"
-                                />
-                            </Form.Item>
-                        </Col>
-                        <Col span={8}>
-                            <Form.Item
-                                name={["attendance", "overtime_hours"]}
-                                label="Số giờ làm thêm"
-                            >
-                                <InputNumber
-                                    min={0}
-                                    step={0.5}
-                                    style={{ width: "100%" }}
-                                    placeholder="Số giờ làm thêm"
-                                />
-                            </Form.Item>
-                        </Col>
-                    </Row>
-                    <Row gutter={16}>
-                        <Col span={8}>
-                            <Form.Item
-                                name={["attendance", "night_shift_hours"]}
-                                label="Số giờ làm ca đêm"
-                            >
-                                <InputNumber
-                                    min={0}
-                                    step={0.5}
-                                    style={{ width: "100%" }}
-                                    placeholder="Số giờ ca đêm"
-                                />
-                            </Form.Item>
-                        </Col>
-                        <Col span={8}>
-                            <Form.Item
-                                name={["attendance", "night_shift_multiplier"]}
-                                label="Hệ số lương ca đêm"
-                            >
-                                <InputNumber
-                                    min={1}
-                                    step={0.1}
-                                    style={{ width: "100%" }}
-                                    placeholder="Hệ số ca đêm (mặc định: 1.3)"
-                                />
-                            </Form.Item>
-                        </Col>
-                        <Col span={8}>
-                            <Form.Item
-                                name={["attendance", "holiday_hours"]}
-                                label="Số giờ làm ngày lễ"
-                            >
-                                <InputNumber
-                                    min={0}
-                                    step={0.5}
-                                    style={{ width: "100%" }}
-                                    placeholder="Số giờ ngày lễ"
-                                />
-                            </Form.Item>
-                        </Col>
-                    </Row>
-
-                    <Divider orientation="left">Phụ cấp</Divider>
-                    <Alert
-                        message="Để trống nếu muốn sử dụng giá trị phụ cấp mặc định từ cấu hình lương. Nhập giá trị 0 nếu muốn hủy phụ cấp."
-                        type="info"
-                        showIcon
-                        style={{ marginBottom: 16 }}
-                    />
-
-                    {/* Phụ cấp không tính thuế */}
-                    <Divider
-                        orientation="left"
-                        plain
-                        style={{ margin: "8px 0", fontSize: 14 }}
-                    >
-                        <Text type="secondary">Phụ cấp không tính thuế</Text>
-                    </Divider>
-
-                    <Row gutter={16}>
-                        <Col span={8}>
-                            <Form.Item
-                                name={["allowances", "meal_allowance"]}
-                                label={
-                                    <span>
-                                        <PlusCircleOutlined
-                                            style={{ color: "#52c41a" }}
-                                        />{" "}
-                                        Phụ cấp ăn ca
-                                        <Tooltip title="Không tính thuế nếu ≤ 730.000đ/tháng">
-                                            <InfoCircleOutlined
-                                                style={{
-                                                    marginLeft: 5,
-                                                    color: "#1890ff",
-                                                }}
-                                            />
-                                        </Tooltip>
-                                    </span>
-                                }
-                            >
-                                <InputNumber
-                                    min={0}
-                                    style={{ width: "100%" }}
-                                    placeholder="Nhập phụ cấp ăn ca"
-                                    formatter={(value) =>
-                                        `${value}`.replace(
-                                            /\B(?=(\d{3})+(?!\d))/g,
-                                            ","
-                                        )
-                                    }
-                                    parser={(value) =>
-                                        value.replace(/\$\s?|(,*)/g, "")
-                                    }
-                                />
-                            </Form.Item>
-                        </Col>
-                        <Col span={8}>
-                            <Form.Item
-                                name={["allowances", "transport_allowance"]}
-                                label={
-                                    <span>
-                                        <PlusCircleOutlined
-                                            style={{ color: "#52c41a" }}
-                                        />{" "}
-                                        Phụ cấp đi lại
-                                        <Tooltip title="Không tính thuế nếu theo thực tế">
-                                            <InfoCircleOutlined
-                                                style={{
-                                                    marginLeft: 5,
-                                                    color: "#1890ff",
-                                                }}
-                                            />
-                                        </Tooltip>
-                                    </span>
-                                }
-                            >
-                                <InputNumber
-                                    min={0}
-                                    style={{ width: "100%" }}
-                                    placeholder="Nhập phụ cấp đi lại"
-                                    formatter={(value) =>
-                                        `${value}`.replace(
-                                            /\B(?=(\d{3})+(?!\d))/g,
-                                            ","
-                                        )
-                                    }
-                                    parser={(value) =>
-                                        value.replace(/\$\s?|(,*)/g, "")
-                                    }
-                                />
-                            </Form.Item>
-                        </Col>
-                        <Col span={8}>
-                            <Form.Item
-                                name={["allowances", "phone_allowance"]}
-                                label={
-                                    <span>
-                                        <PlusCircleOutlined
-                                            style={{ color: "#52c41a" }}
-                                        />{" "}
-                                        Phụ cấp điện thoại
-                                        <Tooltip title="Không tính thuế nếu ≤ 1.000.000đ/tháng">
-                                            <InfoCircleOutlined
-                                                style={{
-                                                    marginLeft: 5,
-                                                    color: "#1890ff",
-                                                }}
-                                            />
-                                        </Tooltip>
-                                    </span>
-                                }
-                            >
-                                <InputNumber
-                                    min={0}
-                                    style={{ width: "100%" }}
-                                    placeholder="Nhập phụ cấp điện thoại"
-                                    formatter={(value) =>
-                                        `${value}`.replace(
-                                            /\B(?=(\d{3})+(?!\d))/g,
-                                            ","
-                                        )
-                                    }
-                                    parser={(value) =>
-                                        value.replace(/\$\s?|(,*)/g, "")
-                                    }
-                                />
-                            </Form.Item>
-                        </Col>
-                    </Row>
-
-                    {/* Phụ cấp có tính thuế */}
-                    <Divider
-                        orientation="left"
-                        plain
-                        style={{ margin: "12px 0 8px", fontSize: 14 }}
-                    >
-                        <Text type="secondary">Phụ cấp có tính thuế</Text>
-                    </Divider>
-
-                    <Row gutter={16}>
-                        <Col span={8}>
-                            <Form.Item
-                                name={["allowances", "housing_allowance"]}
-                                label={
-                                    <span>
-                                        <PlusCircleOutlined
-                                            style={{ color: "#faad14" }}
-                                        />{" "}
-                                        Phụ cấp nhà ở
-                                        <Tooltip title="Có tính thuế">
-                                            <InfoCircleOutlined
-                                                style={{
-                                                    marginLeft: 5,
-                                                    color: "#faad14",
-                                                }}
-                                            />
-                                        </Tooltip>
-                                    </span>
-                                }
-                            >
-                                <InputNumber
-                                    min={0}
-                                    style={{ width: "100%" }}
-                                    placeholder="Nhập phụ cấp nhà ở"
-                                    formatter={(value) =>
-                                        `${value}`.replace(
-                                            /\B(?=(\d{3})+(?!\d))/g,
-                                            ","
-                                        )
-                                    }
-                                    parser={(value) =>
-                                        value.replace(/\$\s?|(,*)/g, "")
-                                    }
-                                />
-                            </Form.Item>
-                        </Col>
-                        <Col span={8}>
-                            <Form.Item
-                                name={["allowances", "position_allowance"]}
-                                label={
-                                    <span>
-                                        <PlusCircleOutlined
-                                            style={{ color: "#faad14" }}
-                                        />{" "}
-                                        Phụ cấp chức vụ
-                                        <Tooltip title="Có tính thuế">
-                                            <InfoCircleOutlined
-                                                style={{
-                                                    marginLeft: 5,
-                                                    color: "#faad14",
-                                                }}
-                                            />
-                                        </Tooltip>
-                                    </span>
-                                }
-                            >
-                                <InputNumber
-                                    min={0}
-                                    style={{ width: "100%" }}
-                                    placeholder="Nhập phụ cấp chức vụ"
-                                    formatter={(value) =>
-                                        `${value}`.replace(
-                                            /\B(?=(\d{3})+(?!\d))/g,
-                                            ","
-                                        )
-                                    }
-                                    parser={(value) =>
-                                        value.replace(/\$\s?|(,*)/g, "")
-                                    }
-                                />
-                            </Form.Item>
-                        </Col>
-                        <Col span={8}>
-                            <Form.Item
-                                name={[
-                                    "allowances",
-                                    "responsibility_allowance",
-                                ]}
-                                label={
-                                    <span>
-                                        <PlusCircleOutlined
-                                            style={{ color: "#faad14" }}
-                                        />{" "}
-                                        Phụ cấp trách nhiệm
-                                        <Tooltip title="Có tính thuế">
-                                            <InfoCircleOutlined
-                                                style={{
-                                                    marginLeft: 5,
-                                                    color: "#faad14",
-                                                }}
-                                            />
-                                        </Tooltip>
-                                    </span>
-                                }
-                            >
-                                <InputNumber
-                                    min={0}
-                                    style={{ width: "100%" }}
-                                    placeholder="Nhập phụ cấp trách nhiệm"
-                                    formatter={(value) =>
-                                        `${value}`.replace(
-                                            /\B(?=(\d{3})+(?!\d))/g,
-                                            ","
-                                        )
-                                    }
-                                    parser={(value) =>
-                                        value.replace(/\$\s?|(,*)/g, "")
-                                    }
-                                />
-                            </Form.Item>
-                        </Col>
-                    </Row>
-
-                    {/* Thưởng */}
-                    <Divider
-                        orientation="left"
-                        plain
-                        style={{ margin: "12px 0 8px", fontSize: 14 }}
-                    >
-                        <Text type="secondary">Thưởng (có tính thuế)</Text>
-                    </Divider>
-
-                    <Row gutter={16}>
-                        <Col span={12}>
-                            <Form.Item
-                                name={["allowances", "attendance_bonus"]}
-                                label={
-                                    <span>
-                                        <PlusCircleOutlined
-                                            style={{ color: "#faad14" }}
-                                        />{" "}
-                                        Thưởng chuyên cần
-                                        <Tooltip title="Có tính thuế">
-                                            <InfoCircleOutlined
-                                                style={{
-                                                    marginLeft: 5,
-                                                    color: "#faad14",
-                                                }}
-                                            />
-                                        </Tooltip>
-                                    </span>
-                                }
-                            >
-                                <InputNumber
-                                    min={0}
-                                    style={{ width: "100%" }}
-                                    placeholder="Nhập thưởng chuyên cần"
-                                    formatter={(value) =>
-                                        `${value}`.replace(
-                                            /\B(?=(\d{3})+(?!\d))/g,
-                                            ","
-                                        )
-                                    }
-                                    parser={(value) =>
-                                        value.replace(/\$\s?|(,*)/g, "")
-                                    }
-                                />
-                            </Form.Item>
-                        </Col>
-                        <Col span={12}>
-                            <Form.Item
-                                name={["allowances", "performance_bonus"]}
-                                label={
-                                    <span>
-                                        <PlusCircleOutlined
-                                            style={{ color: "#faad14" }}
-                                        />{" "}
-                                        Thưởng hiệu suất
-                                        <Tooltip title="Có tính thuế">
-                                            <InfoCircleOutlined
-                                                style={{
-                                                    marginLeft: 5,
-                                                    color: "#faad14",
-                                                }}
-                                            />
-                                        </Tooltip>
-                                    </span>
-                                }
-                            >
-                                <InputNumber
-                                    min={0}
-                                    style={{ width: "100%" }}
-                                    placeholder="Nhập thưởng hiệu suất"
-                                    formatter={(value) =>
-                                        `${value}`.replace(
-                                            /\B(?=(\d{3})+(?!\d))/g,
-                                            ","
-                                        )
-                                    }
-                                    parser={(value) =>
-                                        value.replace(/\$\s?|(,*)/g, "")
-                                    }
-                                />
-                            </Form.Item>
-                        </Col>
-                    </Row>
-
-                    <Form.Item name="notes" label="Ghi chú">
-                        <Input.TextArea
-                            rows={3}
-                            placeholder="Nhập ghi chú (nếu có)"
-                        />
-                    </Form.Item>
-                </Form>
+                    branches={branches}
+                    employees={employees}
+                />
             </Modal>
 
             {/* Modal chi tiết bảng lương */}
             <Modal
                 title={
-                    <Space>
+                    <Space align="center">
                         <FileTextOutlined />
                         <span>
-                            Chi tiết bảng lương -{" "}
-                            {currentPayroll?.payroll_code || ""}
+                            Chi tiết bảng lương: {currentPayroll?.payroll_code}
                         </span>
                     </Space>
                 }
-                open={detailModalVisible}
+                width={800}
+                visible={detailModalVisible}
                 onCancel={() => {
                     setDetailModalVisible(false);
                     setCurrentPayroll(null);
                 }}
                 footer={[
-                    currentPayroll?.status === PayrollStatus.DRAFT && (
-                        <Button
-                            key="finalize"
-                            type="primary"
-                            ghost
-                            icon={<CheckCircleOutlined />}
-                            onClick={() =>
-                                Modal.confirm({
-                                    title: "Hoàn thiện bảng lương",
-                                    icon: (
-                                        <CheckCircleOutlined
-                                            style={{ color: "#52c41a" }}
-                                        />
-                                    ),
-                                    content: `Bạn có chắc chắn muốn hoàn thiện bảng lương này?`,
-                                    okText: "Xác nhận",
-                                    cancelText: "Hủy",
-                                    onOk: async () => {
-                                        await handleStatusChange(
-                                            currentPayroll.id,
-                                            PayrollStatus.FINALIZED
-                                        );
-                                        setDetailModalVisible(false);
-                                    },
-                                })
-                            }
-                        >
-                            Hoàn thiện
-                        </Button>
-                    ),
-                    currentPayroll?.status === PayrollStatus.FINALIZED && (
-                        <Button
-                            key="pay"
-                            type="primary"
-                            ghost
-                            icon={<DollarOutlined />}
-                            onClick={() =>
-                                Modal.confirm({
-                                    title: "Đánh dấu đã thanh toán",
-                                    icon: (
-                                        <DollarOutlined
-                                            style={{ color: "#13c2c2" }}
-                                        />
-                                    ),
-                                    content: `Bạn có chắc chắn muốn đánh dấu bảng lương này là đã thanh toán?`,
-                                    okText: "Xác nhận",
-                                    cancelText: "Hủy",
-                                    onOk: async () => {
-                                        await handleStatusChange(
-                                            currentPayroll.id,
-                                            PayrollStatus.PAID
-                                        );
-                                        setDetailModalVisible(false);
-                                    },
-                                })
-                            }
-                        >
-                            Đánh dấu đã thanh toán
-                        </Button>
-                    ),
                     <Button
                         key="print"
                         type="primary"
                         icon={<PrinterOutlined />}
+                        onClick={handlePrint}
                     >
-                        In bảng lương
+                        In phiếu lương
                     </Button>,
                     <Button
-                        key="download"
-                        type="default"
-                        icon={<DownloadOutlined />}
+                        key="pdf"
+                        type="primary"
+                        icon={<FilePdfOutlined />}
+                        onClick={handleExportPDF}
+                        style={{
+                            background: "#ff4d4f",
+                            borderColor: "#ff4d4f",
+                        }}
                     >
                         Xuất PDF
                     </Button>,
@@ -1690,7 +1321,6 @@ export default function PayrollPage() {
                         Đóng
                     </Button>,
                 ]}
-                width={800}
                 bodyStyle={{ maxHeight: "70vh", overflowY: "auto" }}
             >
                 {loading ? (
@@ -1699,12 +1329,207 @@ export default function PayrollPage() {
                         <p>Đang tải thông tin...</p>
                     </div>
                 ) : (
-                    <PayrollDetail
-                        payroll={currentPayroll}
-                        periodTypeLabels={periodTypeLabels}
-                        statusLabels={statusLabels}
-                        statusColors={statusColors}
-                    />
+                    <div>
+                        <div ref={printComponentRef} className="print-content">
+                            <div className="print-header">
+                                <Row gutter={16} align="middle">
+                                    <Col span={4}>
+                                        <div className="company-logo">
+                                            <DollarOutlined
+                                                style={{ fontSize: 36 }}
+                                            />
+                                        </div>
+                                    </Col>
+                                    <Col span={14}>
+                                        <Typography.Title
+                                            level={4}
+                                            style={{
+                                                margin: 0,
+                                                textAlign: "center",
+                                            }}
+                                        >
+                                            CÔNG TY KHÁCH SẠN & NHÀ HÀNG XYZ
+                                        </Typography.Title>
+                                        <Typography.Text
+                                            type="secondary"
+                                            style={{
+                                                display: "block",
+                                                textAlign: "center",
+                                                fontSize: "12px",
+                                            }}
+                                        >
+                                            123 Đường ABC, Quận/Huyện,
+                                            Tỉnh/Thành phố
+                                        </Typography.Text>
+                                    </Col>
+                                    <Col
+                                        span={6}
+                                        style={{ textAlign: "right" }}
+                                    >
+                                        <div className="document-info">
+                                            <Typography.Text
+                                                strong
+                                                style={{ fontSize: "12px" }}
+                                            >
+                                                MÃ SỐ:{" "}
+                                            </Typography.Text>
+                                            <Typography.Text
+                                                style={{ fontSize: "12px" }}
+                                            >
+                                                {currentPayroll?.payroll_code}
+                                            </Typography.Text>
+                                            <br />
+                                            <Typography.Text
+                                                strong
+                                                style={{ fontSize: "12px" }}
+                                            >
+                                                NGÀY:{" "}
+                                            </Typography.Text>
+                                            <Typography.Text
+                                                style={{ fontSize: "12px" }}
+                                            >
+                                                {new Date().toLocaleDateString(
+                                                    "vi-VN"
+                                                )}
+                                            </Typography.Text>
+                                        </div>
+                                    </Col>
+                                </Row>
+                                <Divider style={{ margin: "10px 0" }} />
+                                <Typography.Title
+                                    level={3}
+                                    style={{
+                                        textAlign: "center",
+                                        margin: "10px 0",
+                                    }}
+                                >
+                                    PHIẾU LƯƠNG
+                                </Typography.Title>
+                                <Typography.Title
+                                    level={5}
+                                    style={{
+                                        textAlign: "center",
+                                        margin: 0,
+                                        fontWeight: "normal",
+                                    }}
+                                >
+                                    Kỳ lương:{" "}
+                                    {currentPayroll?.period_start &&
+                                        dayjs(
+                                            currentPayroll.period_start
+                                        ).format("DD/MM/YYYY")}{" "}
+                                    -{" "}
+                                    {currentPayroll?.period_end &&
+                                        dayjs(currentPayroll.period_end).format(
+                                            "DD/MM/YYYY"
+                                        )}
+                                </Typography.Title>
+                            </div>
+                            <div className="compact-payroll-detail">
+                                <PayrollDetail
+                                    payroll={currentPayroll}
+                                    periodTypeLabels={periodTypeLabels}
+                                    statusLabels={statusLabels}
+                                    statusColors={statusColors}
+                                    compact={true}
+                                />
+                            </div>
+                            <div
+                                className="print-signatures"
+                                style={{ marginTop: "20px" }}
+                            >
+                                <Row gutter={24}>
+                                    <Col span={8}>
+                                        <div
+                                            className="signature-box"
+                                            style={{ textAlign: "center" }}
+                                        >
+                                            <Typography.Text
+                                                strong
+                                                style={{ fontSize: "12px" }}
+                                            >
+                                                Người lập phiếu
+                                            </Typography.Text>
+                                            <div className="signature-line-compact"></div>
+                                            <Typography.Text
+                                                style={{ fontSize: "12px" }}
+                                            >
+                                                Ngày ký: ___/___/____
+                                            </Typography.Text>
+                                        </div>
+                                    </Col>
+                                    <Col span={8}>
+                                        <div
+                                            className="signature-box"
+                                            style={{ textAlign: "center" }}
+                                        >
+                                            <Typography.Text
+                                                strong
+                                                style={{ fontSize: "12px" }}
+                                            >
+                                                Trưởng phòng nhân sự
+                                            </Typography.Text>
+                                            <div className="signature-line-compact"></div>
+                                            <Typography.Text
+                                                style={{ fontSize: "12px" }}
+                                            >
+                                                Ngày ký: ___/___/____
+                                            </Typography.Text>
+                                        </div>
+                                    </Col>
+                                    <Col span={8}>
+                                        <div
+                                            className="signature-box"
+                                            style={{ textAlign: "center" }}
+                                        >
+                                            <Typography.Text
+                                                strong
+                                                style={{ fontSize: "12px" }}
+                                            >
+                                                Người nhận
+                                            </Typography.Text>
+                                            <div className="signature-line-compact"></div>
+                                            <Typography.Text
+                                                style={{ fontSize: "12px" }}
+                                            >
+                                                Ngày ký: ___/___/____
+                                            </Typography.Text>
+                                        </div>
+                                    </Col>
+                                </Row>
+                            </div>
+                            <div
+                                className="print-footer"
+                                style={{ marginTop: "10px" }}
+                            >
+                                <Divider style={{ margin: "8px 0" }} />
+                                <Row>
+                                    <Col
+                                        span={24}
+                                        style={{ textAlign: "center" }}
+                                    >
+                                        <Typography.Text
+                                            type="secondary"
+                                            style={{ fontSize: "11px" }}
+                                        >
+                                            CÔNG TY KHÁCH SẠN & NHÀ HÀNG XYZ -
+                                            MST: 0123456789
+                                        </Typography.Text>
+                                        <br />
+                                        <Typography.Text
+                                            type="secondary"
+                                            style={{ fontSize: "11px" }}
+                                        >
+                                            Địa chỉ: 123 Đường ABC, Quận/Huyện,
+                                            Tỉnh/Thành phố | Điện thoại: (+84)
+                                            123 456 789 | Email:
+                                            contact@example.com
+                                        </Typography.Text>
+                                    </Col>
+                                </Row>
+                            </div>
+                        </div>
+                    </div>
                 )}
             </Modal>
         </div>

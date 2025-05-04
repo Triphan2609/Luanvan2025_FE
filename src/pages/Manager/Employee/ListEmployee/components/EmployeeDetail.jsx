@@ -349,6 +349,9 @@ export default function EmployeeDetail({ open, onClose, employee, onEdit }) {
                     <Tag color="purple">
                         {employee?.role?.name || "Chưa có chức vụ"}
                     </Tag>
+                    <Tag color="cyan">
+                        {employee?.branch?.name || "Chưa có chi nhánh"}
+                    </Tag>
                     <Tag color={EMPLOYEE_STATUS_COLORS[employee?.status]}>
                         {EMPLOYEE_STATUS_LABELS[employee?.status]}
                     </Tag>
@@ -427,7 +430,7 @@ export default function EmployeeDetail({ open, onClose, employee, onEdit }) {
                                 >
                                     <Text>
                                         {employee?.department?.name ||
-                                            "Chưa cập nhật"}
+                                            "Chưa có phòng ban"}
                                     </Text>
                                 </Descriptions.Item>
                                 <Descriptions.Item
@@ -436,7 +439,16 @@ export default function EmployeeDetail({ open, onClose, employee, onEdit }) {
                                 >
                                     <Text>
                                         {employee?.role?.name ||
-                                            "Chưa cập nhật"}
+                                            "Chưa có chức vụ"}
+                                    </Text>
+                                </Descriptions.Item>
+                                <Descriptions.Item
+                                    label="Chi nhánh"
+                                    labelStyle={{ fontWeight: "bold" }}
+                                >
+                                    <Text>
+                                        {employee?.branch?.name ||
+                                            "Chưa có chi nhánh"}
                                     </Text>
                                 </Descriptions.Item>
                             </Descriptions>

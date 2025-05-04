@@ -24,6 +24,7 @@ const PayrollDetail = ({
     periodTypeLabels,
     statusLabels,
     statusColors,
+    compact = false,
 }) => {
     if (!payroll) return null;
 
@@ -36,6 +37,388 @@ const PayrollDetail = ({
         }).format(value);
     };
 
+    // Kiểm tra xem có ở chế độ compact không để áp dụng style khác nhau
+    const columnCount = compact ? 4 : 2;
+    const fontSize = compact ? { fontSize: "12px" } : {};
+    const descriptionsSize = compact ? "small" : "default";
+    const titleLevel = compact ? 5 : 4;
+    const dividerMargin = compact ? { margin: "8px 0" } : {};
+    const rowGutter = compact ? [8, 8] : [16, 16];
+
+    // Nếu trong chế độ compact, hiển thị nội dung rút gọn A4
+    if (compact) {
+        return (
+            <div className="payroll-detail-compact">
+                {/* Phần Thông tin nhân viên và Kỳ lương */}
+                <Row gutter={16}>
+                    <Col span={12}>
+                        <div className="section-block">
+                            <Typography.Title
+                                level={5}
+                                style={{ margin: "8px 0", fontSize: "14px" }}
+                            >
+                                THÔNG TIN NHÂN VIÊN
+                            </Typography.Title>
+                            <table className="compact-table">
+                                <tbody>
+                                    <tr>
+                                        <td>
+                                            <Text strong style={fontSize}>
+                                                Mã nhân viên:
+                                            </Text>
+                                        </td>
+                                        <td>
+                                            {payroll.employee?.employee_code}
+                                        </td>
+                                        <td>
+                                            <Text strong style={fontSize}>
+                                                Họ và tên:
+                                            </Text>
+                                        </td>
+                                        <td>{payroll.employee?.name}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            <Text strong style={fontSize}>
+                                                Phòng ban:
+                                            </Text>
+                                        </td>
+                                        <td>
+                                            {payroll.employee?.department
+                                                ?.name || "Chưa có phòng ban"}
+                                        </td>
+                                        <td>
+                                            <Text strong style={fontSize}>
+                                                Chức vụ:
+                                            </Text>
+                                        </td>
+                                        <td>
+                                            {payroll.employee?.role?.name ||
+                                                "Chưa có chức vụ"}
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </Col>
+                    <Col span={12}>
+                        <div className="section-block">
+                            <Typography.Title
+                                level={5}
+                                style={{ margin: "8px 0", fontSize: "14px" }}
+                            >
+                                THÔNG tin KỲ LƯƠNG
+                            </Typography.Title>
+                            <table className="compact-table">
+                                <tbody>
+                                    <tr>
+                                        <td>
+                                            <Text strong style={fontSize}>
+                                                Mã bảng lương:
+                                            </Text>
+                                        </td>
+                                        <td>{payroll.payroll_code}</td>
+                                        <td>
+                                            <Text strong style={fontSize}>
+                                                Trạng thái:
+                                            </Text>
+                                        </td>
+                                        <td>{statusLabels[payroll.status]}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            <Text strong style={fontSize}>
+                                                Kỳ lương:
+                                            </Text>
+                                        </td>
+                                        <td>
+                                            {dayjs(payroll.period_start).format(
+                                                "DD/MM/YYYY"
+                                            )}{" "}
+                                            -{" "}
+                                            {dayjs(payroll.period_end).format(
+                                                "DD/MM/YYYY"
+                                            )}
+                                        </td>
+                                        <td>
+                                            <Text strong style={fontSize}>
+                                                Loại kỳ lương:
+                                            </Text>
+                                        </td>
+                                        <td>
+                                            {
+                                                periodTypeLabels[
+                                                    payroll.period_type
+                                                ]
+                                            }
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </Col>
+                </Row>
+
+                <Divider style={{ margin: "8px 0" }} />
+
+                {/* Phần Thông tin chấm công và Chi tiết lương */}
+                <Row gutter={16}>
+                    <Col span={12}>
+                        <div className="section-block">
+                            <Typography.Title
+                                level={5}
+                                style={{ margin: "8px 0", fontSize: "14px" }}
+                            >
+                                THÔNG TIN CHẤM CÔNG
+                            </Typography.Title>
+                            <table className="compact-table">
+                                <tbody>
+                                    <tr>
+                                        <td>
+                                            <Text strong style={fontSize}>
+                                                Số ngày công:
+                                            </Text>
+                                        </td>
+                                        <td>
+                                            {payroll.working_days || 0} ngày
+                                        </td>
+                                        <td>
+                                            <Text strong style={fontSize}>
+                                                Tổng giờ làm việc:
+                                            </Text>
+                                        </td>
+                                        <td>
+                                            {payroll.total_working_hours?.toFixed(
+                                                1
+                                            ) || 0}{" "}
+                                            giờ
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            <Text strong style={fontSize}>
+                                                Số giờ tăng ca:
+                                            </Text>
+                                        </td>
+                                        <td>
+                                            <Text style={{ color: "#fa8c16" }}>
+                                                {payroll.overtime_hours?.toFixed(
+                                                    1
+                                                ) || 0}{" "}
+                                                giờ
+                                                {payroll.overtime_hours > 0 &&
+                                                    ` (x${
+                                                        payroll.overtime_multiplier?.toFixed(
+                                                            2
+                                                        ) || "1.50"
+                                                    })`}
+                                            </Text>
+                                        </td>
+                                        <td>
+                                            <Text strong style={fontSize}>
+                                                Số giờ ca đêm:
+                                            </Text>
+                                        </td>
+                                        <td>
+                                            <Text style={{ color: "#0050b3" }}>
+                                                {payroll.night_shift_hours?.toFixed(
+                                                    1
+                                                ) || 0}{" "}
+                                                giờ
+                                                {payroll.night_shift_hours >
+                                                    0 &&
+                                                    ` (x${
+                                                        payroll.night_shift_multiplier?.toFixed(
+                                                            2
+                                                        ) || "1.30"
+                                                    })`}
+                                            </Text>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </Col>
+                    <Col span={12}>
+                        <div className="section-block">
+                            <Typography.Title
+                                level={5}
+                                style={{ margin: "8px 0", fontSize: "14px" }}
+                            >
+                                CHI TIẾT LƯƠNG
+                            </Typography.Title>
+                            <table className="compact-table">
+                                <tbody>
+                                    <tr>
+                                        <td>
+                                            <Text strong style={fontSize}>
+                                                Lương cơ bản:
+                                            </Text>
+                                        </td>
+                                        <td>
+                                            {formatCurrency(
+                                                payroll.base_salary
+                                            )}
+                                        </td>
+                                        <td>
+                                            <Text strong style={fontSize}>
+                                                Lương tăng ca:
+                                            </Text>
+                                        </td>
+                                        <td>
+                                            {formatCurrency(
+                                                payroll.overtime_pay
+                                            )}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            <Text strong style={fontSize}>
+                                                Lương ca đêm:
+                                            </Text>
+                                        </td>
+                                        <td>
+                                            {formatCurrency(
+                                                payroll.night_shift_pay
+                                            )}
+                                        </td>
+                                        <td>
+                                            <Text strong style={fontSize}>
+                                                Phụ cấp:
+                                            </Text>
+                                        </td>
+                                        <td>
+                                            {formatCurrency(payroll.allowances)}
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </Col>
+                </Row>
+
+                <Divider style={{ margin: "8px 0" }} />
+
+                {/* Phần Khấu trừ và Tổng lương */}
+                <Row gutter={16}>
+                    <Col span={12}>
+                        <div className="section-block">
+                            <Typography.Title
+                                level={5}
+                                style={{ margin: "8px 0", fontSize: "14px" }}
+                            >
+                                KHẤU TRỪ
+                            </Typography.Title>
+                            <table className="compact-table">
+                                <tbody>
+                                    <tr>
+                                        <td>
+                                            <Text strong style={fontSize}>
+                                                Thuế TNCN:
+                                            </Text>
+                                        </td>
+                                        <td>
+                                            <Text style={{ color: "#f5222d" }}>
+                                                {formatCurrency(payroll.tax)}
+                                            </Text>
+                                        </td>
+                                        <td>
+                                            <Text strong style={fontSize}>
+                                                Bảo hiểm:
+                                            </Text>
+                                        </td>
+                                        <td>
+                                            <Text style={{ color: "#f5222d" }}>
+                                                {formatCurrency(
+                                                    payroll.insurance
+                                                )}
+                                            </Text>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            <Text strong style={fontSize}>
+                                                Khấu trừ khác:
+                                            </Text>
+                                        </td>
+                                        <td>
+                                            <Text style={{ color: "#f5222d" }}>
+                                                {formatCurrency(
+                                                    payroll.deductions
+                                                        ? payroll.deductions -
+                                                              (payroll.tax ||
+                                                                  0) -
+                                                              (payroll.insurance ||
+                                                                  0)
+                                                        : 0
+                                                )}
+                                            </Text>
+                                        </td>
+                                        <td>
+                                            <Text strong style={fontSize}>
+                                                Tổng khấu trừ:
+                                            </Text>
+                                        </td>
+                                        <td>
+                                            <Text style={{ color: "#f5222d" }}>
+                                                {formatCurrency(
+                                                    payroll.deductions
+                                                )}
+                                            </Text>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </Col>
+                    <Col span={12}>
+                        <div className="section-block total-salary-block">
+                            <Typography.Title
+                                level={5}
+                                style={{ margin: "8px 0", fontSize: "14px" }}
+                            >
+                                TỔNG LƯƠNG
+                            </Typography.Title>
+                            <Row gutter={[8, 16]} style={{ marginTop: "8px" }}>
+                                <Col span={12}>
+                                    <Statistic
+                                        title={
+                                            <span style={{ fontSize: "12px" }}>
+                                                Tổng lương gộp
+                                            </span>
+                                        }
+                                        value={formatCurrency(
+                                            payroll.gross_pay
+                                        )}
+                                        precision={0}
+                                        valueStyle={{ fontSize: "14px" }}
+                                    />
+                                </Col>
+                                <Col span={12}>
+                                    <Statistic
+                                        title={
+                                            <span style={{ fontSize: "12px" }}>
+                                                Lương thực lãnh
+                                            </span>
+                                        }
+                                        value={formatCurrency(payroll.net_pay)}
+                                        precision={0}
+                                        valueStyle={{
+                                            fontSize: "16px",
+                                            color: "#3f8600",
+                                            fontWeight: "bold",
+                                        }}
+                                    />
+                                </Col>
+                            </Row>
+                        </div>
+                    </Col>
+                </Row>
+            </div>
+        );
+    }
+
+    // Nếu không ở chế độ compact, hiển thị phiếu lương đầy đủ
     return (
         <div className="payroll-detail">
             <Descriptions title="Thông tin nhân viên" bordered column={2}>
@@ -60,21 +443,14 @@ const PayrollDetail = ({
                     <Text strong>{payroll.payroll_code}</Text>
                 </Descriptions.Item>
                 <Descriptions.Item label="Trạng thái">
-                    <Tag
-                        className={`status-${payroll.status}`}
-                        color={statusColors[payroll.status]}
-                    >
-                        {statusLabels[payroll.status]}
-                    </Tag>
+                    {statusLabels[payroll.status]}
                 </Descriptions.Item>
                 <Descriptions.Item label="Kỳ lương">
                     {dayjs(payroll.period_start).format("DD/MM/YYYY")} -{" "}
                     {dayjs(payroll.period_end).format("DD/MM/YYYY")}
                 </Descriptions.Item>
                 <Descriptions.Item label="Loại kỳ lương">
-                    <Tag color="blue">
-                        {periodTypeLabels[payroll.period_type]}
-                    </Tag>
+                    {periodTypeLabels[payroll.period_type]}
                 </Descriptions.Item>
                 <Descriptions.Item label="Ngày tạo">
                     {payroll.created_at

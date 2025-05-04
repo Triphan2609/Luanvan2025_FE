@@ -1,281 +1,253 @@
-import React, { useEffect, useState } from "react";
-import { Modal, Form, Select, DatePicker, Space, Button, Spin } from "antd";
+import React, { useState, useEffect } from "react";
+import {
+    Modal,
+    Form,
+    Select,
+    DatePicker,
+    Button,
+    Space,
+    Spin,
+    Divider,
+    Alert,
+} from "antd";
 import dayjs from "dayjs";
-import { getActiveShifts } from "../../../../../api/shiftsApi";
 import { getEmployees } from "../../../../../api/employeesApi";
-import { getDepartments } from "../../../../../api/departmentsApi";
+import { getShifts, getShiftsByBranch } from "../../../../../api/shiftsApi";
+import { getBranches } from "../../../../../api/branchesApi";
+
+const { Option } = Select;
 
 const ScheduleForm = ({ open, onCancel, onSubmit, selectedDate }) => {
     const [form] = Form.useForm();
-    const [employees, setEmployees] = useState([]);
-    const [filteredEmployees, setFilteredEmployees] = useState([]);
-    const [shifts, setShifts] = useState([]);
-    const [departments, setDepartments] = useState([]);
-    const [roles, setRoles] = useState([]);
     const [loading, setLoading] = useState(false);
-    const [departmentId, setDepartmentId] = useState(null);
-    const [roleId, setRoleId] = useState(null);
+    const [branches, setBranches] = useState([]);
+    const [employees, setEmployees] = useState([]);
+    const [shifts, setShifts] = useState([]);
+    const [selectedBranch, setSelectedBranch] = useState(null);
+    const [selectedEmployee, setSelectedEmployee] = useState(null);
 
-    // Lấy dữ liệu khi form mở
+    // Fetch data on modal open
     useEffect(() => {
         if (open) {
-            loadFormData();
-        }
-    }, [open]);
+            fetchBranches();
+            fetchEmployees();
+            fetchShifts();
 
-    // Cập nhật ngày được chọn
-    useEffect(() => {
-        if (selectedDate) {
-            form.setFieldValue("date", selectedDate);
-        }
-    }, [selectedDate, form]);
-
-    // Lọc nhân viên theo phòng ban
-    useEffect(() => {
-        if (!departmentId) {
-            setFilteredEmployees([]);
-            setRoles([]);
-            return;
-        }
-
-        // Lấy danh sách role từ nhân viên theo department
-        const departmentEmployees = employees.filter(
-            (emp) => emp.department?.id === departmentId
-        );
-
-        // Lấy danh sách roles duy nhất từ danh sách nhân viên đã lọc
-        const uniqueRoles = [];
-        const roleIds = new Set();
-
-        departmentEmployees.forEach((emp) => {
-            if (emp.role && !roleIds.has(emp.role.id)) {
-                roleIds.add(emp.role.id);
-                uniqueRoles.push({
-                    id: emp.role.id,
-                    name: emp.role.name,
-                });
+            // Set default date value
+            if (selectedDate) {
+                form.setFieldsValue({ date: dayjs(selectedDate) });
             }
-        });
-
-        setRoles(uniqueRoles);
-
-        // Reset role selection
-        form.setFieldValue("roleId", undefined);
-        form.setFieldValue("employeeId", undefined);
-        setRoleId(null);
-    }, [departmentId, employees, form]);
-
-    // Lọc nhân viên theo chức vụ
-    useEffect(() => {
-        if (!departmentId || !roleId) {
-            setFilteredEmployees([]);
-            return;
         }
+    }, [open, selectedDate]);
 
-        const filtered = employees.filter(
-            (emp) =>
-                emp.department?.id === departmentId && emp.role?.id === roleId
-        );
+    // Fetch shifts when branch changes
+    useEffect(() => {
+        if (selectedBranch) {
+            fetchShiftsByBranch(selectedBranch);
+        } else {
+            fetchShifts();
+        }
+    }, [selectedBranch]);
 
-        setFilteredEmployees(filtered);
-
-        // Reset employee selection
-        form.setFieldValue("employeeId", undefined);
-    }, [departmentId, roleId, employees, form]);
-
-    const loadFormData = async () => {
+    // Fetch branches
+    const fetchBranches = async () => {
         try {
             setLoading(true);
-
-            // Tải danh sách phòng ban
-            const departmentsData = await getDepartments();
-            setDepartments(departmentsData);
-
-            // Tải danh sách nhân viên
-            const employeesResponse = await getEmployees();
-
-            // Xác định cấu trúc response và lấy mảng employees
-            let employeesList = [];
-            if (Array.isArray(employeesResponse)) {
-                employeesList = employeesResponse;
-            } else if (employeesResponse && employeesResponse.data) {
-                // Nếu response có format { data: [...], total: number }
-                employeesList = employeesResponse.data;
-            } else {
-                console.error(
-                    "Định dạng dữ liệu nhân viên không đúng:",
-                    employeesResponse
-                );
-                employeesList = [];
-            }
-
-            setEmployees(employeesList);
-
-            // Tải danh sách ca làm việc đang hoạt động
-            const shiftsData = await getActiveShifts();
-
-            // Chuyển đổi dữ liệu ca làm việc
-            const formattedShifts = shiftsData.map((shift) => ({
-                id: shift.id,
-                shift_code: shift.shift_code,
-                name: `${shift.name} (${shift.start_time}-${shift.end_time})`,
-                start_time: shift.start_time,
-                end_time: shift.end_time,
-                type: shift.type,
-            }));
-
-            setShifts(formattedShifts);
+            const data = await getBranches();
+            setBranches(data || []);
         } catch (error) {
-            console.error("Lỗi khi tải dữ liệu form:", error);
+            console.error("Error fetching branches:", error);
+            setBranches([]);
         } finally {
             setLoading(false);
         }
     };
 
-    const handleSubmit = (values) => {
-        onSubmit({
-            employeeId: values.employeeId,
-            shiftId: values.shiftId,
-            date: values.date.format("YYYY-MM-DD"),
-        });
-
-        form.resetFields();
+    // Fetch employees
+    const fetchEmployees = async () => {
+        try {
+            setLoading(true);
+            const response = await getEmployees();
+            // Handle the response correctly - getEmployees returns an object with a data property
+            setEmployees(response?.data || []);
+        } catch (error) {
+            console.error("Error fetching employees:", error);
+            setEmployees([]);
+        } finally {
+            setLoading(false);
+        }
     };
 
-    const handleDepartmentChange = (value) => {
-        setDepartmentId(value);
+    // Fetch all shifts
+    const fetchShifts = async () => {
+        try {
+            setLoading(true);
+            const data = await getShifts({ isActive: true });
+            setShifts(data || []);
+        } catch (error) {
+            console.error("Error fetching shifts:", error);
+            setShifts([]);
+        } finally {
+            setLoading(false);
+        }
     };
 
-    const handleRoleChange = (value) => {
-        setRoleId(value);
+    // Fetch shifts by branch
+    const fetchShiftsByBranch = async (branchId) => {
+        try {
+            setLoading(true);
+            const data = await getShiftsByBranch(branchId);
+            setShifts(data || []);
+        } catch (error) {
+            console.error("Error fetching shifts by branch:", error);
+            setShifts([]);
+        } finally {
+            setLoading(false);
+        }
     };
 
-    // Hàm lọc nhân viên theo tên
-    const filterEmployees = (input, option) => {
-        return option.children.toLowerCase().includes(input.toLowerCase());
+    // Handle employee change
+    const handleEmployeeChange = (value) => {
+        setSelectedEmployee(value);
+
+        // Find employee's branch
+        const employee = employees.find((emp) => emp.id === value);
+        if (employee && employee.branch) {
+            form.setFieldsValue({ branch_id: employee.branch.id });
+            setSelectedBranch(employee.branch.id);
+        }
     };
+
+    // Handle branch change
+    const handleBranchChange = (value) => {
+        setSelectedBranch(value);
+
+        // Reset employee selection if their branch doesn't match
+        if (selectedEmployee) {
+            const employee = employees.find(
+                (emp) => emp.id === selectedEmployee
+            );
+            if (employee && employee.branch && employee.branch.id !== value) {
+                form.setFieldsValue({ employee_id: undefined });
+                setSelectedEmployee(null);
+            }
+        }
+    };
+
+    // Handle form submission
+    const handleSubmit = async () => {
+        try {
+            const values = await form.validateFields();
+            // Format the date
+            values.date = values.date.format("YYYY-MM-DD");
+            await onSubmit(values);
+            form.resetFields();
+        } catch (error) {
+            console.error("Form validation error:", error);
+        }
+    };
+
+    // Filter employees by branch
+    const filteredEmployees = Array.isArray(employees)
+        ? selectedBranch
+            ? employees.filter(
+                  (emp) => emp.branch && emp.branch.id === selectedBranch
+              )
+            : employees
+        : [];
 
     return (
         <Modal
-            title="Phân công ca làm việc"
+            title="Thêm lịch làm việc mới"
             open={open}
             onCancel={onCancel}
             footer={null}
-            width={500}
+            width={600}
+            destroyOnClose
         >
             <Spin spinning={loading}>
                 <Form form={form} layout="vertical" onFinish={handleSubmit}>
                     <Form.Item
-                        name="departmentId"
-                        label="Chọn phòng ban"
+                        name="branch_id"
+                        label="Chi nhánh"
                         rules={[
                             {
                                 required: true,
-                                message: "Vui lòng chọn phòng ban!",
+                                message: "Vui lòng chọn chi nhánh",
                             },
                         ]}
                     >
                         <Select
-                            placeholder="Chọn phòng ban"
-                            onChange={handleDepartmentChange}
-                            notFoundContent={
-                                loading ? <Spin size="small" /> : null
-                            }
+                            placeholder="Chọn chi nhánh"
+                            onChange={handleBranchChange}
+                            showSearch
+                            optionFilterProp="children"
                         >
-                            {Array.isArray(departments) &&
-                                departments.map((dept) => (
-                                    <Select.Option
-                                        key={dept.id}
-                                        value={dept.id}
-                                    >
-                                        {dept.name}
-                                    </Select.Option>
+                            {Array.isArray(branches) &&
+                                branches.map((branch) => (
+                                    <Option key={branch.id} value={branch.id}>
+                                        {branch.name}
+                                    </Option>
                                 ))}
                         </Select>
                     </Form.Item>
 
                     <Form.Item
-                        name="roleId"
-                        label="Chọn chức vụ"
+                        name="employee_id"
+                        label="Nhân viên"
                         rules={[
                             {
                                 required: true,
-                                message: "Vui lòng chọn chức vụ!",
-                            },
-                        ]}
-                    >
-                        <Select
-                            placeholder="Chọn chức vụ"
-                            onChange={handleRoleChange}
-                            disabled={!departmentId}
-                            notFoundContent={
-                                loading ? <Spin size="small" /> : null
-                            }
-                        >
-                            {Array.isArray(roles) &&
-                                roles.map((role) => (
-                                    <Select.Option
-                                        key={role.id}
-                                        value={role.id}
-                                    >
-                                        {role.name}
-                                    </Select.Option>
-                                ))}
-                        </Select>
-                    </Form.Item>
-
-                    <Form.Item
-                        name="employeeId"
-                        label="Chọn nhân viên"
-                        rules={[
-                            {
-                                required: true,
-                                message: "Vui lòng chọn nhân viên!",
+                                message: "Vui lòng chọn nhân viên",
                             },
                         ]}
                     >
                         <Select
                             placeholder="Chọn nhân viên"
+                            onChange={handleEmployeeChange}
                             showSearch
-                            filterOption={filterEmployees}
-                            disabled={!departmentId || !roleId}
-                            notFoundContent={
-                                loading ? <Spin size="small" /> : null
+                            optionFilterProp="children"
+                            filterOption={(input, option) =>
+                                option.children
+                                    .toLowerCase()
+                                    .includes(input.toLowerCase())
                             }
                         >
                             {Array.isArray(filteredEmployees) &&
-                                filteredEmployees.map((emp) => (
-                                    <Select.Option key={emp.id} value={emp.id}>
-                                        {emp.name || emp.fullname}
-                                    </Select.Option>
+                                filteredEmployees.map((employee) => (
+                                    <Option
+                                        key={employee.id}
+                                        value={employee.id}
+                                    >
+                                        {employee.name || employee.fullname} -{" "}
+                                        {employee.department?.name ||
+                                            "Chưa phân phòng"}
+                                    </Option>
                                 ))}
                         </Select>
                     </Form.Item>
 
                     <Form.Item
-                        name="shiftId"
-                        label="Chọn ca làm việc"
+                        name="shift_id"
+                        label="Ca làm việc"
                         rules={[
                             {
                                 required: true,
-                                message: "Vui lòng chọn ca làm việc!",
+                                message: "Vui lòng chọn ca làm việc",
                             },
                         ]}
                     >
                         <Select
                             placeholder="Chọn ca làm việc"
-                            notFoundContent={
-                                loading ? <Spin size="small" /> : null
-                            }
+                            showSearch
+                            optionFilterProp="children"
                         >
                             {Array.isArray(shifts) &&
                                 shifts.map((shift) => (
-                                    <Select.Option
-                                        key={shift.id}
-                                        value={shift.id}
-                                    >
-                                        {shift.name}
-                                    </Select.Option>
+                                    <Option key={shift.id} value={shift.id}>
+                                        {shift.name} ({shift.start_time} -{" "}
+                                        {shift.end_time})
+                                    </Option>
                                 ))}
                         </Select>
                     </Form.Item>
@@ -284,24 +256,40 @@ const ScheduleForm = ({ open, onCancel, onSubmit, selectedDate }) => {
                         name="date"
                         label="Ngày làm việc"
                         rules={[
-                            { required: true, message: "Vui lòng chọn ngày!" },
+                            {
+                                required: true,
+                                message: "Vui lòng chọn ngày làm việc",
+                            },
                         ]}
                     >
                         <DatePicker
-                            style={{ width: "100%" }}
                             format="DD/MM/YYYY"
+                            style={{ width: "100%" }}
                         />
                     </Form.Item>
+
+                    <Divider />
+
+                    <Form.Item name="note" label="Ghi chú">
+                        <Select placeholder="Chọn ghi chú" allowClear>
+                            <Option value="Thay ca">Thay ca</Option>
+                            <Option value="Tăng ca">Tăng ca</Option>
+                            <Option value="Ca đặc biệt">Ca đặc biệt</Option>
+                        </Select>
+                    </Form.Item>
+
+                    <Alert
+                        message="Sau khi thêm, lịch làm việc sẽ ở trạng thái Chờ xác nhận"
+                        type="info"
+                        showIcon
+                        style={{ marginBottom: 16 }}
+                    />
 
                     <Form.Item style={{ marginBottom: 0, textAlign: "right" }}>
                         <Space>
                             <Button onClick={onCancel}>Hủy</Button>
-                            <Button
-                                type="primary"
-                                htmlType="submit"
-                                loading={loading}
-                            >
-                                Phân công
+                            <Button type="primary" htmlType="submit">
+                                Thêm lịch
                             </Button>
                         </Space>
                     </Form.Item>

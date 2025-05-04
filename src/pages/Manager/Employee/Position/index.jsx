@@ -46,6 +46,7 @@ import {
     updateDepartment,
     deleteDepartment,
 } from "../../../../api/departmentsApi";
+import { getBranches } from "../../../../api/branchesApi";
 
 const { Title, Text } = Typography;
 const { Search } = Input;
@@ -93,6 +94,7 @@ export default function PositionManagement() {
     });
     const [positionFilter, setPositionFilter] = useState({
         department: undefined,
+        branch: undefined,
     });
 
     // States for Department
@@ -106,12 +108,62 @@ export default function PositionManagement() {
         field: "id",
         order: "ascend",
     });
+    const [departmentFilter, setDepartmentFilter] = useState({
+        branch: undefined,
+    });
+
+    // States for Branch
+    const [branches, setBranches] = useState([]);
+    const [loadingBranches, setLoadingBranches] = useState(false);
 
     // Fetch initial data
     useEffect(() => {
+        fetchBranches();
         fetchPositions();
         fetchDepartments();
     }, []);
+
+    // Fetch branches
+    const fetchBranches = async () => {
+        try {
+            setLoadingBranches(true);
+            const data = await getBranches();
+            setBranches(data);
+        } catch (error) {
+            console.error("Error fetching branches:", error);
+            message.error("Không thể tải danh sách chi nhánh");
+        } finally {
+            setLoadingBranches(false);
+        }
+    };
+
+    // Filter departments when branch is selected
+    useEffect(() => {
+        if (departmentFilter.branch) {
+            fetchDepartmentsByBranch(departmentFilter.branch);
+        } else {
+            fetchDepartments();
+        }
+    }, [departmentFilter.branch]);
+
+    // Filter departments for positions when branch is selected
+    useEffect(() => {
+        if (positionFilter.branch) {
+            fetchDepartmentsByBranch(positionFilter.branch);
+            // Also reset department filter if not in the current branch
+            if (positionFilter.department) {
+                const dept = departments.find(
+                    (d) => d.id === positionFilter.department
+                );
+                if (!dept || dept.branch_id !== positionFilter.branch) {
+                    setPositionFilter((prev) => ({
+                        ...prev,
+                        department: undefined,
+                    }));
+                }
+            }
+        }
+    }, [positionFilter.branch]);
 
     // Fetch positions
     const fetchPositions = async () => {
@@ -136,6 +188,20 @@ export default function PositionManagement() {
         } catch (error) {
             console.error("Error fetching departments:", error);
             message.error("Không thể tải danh sách phòng ban");
+        } finally {
+            setLoadingDepartments(false);
+        }
+    };
+
+    // Fetch departments by branch
+    const fetchDepartmentsByBranch = async (branchId) => {
+        try {
+            setLoadingDepartments(true);
+            const data = await getDepartmentsByBranch(branchId);
+            setDepartments(data);
+        } catch (error) {
+            console.error("Error fetching departments by branch:", error);
+            message.error("Không thể tải danh sách phòng ban theo chi nhánh");
         } finally {
             setLoadingDepartments(false);
         }
@@ -238,13 +304,19 @@ export default function PositionManagement() {
     // Reset filters for positions
     const handleResetPositionFilters = () => {
         setSearchText("");
-        setPositionFilter({ department: undefined });
+        setPositionFilter({
+            department: undefined,
+            branch: undefined,
+        });
         setPositionSort({ field: "id", order: "ascend" });
     };
 
     // Reset filters for departments
     const handleResetDepartmentFilters = () => {
         setSearchDeptText("");
+        setDepartmentFilter({
+            branch: undefined,
+        });
         setDepartmentSort({ field: "id", order: "ascend" });
     };
 
@@ -428,6 +500,13 @@ export default function PositionManagement() {
             sorter: (a, b) => a.name.localeCompare(b.name),
             sortOrder:
                 departmentSort.field === "name" ? departmentSort.order : null,
+        },
+        {
+            title: "Chi nhánh",
+            dataIndex: ["branch", "name"],
+            key: "branch",
+            render: (text, record) =>
+                record.branch?.name || "Chưa phân chi nhánh",
         },
         {
             title: "Mô tả",
@@ -620,6 +699,29 @@ export default function PositionManagement() {
                                         />
 
                                         <Select
+                                            placeholder="Chi nhánh"
+                                            style={{ width: 200 }}
+                                            onChange={(value) =>
+                                                setPositionFilter((prev) => ({
+                                                    ...prev,
+                                                    branch: value,
+                                                }))
+                                            }
+                                            value={positionFilter.branch}
+                                            allowClear
+                                            loading={loadingBranches}
+                                        >
+                                            {branches.map((branch) => (
+                                                <Option
+                                                    key={branch.id}
+                                                    value={branch.id}
+                                                >
+                                                    {branch.name}
+                                                </Option>
+                                            ))}
+                                        </Select>
+
+                                        <Select
                                             placeholder="Lọc theo phòng ban"
                                             style={{ width: 200 }}
                                             onChange={(value) =>
@@ -755,6 +857,28 @@ export default function PositionManagement() {
                                             style={{ width: 300 }}
                                             allowClear
                                         />
+                                        <Select
+                                            placeholder="Chi nhánh"
+                                            style={{ width: 200 }}
+                                            onChange={(value) =>
+                                                setDepartmentFilter((prev) => ({
+                                                    ...prev,
+                                                    branch: value,
+                                                }))
+                                            }
+                                            value={departmentFilter.branch}
+                                            allowClear
+                                            loading={loadingBranches}
+                                        >
+                                            {branches.map((branch) => (
+                                                <Option
+                                                    key={branch.id}
+                                                    value={branch.id}
+                                                >
+                                                    {branch.name}
+                                                </Option>
+                                            ))}
+                                        </Select>
                                         <Button
                                             icon={<ReloadOutlined />}
                                             onClick={
