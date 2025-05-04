@@ -137,12 +137,33 @@ export const getSalaryTypes = async () => {
 // Lấy danh sách bảng lương
 export const getPayrolls = async (params = {}) => {
     try {
+        console.log("API Request - getPayrolls with params:", params);
+
         const response = await apiClient.get("/payrolls", {
             params: params,
         });
 
-        return response.data;
+        // Log response để debug
+        console.log("API Response - getPayrolls:", response);
+
+        // Kiểm tra dữ liệu trả về
+        if (Array.isArray(response.data)) {
+            console.log(
+                `Successfully fetched ${response.data.length} payrolls`
+            );
+            return response.data;
+        } else if (response.data && Array.isArray(response.data.data)) {
+            console.log(
+                `Successfully fetched ${response.data.data.length} payrolls (nested data)`
+            );
+            return response.data.data;
+        } else {
+            console.warn("API returned non-array data:", response.data);
+            return [];
+        }
     } catch (error) {
+        console.error("Error fetching payrolls:", error);
+        console.error("Error details:", error.response?.data || error.message);
         throw error;
     }
 };

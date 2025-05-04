@@ -22,20 +22,30 @@ import {
     Spin,
     InputNumber,
     Alert,
+    Statistic,
+    Radio,
+    Dropdown,
+    Menu,
 } from "antd";
 import {
-    PlusOutlined,
     SearchOutlined,
-    FilterOutlined,
-    DollarOutlined,
-    CheckCircleOutlined,
-    DeleteOutlined,
     UserOutlined,
+    CalendarOutlined,
+    ClockCircleOutlined,
+    DollarOutlined,
+    FileTextOutlined,
+    CheckCircleOutlined,
+    LineChartOutlined,
+    PlusCircleOutlined,
+    MinusCircleOutlined,
     PrinterOutlined,
     DownloadOutlined,
-    FileTextOutlined,
+    EditOutlined,
+    DeleteOutlined,
+    FilterOutlined,
     ReloadOutlined,
-    ExclamationCircleOutlined,
+    InfoCircleOutlined,
+    MoreOutlined,
 } from "@ant-design/icons";
 import dayjs from "dayjs";
 import { getDepartments } from "../../../../api/departmentsApi";
@@ -195,23 +205,45 @@ export default function PayrollPage() {
             }
 
             console.log("Fetching payrolls with filters:", filters);
-            const data = await getPayrolls(filters);
-            setPayrolls(Array.isArray(data) ? data : []);
 
-            // Show search results message
-            const hasFilters = Object.keys(filters).length > 0;
-            if (hasFilters && formValues.search) {
+            // Thêm timestamp vào query để tránh cache
+            filters._t = new Date().getTime();
+
+            const data = await getPayrolls(filters);
+
+            // Kiểm tra dữ liệu nhận về và xử lý phù hợp
+            console.log("Received payroll data:", data);
+
+            if (data && Array.isArray(data)) {
+                setPayrolls(data);
+                console.log(`Retrieved ${data.length} payrolls`);
+
+                // Hiển thị thông báo nếu không có dữ liệu
                 if (data.length === 0) {
                     message.info(
                         "Không tìm thấy bảng lương nào phù hợp với bộ lọc"
                     );
-                } else {
-                    message.success(`Đã tìm thấy ${data.length} bảng lương`);
                 }
+            } else {
+                console.warn("Định dạng dữ liệu không hợp lệ:", data);
+                setPayrolls([]);
+                message.error("Dữ liệu bảng lương không đúng định dạng");
+            }
+
+            // Show search results message
+            const hasFilters = Object.keys(filters).length > 0;
+            if (hasFilters && formValues.search && data && data.length > 0) {
+                message.success(`Đã tìm thấy ${data.length} bảng lương`);
             }
         } catch (error) {
             console.error("Error fetching payrolls:", error);
-            message.error("Không thể tải dữ liệu bảng lương");
+            console.error(
+                "Error details:",
+                error.response?.data || error.message
+            );
+            message.error(
+                "Không thể tải dữ liệu bảng lương. Vui lòng thử lại sau."
+            );
             setPayrolls([]);
         } finally {
             setLoading(false);
@@ -558,14 +590,63 @@ export default function PayrollPage() {
                 (a.total_working_hours || 0) - (b.total_working_hours || 0),
         },
         {
+            title: "Giờ tăng ca",
+            dataIndex: "overtime_hours",
+            key: "overtime_hours",
+            width: 130,
+            render: (value, record) => (
+                <Space direction="vertical" size={0}>
+                    <span className="overtime-value">
+                        {value ? value.toFixed(1) + " giờ" : "0 giờ"}
+                    </span>
+                    {value > 0 && (
+                        <Tooltip title="Hệ số tăng ca">
+                            <Tag color="orange" style={{ marginTop: 3 }}>
+                                x
+                                {record.overtime_multiplier?.toFixed(2) ||
+                                    "1.50"}
+                            </Tag>
+                        </Tooltip>
+                    )}
+                </Space>
+            ),
+            sorter: (a, b) => (a.overtime_hours || 0) - (b.overtime_hours || 0),
+        },
+        {
+            title: "Phụ cấp tăng ca",
+            dataIndex: "overtime_pay",
+            key: "overtime_pay",
+            width: 150,
+            render: (value) => (
+                <span className="overtime-value">
+                    {new Intl.NumberFormat("vi-VN", {
+                        style: "currency",
+                        currency: "VND",
+                    }).format(value || 0)}
+                </span>
+            ),
+            sorter: (a, b) => (a.overtime_pay || 0) - (b.overtime_pay || 0),
+        },
+        {
             title: "Giờ làm đêm",
             dataIndex: "night_shift_hours",
             key: "night_shift_hours",
             width: 130,
-            render: (value) => (
-                <span className="night-shift-value">
-                    {value ? value.toFixed(1) + " giờ" : "0 giờ"}
-                </span>
+            render: (value, record) => (
+                <Space direction="vertical" size={0}>
+                    <span className="night-shift-value">
+                        {value ? value.toFixed(1) + " giờ" : "0 giờ"}
+                    </span>
+                    {value > 0 && (
+                        <Tooltip title="Hệ số ca đêm">
+                            <Tag color="blue" style={{ marginTop: 3 }}>
+                                x
+                                {record.night_shift_multiplier?.toFixed(2) ||
+                                    "1.30"}
+                            </Tag>
+                        </Tooltip>
+                    )}
+                </Space>
             ),
             sorter: (a, b) =>
                 (a.night_shift_hours || 0) - (b.night_shift_hours || 0),
@@ -585,6 +666,69 @@ export default function PayrollPage() {
             ),
             sorter: (a, b) =>
                 (a.night_shift_pay || 0) - (b.night_shift_pay || 0),
+        },
+        {
+            title: (
+                <span>
+                    <PlusCircleOutlined style={{ color: "#52c41a" }} /> Phụ cấp
+                    không thuế
+                </span>
+            ),
+            dataIndex: "non_taxable_allowances",
+            key: "non_taxable_allowances",
+            width: 150,
+            render: (value) => (
+                <span className="allowance-value">
+                    {new Intl.NumberFormat("vi-VN", {
+                        style: "currency",
+                        currency: "VND",
+                    }).format(value || 0)}
+                </span>
+            ),
+            sorter: (a, b) =>
+                (a.non_taxable_allowances || 0) -
+                (b.non_taxable_allowances || 0),
+        },
+        {
+            title: (
+                <span>
+                    <PlusCircleOutlined style={{ color: "#faad14" }} /> Phụ cấp
+                    tính thuế
+                </span>
+            ),
+            dataIndex: "taxable_allowances",
+            key: "taxable_allowances",
+            width: 150,
+            render: (value) => (
+                <span className="allowance-taxable-value">
+                    {new Intl.NumberFormat("vi-VN", {
+                        style: "currency",
+                        currency: "VND",
+                    }).format(value || 0)}
+                </span>
+            ),
+            sorter: (a, b) =>
+                (a.taxable_allowances || 0) - (b.taxable_allowances || 0),
+        },
+        {
+            title: (
+                <span>
+                    <MinusCircleOutlined style={{ color: "#f5222d" }} /> Khấu
+                    trừ
+                </span>
+            ),
+            dataIndex: "deductions",
+            key: "deductions",
+            width: 150,
+            render: (value) => (
+                <span className="deduction-value">
+                    {new Intl.NumberFormat("vi-VN", {
+                        style: "currency",
+                        currency: "VND",
+                    }).format(value || 0)}
+                </span>
+            ),
+            sorter: (a, b) => (a.deductions || 0) - (b.deductions || 0),
         },
         {
             title: "Tổng lương gộp",
@@ -689,7 +833,7 @@ export default function PayrollPage() {
                                 title="Xóa bảng lương"
                                 description="Bạn có chắc chắn muốn xóa bảng lương này?"
                                 icon={
-                                    <ExclamationCircleOutlined
+                                    <InfoCircleOutlined
                                         style={{ color: "#ff4d4f" }}
                                     />
                                 }
@@ -763,7 +907,7 @@ export default function PayrollPage() {
                 </div>
                 <Button
                     type="primary"
-                    icon={<PlusOutlined />}
+                    icon={<PlusCircleOutlined />}
                     onClick={() => setCreateModalVisible(true)}
                     size="large"
                 >
@@ -906,7 +1050,7 @@ export default function PayrollPage() {
             <Modal
                 title={
                     <Space>
-                        <PlusOutlined />
+                        <PlusCircleOutlined />
                         <span>Tạo bảng lương mới</span>
                     </Space>
                 }
@@ -1100,6 +1244,342 @@ export default function PayrollPage() {
                             </Form.Item>
                         </Col>
                     </Row>
+
+                    <Divider orientation="left">Phụ cấp</Divider>
+                    <Alert
+                        message="Để trống nếu muốn sử dụng giá trị phụ cấp mặc định từ cấu hình lương. Nhập giá trị 0 nếu muốn hủy phụ cấp."
+                        type="info"
+                        showIcon
+                        style={{ marginBottom: 16 }}
+                    />
+
+                    {/* Phụ cấp không tính thuế */}
+                    <Divider
+                        orientation="left"
+                        plain
+                        style={{ margin: "8px 0", fontSize: 14 }}
+                    >
+                        <Text type="secondary">Phụ cấp không tính thuế</Text>
+                    </Divider>
+
+                    <Row gutter={16}>
+                        <Col span={8}>
+                            <Form.Item
+                                name={["allowances", "meal_allowance"]}
+                                label={
+                                    <span>
+                                        <PlusCircleOutlined
+                                            style={{ color: "#52c41a" }}
+                                        />{" "}
+                                        Phụ cấp ăn ca
+                                        <Tooltip title="Không tính thuế nếu ≤ 730.000đ/tháng">
+                                            <InfoCircleOutlined
+                                                style={{
+                                                    marginLeft: 5,
+                                                    color: "#1890ff",
+                                                }}
+                                            />
+                                        </Tooltip>
+                                    </span>
+                                }
+                            >
+                                <InputNumber
+                                    min={0}
+                                    style={{ width: "100%" }}
+                                    placeholder="Nhập phụ cấp ăn ca"
+                                    formatter={(value) =>
+                                        `${value}`.replace(
+                                            /\B(?=(\d{3})+(?!\d))/g,
+                                            ","
+                                        )
+                                    }
+                                    parser={(value) =>
+                                        value.replace(/\$\s?|(,*)/g, "")
+                                    }
+                                />
+                            </Form.Item>
+                        </Col>
+                        <Col span={8}>
+                            <Form.Item
+                                name={["allowances", "transport_allowance"]}
+                                label={
+                                    <span>
+                                        <PlusCircleOutlined
+                                            style={{ color: "#52c41a" }}
+                                        />{" "}
+                                        Phụ cấp đi lại
+                                        <Tooltip title="Không tính thuế nếu theo thực tế">
+                                            <InfoCircleOutlined
+                                                style={{
+                                                    marginLeft: 5,
+                                                    color: "#1890ff",
+                                                }}
+                                            />
+                                        </Tooltip>
+                                    </span>
+                                }
+                            >
+                                <InputNumber
+                                    min={0}
+                                    style={{ width: "100%" }}
+                                    placeholder="Nhập phụ cấp đi lại"
+                                    formatter={(value) =>
+                                        `${value}`.replace(
+                                            /\B(?=(\d{3})+(?!\d))/g,
+                                            ","
+                                        )
+                                    }
+                                    parser={(value) =>
+                                        value.replace(/\$\s?|(,*)/g, "")
+                                    }
+                                />
+                            </Form.Item>
+                        </Col>
+                        <Col span={8}>
+                            <Form.Item
+                                name={["allowances", "phone_allowance"]}
+                                label={
+                                    <span>
+                                        <PlusCircleOutlined
+                                            style={{ color: "#52c41a" }}
+                                        />{" "}
+                                        Phụ cấp điện thoại
+                                        <Tooltip title="Không tính thuế nếu ≤ 1.000.000đ/tháng">
+                                            <InfoCircleOutlined
+                                                style={{
+                                                    marginLeft: 5,
+                                                    color: "#1890ff",
+                                                }}
+                                            />
+                                        </Tooltip>
+                                    </span>
+                                }
+                            >
+                                <InputNumber
+                                    min={0}
+                                    style={{ width: "100%" }}
+                                    placeholder="Nhập phụ cấp điện thoại"
+                                    formatter={(value) =>
+                                        `${value}`.replace(
+                                            /\B(?=(\d{3})+(?!\d))/g,
+                                            ","
+                                        )
+                                    }
+                                    parser={(value) =>
+                                        value.replace(/\$\s?|(,*)/g, "")
+                                    }
+                                />
+                            </Form.Item>
+                        </Col>
+                    </Row>
+
+                    {/* Phụ cấp có tính thuế */}
+                    <Divider
+                        orientation="left"
+                        plain
+                        style={{ margin: "12px 0 8px", fontSize: 14 }}
+                    >
+                        <Text type="secondary">Phụ cấp có tính thuế</Text>
+                    </Divider>
+
+                    <Row gutter={16}>
+                        <Col span={8}>
+                            <Form.Item
+                                name={["allowances", "housing_allowance"]}
+                                label={
+                                    <span>
+                                        <PlusCircleOutlined
+                                            style={{ color: "#faad14" }}
+                                        />{" "}
+                                        Phụ cấp nhà ở
+                                        <Tooltip title="Có tính thuế">
+                                            <InfoCircleOutlined
+                                                style={{
+                                                    marginLeft: 5,
+                                                    color: "#faad14",
+                                                }}
+                                            />
+                                        </Tooltip>
+                                    </span>
+                                }
+                            >
+                                <InputNumber
+                                    min={0}
+                                    style={{ width: "100%" }}
+                                    placeholder="Nhập phụ cấp nhà ở"
+                                    formatter={(value) =>
+                                        `${value}`.replace(
+                                            /\B(?=(\d{3})+(?!\d))/g,
+                                            ","
+                                        )
+                                    }
+                                    parser={(value) =>
+                                        value.replace(/\$\s?|(,*)/g, "")
+                                    }
+                                />
+                            </Form.Item>
+                        </Col>
+                        <Col span={8}>
+                            <Form.Item
+                                name={["allowances", "position_allowance"]}
+                                label={
+                                    <span>
+                                        <PlusCircleOutlined
+                                            style={{ color: "#faad14" }}
+                                        />{" "}
+                                        Phụ cấp chức vụ
+                                        <Tooltip title="Có tính thuế">
+                                            <InfoCircleOutlined
+                                                style={{
+                                                    marginLeft: 5,
+                                                    color: "#faad14",
+                                                }}
+                                            />
+                                        </Tooltip>
+                                    </span>
+                                }
+                            >
+                                <InputNumber
+                                    min={0}
+                                    style={{ width: "100%" }}
+                                    placeholder="Nhập phụ cấp chức vụ"
+                                    formatter={(value) =>
+                                        `${value}`.replace(
+                                            /\B(?=(\d{3})+(?!\d))/g,
+                                            ","
+                                        )
+                                    }
+                                    parser={(value) =>
+                                        value.replace(/\$\s?|(,*)/g, "")
+                                    }
+                                />
+                            </Form.Item>
+                        </Col>
+                        <Col span={8}>
+                            <Form.Item
+                                name={[
+                                    "allowances",
+                                    "responsibility_allowance",
+                                ]}
+                                label={
+                                    <span>
+                                        <PlusCircleOutlined
+                                            style={{ color: "#faad14" }}
+                                        />{" "}
+                                        Phụ cấp trách nhiệm
+                                        <Tooltip title="Có tính thuế">
+                                            <InfoCircleOutlined
+                                                style={{
+                                                    marginLeft: 5,
+                                                    color: "#faad14",
+                                                }}
+                                            />
+                                        </Tooltip>
+                                    </span>
+                                }
+                            >
+                                <InputNumber
+                                    min={0}
+                                    style={{ width: "100%" }}
+                                    placeholder="Nhập phụ cấp trách nhiệm"
+                                    formatter={(value) =>
+                                        `${value}`.replace(
+                                            /\B(?=(\d{3})+(?!\d))/g,
+                                            ","
+                                        )
+                                    }
+                                    parser={(value) =>
+                                        value.replace(/\$\s?|(,*)/g, "")
+                                    }
+                                />
+                            </Form.Item>
+                        </Col>
+                    </Row>
+
+                    {/* Thưởng */}
+                    <Divider
+                        orientation="left"
+                        plain
+                        style={{ margin: "12px 0 8px", fontSize: 14 }}
+                    >
+                        <Text type="secondary">Thưởng (có tính thuế)</Text>
+                    </Divider>
+
+                    <Row gutter={16}>
+                        <Col span={12}>
+                            <Form.Item
+                                name={["allowances", "attendance_bonus"]}
+                                label={
+                                    <span>
+                                        <PlusCircleOutlined
+                                            style={{ color: "#faad14" }}
+                                        />{" "}
+                                        Thưởng chuyên cần
+                                        <Tooltip title="Có tính thuế">
+                                            <InfoCircleOutlined
+                                                style={{
+                                                    marginLeft: 5,
+                                                    color: "#faad14",
+                                                }}
+                                            />
+                                        </Tooltip>
+                                    </span>
+                                }
+                            >
+                                <InputNumber
+                                    min={0}
+                                    style={{ width: "100%" }}
+                                    placeholder="Nhập thưởng chuyên cần"
+                                    formatter={(value) =>
+                                        `${value}`.replace(
+                                            /\B(?=(\d{3})+(?!\d))/g,
+                                            ","
+                                        )
+                                    }
+                                    parser={(value) =>
+                                        value.replace(/\$\s?|(,*)/g, "")
+                                    }
+                                />
+                            </Form.Item>
+                        </Col>
+                        <Col span={12}>
+                            <Form.Item
+                                name={["allowances", "performance_bonus"]}
+                                label={
+                                    <span>
+                                        <PlusCircleOutlined
+                                            style={{ color: "#faad14" }}
+                                        />{" "}
+                                        Thưởng hiệu suất
+                                        <Tooltip title="Có tính thuế">
+                                            <InfoCircleOutlined
+                                                style={{
+                                                    marginLeft: 5,
+                                                    color: "#faad14",
+                                                }}
+                                            />
+                                        </Tooltip>
+                                    </span>
+                                }
+                            >
+                                <InputNumber
+                                    min={0}
+                                    style={{ width: "100%" }}
+                                    placeholder="Nhập thưởng hiệu suất"
+                                    formatter={(value) =>
+                                        `${value}`.replace(
+                                            /\B(?=(\d{3})+(?!\d))/g,
+                                            ","
+                                        )
+                                    }
+                                    parser={(value) =>
+                                        value.replace(/\$\s?|(,*)/g, "")
+                                    }
+                                />
+                            </Form.Item>
+                        </Col>
+                    </Row>
+
                     <Form.Item name="notes" label="Ghi chú">
                         <Input.TextArea
                             rows={3}

@@ -29,6 +29,8 @@ import {
     FileTextOutlined,
     CheckCircleOutlined,
     LineChartOutlined,
+    PlusCircleOutlined,
+    MinusCircleOutlined,
 } from "@ant-design/icons";
 import dayjs from "dayjs";
 import { Line } from "@ant-design/charts";
@@ -582,19 +584,70 @@ const PayrollAttendancePage = () => {
                 title: "Số giờ làm việc",
                 dataIndex: "total_working_hours",
                 key: "total_working_hours",
-                render: (hours) => `${hours.toFixed(1)} giờ`,
+                render: (hours) => `${hours?.toFixed(1) || 0} giờ`,
             },
             {
-                title: "Lương gộp",
+                title: "Giờ tăng ca",
+                dataIndex: "overtime_hours",
+                key: "overtime_hours",
+                render: (hours, record) => (
+                    <Space direction="vertical" size={0}>
+                        <span className="overtime-value">
+                            {hours ? hours.toFixed(1) + " giờ" : "0 giờ"}
+                        </span>
+                        {hours > 0 && (
+                            <Tag color="orange" style={{ marginTop: 3 }}>
+                                x
+                                {record.overtime_multiplier?.toFixed(2) ||
+                                    "1.50"}
+                            </Tag>
+                        )}
+                    </Space>
+                ),
+            },
+            {
+                title: "Giờ ca đêm",
+                dataIndex: "night_shift_hours",
+                key: "night_shift_hours",
+                render: (hours, record) => (
+                    <Space direction="vertical" size={0}>
+                        <span className="night-shift-value">
+                            {hours ? hours.toFixed(1) + " giờ" : "0 giờ"}
+                        </span>
+                        {hours > 0 && (
+                            <Tag color="blue" style={{ marginTop: 3 }}>
+                                x
+                                {record.night_shift_multiplier?.toFixed(2) ||
+                                    "1.30"}
+                            </Tag>
+                        )}
+                    </Space>
+                ),
+            },
+            {
+                title: (
+                    <span>
+                        <PlusCircleOutlined style={{ color: "#52c41a" }} />{" "}
+                        Lương gộp
+                    </span>
+                ),
                 dataIndex: "gross_pay",
                 key: "gross_pay",
-                render: (value) => formatCurrency(value),
+                render: (value) => (
+                    <span className="allowance-value">
+                        {formatCurrency(value)}
+                    </span>
+                ),
             },
             {
-                title: "Lương thực lãnh",
+                title: <span>Lương thực lãnh</span>,
                 dataIndex: "net_pay",
                 key: "net_pay",
-                render: (value) => formatCurrency(value),
+                render: (value) => (
+                    <Text strong style={{ color: "#3f8600" }}>
+                        {formatCurrency(value)}
+                    </Text>
+                ),
             },
             {
                 title: "Trạng thái",

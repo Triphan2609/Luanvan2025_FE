@@ -22,6 +22,9 @@ import {
     Divider,
     Radio,
     Alert,
+    Drawer,
+    Descriptions,
+    Switch,
 } from "antd";
 import {
     PlusOutlined,
@@ -37,6 +40,7 @@ import {
     UserOutlined,
     TeamOutlined,
     CalendarOutlined,
+    InfoCircleOutlined,
 } from "@ant-design/icons";
 import dayjs from "dayjs";
 import { getDepartments } from "../../../../api/departmentsApi";
@@ -49,6 +53,7 @@ import {
 } from "../../../../api/attendanceApi";
 import utc from "dayjs/plugin/utc";
 import { getEmployeeShifts } from "../../../../api/employeeShiftsApi";
+import AttendanceDetailDrawer from "./AttendanceDetailDrawer";
 
 dayjs.extend(utc);
 
@@ -108,6 +113,9 @@ export default function AttendanceManagement() {
     const [employeeShifts, setEmployeeShifts] = useState([]);
     const [adjustShifts, setAdjustShifts] = useState([]);
     const [attendanceType, setAttendanceType] = useState(AttendanceType.NORMAL);
+    const [showNotes, setShowNotes] = useState(false);
+    const [drawerVisible, setDrawerVisible] = useState(false);
+    const [selectedRecord, setSelectedRecord] = useState(null);
 
     // Statistics
     const [statistics, setStatistics] = useState({
@@ -115,7 +123,29 @@ export default function AttendanceManagement() {
         approved: 0,
         rejected: 0,
         total: 0,
+        late: 0,
+        earlyLeave: 0,
+        onLeave: 0,
         byDepartment: {},
+    });
+
+    // State để lưu các trạng thái đặc biệt đã phát hiện
+    const [detectedStatuses, setDetectedStatuses] = useState({
+        late: false,
+        earlyLeave: false,
+        lateMinutes: 0,
+        earlyLeaveMinutes: 0,
+        ignored: false,
+        isSpecialShift: false,
+    });
+
+    // State để lưu các trạng thái đặc biệt phát hiện cho form điều chỉnh
+    const [detectedAdjustStatuses, setDetectedAdjustStatuses] = useState({
+        late: false,
+        earlyLeave: false,
+        lateMinutes: 0,
+        earlyLeaveMinutes: 0,
+        ignored: false,
     });
 
     // Initial data load
@@ -250,12 +280,28 @@ export default function AttendanceManagement() {
                 approved: 0,
                 rejected: 0,
                 total: data.length,
+                late: 0,
+                earlyLeave: 0,
+                onLeave: 0,
                 byDepartment: {},
             };
 
             data.forEach((att) => {
                 // Count by status
                 stats[att.status]++;
+
+                // Đếm theo trạng thái đặc biệt từ notes
+                if (att.notes) {
+                    if (att.notes.includes("late")) {
+                        stats.late++;
+                    }
+                    if (att.notes.includes("early_leave")) {
+                        stats.earlyLeave++;
+                    }
+                    if (att.notes.includes("on_leave")) {
+                        stats.onLeave++;
+                    }
+                }
 
                 // Count by department
                 const deptName =
@@ -278,14 +324,107 @@ export default function AttendanceManagement() {
     const handleAddAttendance = async () => {
         try {
             const values = await addForm.validateFields();
-
             setLoading(true);
+
+            // Kiểm tra đi trễ/về sớm nếu có ca làm việc được chọn
+            let notes = values.notes || "";
+            const shiftId = values.employee_shift_id;
+
+            if (shiftId && employeeShifts.length > 0) {
+                const selectedShift = employeeShifts.find(
+                    (s) => s.id === shiftId
+                );
+
+                if (selectedShift && selectedShift.shift) {
+                    // Kiểm tra đi trễ
+                    if (values.check_in) {
+                        const shiftStartTime = selectedShift.shift.start_time;
+                        const checkInTime = values.check_in.format("HH:mm");
+
+                        // Chuyển đổi thời gian sang phút để so sánh
+                        const [shiftStartHour, shiftStartMinute] =
+                            shiftStartTime.split(":").map(Number);
+                        const [checkInHour, checkInMinute] = checkInTime
+                            .split(":")
+                            .map(Number);
+
+                        const shiftStartMinutes =
+                            shiftStartHour * 60 + shiftStartMinute;
+                        const checkInMinutes = checkInHour * 60 + checkInMinute;
+
+                        // Dung sai 10 phút
+                        const toleranceMinutes = 10;
+
+                        if (
+                            checkInMinutes >
+                            shiftStartMinutes + toleranceMinutes
+                        ) {
+                            // Nhân viên đi trễ
+                            if (notes) {
+                                if (!notes.includes("late")) {
+                                    notes += ", late";
+                                }
+                            } else {
+                                notes = "late";
+                            }
+
+                            message.warning(
+                                `Nhân viên đi trễ ${
+                                    checkInMinutes - shiftStartMinutes
+                                } phút`
+                            );
+                        }
+                    }
+
+                    // Kiểm tra về sớm
+                    if (values.check_out) {
+                        const shiftEndTime = selectedShift.shift.end_time;
+                        const checkOutTime = values.check_out.format("HH:mm");
+
+                        // Chuyển đổi thời gian sang phút
+                        const [shiftEndHour, shiftEndMinute] = shiftEndTime
+                            .split(":")
+                            .map(Number);
+                        const [checkOutHour, checkOutMinute] = checkOutTime
+                            .split(":")
+                            .map(Number);
+
+                        const shiftEndMinutes =
+                            shiftEndHour * 60 + shiftEndMinute;
+                        const checkOutMinutes =
+                            checkOutHour * 60 + checkOutMinute;
+
+                        // Dung sai 10 phút
+                        const toleranceMinutes = 10;
+
+                        if (
+                            checkOutMinutes <
+                            shiftEndMinutes - toleranceMinutes
+                        ) {
+                            // Nhân viên về sớm
+                            if (notes) {
+                                if (!notes.includes("early_leave")) {
+                                    notes += ", early_leave";
+                                }
+                            } else {
+                                notes = "early_leave";
+                            }
+
+                            message.warning(
+                                `Nhân viên về sớm ${
+                                    shiftEndMinutes - checkOutMinutes
+                                } phút`
+                            );
+                        }
+                    }
+                }
+            }
 
             const payload = {
                 employee_id: values.employee_id,
                 date: values.date.format("YYYY-MM-DD"),
                 type: values.type || AttendanceType.NORMAL,
-                notes: values.notes,
+                notes: notes, // Sử dụng notes đã được cập nhật
             };
 
             // Add employee_shift_id if selected
@@ -319,11 +458,105 @@ export default function AttendanceManagement() {
             const values = await adjustForm.validateFields();
             setLoading(true);
 
+            // Kiểm tra đi trễ/về sớm nếu có ca làm việc được chọn
+            let notes = values.notes || "";
+            const shiftId = values.employee_shift_id;
+
+            if (shiftId && adjustShifts.length > 0) {
+                const selectedShift = adjustShifts.find(
+                    (s) => s.id === shiftId
+                );
+
+                if (selectedShift && selectedShift.shift) {
+                    // Kiểm tra đi trễ
+                    if (values.check_in) {
+                        const shiftStartTime = selectedShift.shift.start_time;
+                        const checkInTime = values.check_in.format("HH:mm");
+
+                        // Chuyển đổi thời gian sang phút để so sánh
+                        const [shiftStartHour, shiftStartMinute] =
+                            shiftStartTime.split(":").map(Number);
+                        const [checkInHour, checkInMinute] = checkInTime
+                            .split(":")
+                            .map(Number);
+
+                        const shiftStartMinutes =
+                            shiftStartHour * 60 + shiftStartMinute;
+                        const checkInMinutes = checkInHour * 60 + checkInMinute;
+
+                        // Dung sai 10 phút
+                        const toleranceMinutes = 10;
+
+                        if (
+                            checkInMinutes >
+                            shiftStartMinutes + toleranceMinutes
+                        ) {
+                            // Nhân viên đi trễ
+                            if (notes) {
+                                if (!notes.includes("late")) {
+                                    notes += ", late";
+                                }
+                            } else {
+                                notes = "late";
+                            }
+
+                            message.warning(
+                                `Phát hiện đi trễ ${
+                                    checkInMinutes - shiftStartMinutes
+                                } phút`
+                            );
+                        }
+                    }
+
+                    // Kiểm tra về sớm
+                    if (values.check_out) {
+                        const shiftEndTime = selectedShift.shift.end_time;
+                        const checkOutTime = values.check_out.format("HH:mm");
+
+                        // Chuyển đổi thời gian sang phút
+                        const [shiftEndHour, shiftEndMinute] = shiftEndTime
+                            .split(":")
+                            .map(Number);
+                        const [checkOutHour, checkOutMinute] = checkOutTime
+                            .split(":")
+                            .map(Number);
+
+                        const shiftEndMinutes =
+                            shiftEndHour * 60 + shiftEndMinute;
+                        const checkOutMinutes =
+                            checkOutHour * 60 + checkOutMinute;
+
+                        // Dung sai 10 phút
+                        const toleranceMinutes = 10;
+
+                        if (
+                            checkOutMinutes <
+                            shiftEndMinutes - toleranceMinutes
+                        ) {
+                            // Nhân viên về sớm
+                            if (notes) {
+                                if (!notes.includes("early_leave")) {
+                                    notes += ", early_leave";
+                                }
+                            } else {
+                                notes = "early_leave";
+                            }
+
+                            message.warning(
+                                `Phát hiện về sớm ${
+                                    shiftEndMinutes - checkOutMinutes
+                                } phút`
+                            );
+                        }
+                    }
+                }
+            }
+
             const payload = {
                 employee_id: values.employee_id,
                 date: values.date.format("YYYY-MM-DD"),
                 type: values.type || AttendanceType.NORMAL,
-                notes: values.notes,
+                notes: notes, // Sử dụng notes đã được cập nhật
                 adjustment_reason: values.adjustment_reason,
                 is_adjustment: true,
             };
@@ -401,12 +634,24 @@ export default function AttendanceManagement() {
         fetchAttendances();
     };
 
+    // Thêm hàm hiển thị drawer
+    const showDrawer = (record) => {
+        setSelectedRecord(record);
+        setDrawerVisible(true);
+    };
+
+    // Hàm đóng drawer
+    const closeDrawer = () => {
+        setDrawerVisible(false);
+        setSelectedRecord(null);
+    };
+
     const columns = [
         {
             title: "Mã NV",
             dataIndex: ["employee", "employee_code"],
             key: "employee_code",
-            width: 100,
+            width: 80,
         },
         {
             title: "Nhân viên",
@@ -430,16 +675,14 @@ export default function AttendanceManagement() {
             sorter: (a, b) => new Date(a.date) - new Date(b.date),
         },
         {
-            title: "Check-in",
-            dataIndex: "check_in",
-            key: "check_in",
-            render: (text) => text || "-",
-        },
-        {
-            title: "Check-out",
-            dataIndex: "check_out",
-            key: "check_out",
-            render: (text) => text || "-",
+            title: "Check-in/out",
+            key: "check_time",
+            render: (_, record) => (
+                <Space direction="vertical" size={0}>
+                    <Text>{record.check_in || "-"}</Text>
+                    <Text>{record.check_out || "-"}</Text>
+                </Space>
+            ),
         },
         {
             title: "Giờ làm",
@@ -469,11 +712,91 @@ export default function AttendanceManagement() {
             ),
         },
         {
+            title: "Trạng thái đặc biệt",
+            key: "special_status",
+            render: (_, record) => {
+                const notes = record.notes || "";
+                const tags = [];
+                const isSpecialShift =
+                    record.type === AttendanceType.NIGHT_SHIFT ||
+                    record.employeeShift?.shift?.end_time === "00:00:00" ||
+                    record.employeeShift?.shift?.start_time === "00:00:00" ||
+                    record.employeeShift?.shift?.start_time >
+                        record.employeeShift?.shift?.end_time;
+
+                if (notes.includes("late")) {
+                    tags.push(
+                        <Tag color="orange" key="late">
+                            Đi trễ
+                        </Tag>
+                    );
+                }
+                if (notes.includes("early_leave")) {
+                    if (isSpecialShift) {
+                        tags.push(
+                            <Tooltip
+                                title="Về sớm trong ca tối/đêm vẫn được tính đúng giờ làm việc"
+                                key="early_leave"
+                            >
+                                <Tag color="gold" style={{ cursor: "help" }}>
+                                    Về sớm{" "}
+                                    <InfoCircleOutlined
+                                        style={{ fontSize: "10px" }}
+                                    />
+                                </Tag>
+                            </Tooltip>
+                        );
+                    } else {
+                        tags.push(
+                            <Tag color="gold" key="early_leave">
+                                Về sớm
+                            </Tag>
+                        );
+                    }
+                }
+                if (notes.includes("on_leave")) {
+                    tags.push(
+                        <Tag color="blue" key="on_leave">
+                            Nghỉ phép
+                        </Tag>
+                    );
+                }
+
+                if (
+                    isSpecialShift &&
+                    record.type === AttendanceType.NIGHT_SHIFT
+                ) {
+                    tags.push(
+                        <Tooltip
+                            title="Ca đêm được tính với hệ số 1.3"
+                            key="night-shift"
+                        >
+                            <Tag color="#1890ff" style={{ cursor: "help" }}>
+                                Hệ số 1.3
+                            </Tag>
+                        </Tooltip>
+                    );
+                }
+
+                return tags.length > 0 ? <Space>{tags}</Space> : "-";
+            },
+        },
+        {
             title: "Trạng thái",
             dataIndex: "status",
             key: "status",
             render: (status) => (
                 <Tag color={statusColors[status]}>{statusLabels[status]}</Tag>
+            ),
+        },
+        {
+            title: "Chi tiết",
+            key: "detail",
+            width: 80,
+            render: (_, record) => (
+                <Button type="link" onClick={() => showDrawer(record)}>
+                    Xem
+                </Button>
             ),
         },
         {
@@ -579,8 +902,238 @@ export default function AttendanceManagement() {
                     />
                 </Card>
             </Col>
+            <Col span={6} style={{ marginTop: "16px" }}>
+                <Card hoverable>
+                    <Statistic
+                        title="Đi trễ"
+                        value={statistics.late}
+                        valueStyle={{ color: "#fa8c16" }}
+                        prefix={<HistoryOutlined />}
+                    />
+                </Card>
+            </Col>
+            <Col span={6} style={{ marginTop: "16px" }}>
+                <Card hoverable>
+                    <Statistic
+                        title="Về sớm"
+                        value={statistics.earlyLeave}
+                        valueStyle={{ color: "#faad14" }}
+                        prefix={<HistoryOutlined />}
+                    />
+                </Card>
+            </Col>
+            <Col span={6} style={{ marginTop: "16px" }}>
+                <Card hoverable>
+                    <Statistic
+                        title="Nghỉ phép"
+                        value={statistics.onLeave}
+                        valueStyle={{ color: "#1890ff" }}
+                        prefix={<CalendarOutlined />}
+                    />
+                </Card>
+            </Col>
         </Row>
     );
+
+    // Thêm hàm để bỏ qua cảnh báo
+    const ignoreWarning = (type) => {
+        if (type === "add") {
+            setDetectedStatuses((prev) => ({ ...prev, ignored: true }));
+            // Xóa các thẻ "late" và "early_leave" khỏi ghi chú
+            const currentNotes = addForm.getFieldValue("notes") || "";
+            const cleanNotes = currentNotes
+                .replace(/,?\s*late/g, "")
+                .replace(/,?\s*early_leave/g, "")
+                .trim();
+            addForm.setFieldsValue({ notes: cleanNotes });
+        } else {
+            setDetectedAdjustStatuses((prev) => ({ ...prev, ignored: true }));
+            // Xóa các thẻ "late" và "early_leave" khỏi ghi chú
+            const currentNotes = adjustForm.getFieldValue("notes") || "";
+            const cleanNotes = currentNotes
+                .replace(/,?\s*late/g, "")
+                .replace(/,?\s*early_leave/g, "")
+                .trim();
+            adjustForm.setFieldsValue({ notes: cleanNotes });
+        }
+    };
+
+    // Thêm một hàm kiểm tra liệu ca làm việc có phải ca đặc biệt hay không
+    const isSpecialShift = (shift) => {
+        if (!shift || !shift.shift) return false;
+
+        return (
+            shift.shift.end_time === "00:00:00" ||
+            shift.shift.start_time === "00:00:00" ||
+            shift.shift.start_time > shift.shift.end_time
+        );
+    };
+
+    // Cập nhật phần phát hiện đi trễ/về sớm trong onAddFormValuesChange
+    const onAddFormValuesChange = (changedValues) => {
+        // Reset trạng thái ignored khi có thay đổi mới
+        if (
+            changedValues.employee_shift_id ||
+            changedValues.check_in ||
+            changedValues.check_out
+        ) {
+            setDetectedStatuses((prev) => ({ ...prev, ignored: false }));
+        }
+
+        // When employee or date changes, fetch shifts
+        if (changedValues.employee_id || changedValues.date) {
+            const employeeId = addForm.getFieldValue("employee_id");
+            const date = addForm.getFieldValue("date");
+
+            if (employeeId && date) {
+                const fetchShifts = async () => {
+                    try {
+                        const formattedDate = date.format("YYYY-MM-DD");
+                        const response = await getEmployeeShifts({
+                            employeeId: employeeId,
+                            date: formattedDate,
+                        });
+                        setEmployeeShifts(response);
+                    } catch (error) {
+                        console.error("Error fetching employee shifts:", error);
+                        setEmployeeShifts([]);
+                    }
+                };
+                fetchShifts();
+            }
+        }
+
+        // Kiểm tra đi trễ/về sớm khi thay đổi ca làm việc hoặc thời gian checkin/checkout
+        if (
+            changedValues.employee_shift_id ||
+            changedValues.check_in ||
+            changedValues.check_out ||
+            changedValues.type
+        ) {
+            const shiftId = addForm.getFieldValue("employee_shift_id");
+            const checkIn = addForm.getFieldValue("check_in");
+            const checkOut = addForm.getFieldValue("check_out");
+            const attendanceType = addForm.getFieldValue("type");
+
+            const newDetectedStatuses = {
+                late: false,
+                earlyLeave: false,
+                lateMinutes: 0,
+                earlyLeaveMinutes: 0,
+                ignored: false,
+                isSpecialShift: false,
+            };
+
+            if (shiftId && employeeShifts.length > 0) {
+                const selectedShift = employeeShifts.find(
+                    (s) => s.id === shiftId
+                );
+
+                if (selectedShift && selectedShift.shift) {
+                    // Kiểm tra xem có phải ca đặc biệt không
+                    newDetectedStatuses.isSpecialShift =
+                        attendanceType === AttendanceType.NIGHT_SHIFT ||
+                        isSpecialShift(selectedShift);
+
+                    // Kiểm tra đi trễ
+                    if (checkIn) {
+                        const shiftStartTime = selectedShift.shift.start_time;
+                        const checkInTime = checkIn.format("HH:mm");
+
+                        // Chuyển đổi thời gian sang phút để so sánh
+                        const [shiftStartHour, shiftStartMinute] =
+                            shiftStartTime.split(":").map(Number);
+                        const [checkInHour, checkInMinute] = checkInTime
+                            .split(":")
+                            .map(Number);
+
+                        const shiftStartMinutes =
+                            shiftStartHour * 60 + shiftStartMinute;
+                        const checkInMinutes = checkInHour * 60 + checkInMinute;
+
+                        // Dung sai 10 phút
+                        const toleranceMinutes = 10;
+
+                        if (
+                            checkInMinutes >
+                            shiftStartMinutes + toleranceMinutes
+                        ) {
+                            newDetectedStatuses.late = true;
+                            newDetectedStatuses.lateMinutes =
+                                checkInMinutes - shiftStartMinutes;
+                        }
+                    }
+
+                    // Kiểm tra về sớm
+                    if (checkOut) {
+                        const shiftEndTime = selectedShift.shift.end_time;
+                        const checkOutTime = checkOut.format("HH:mm");
+
+                        // Chuyển đổi thời gian sang phút
+                        const [shiftEndHour, shiftEndMinute] = shiftEndTime
+                            .split(":")
+                            .map(Number);
+                        const [checkOutHour, checkOutMinute] = checkOutTime
+                            .split(":")
+                            .map(Number);
+
+                        const shiftEndMinutes =
+                            shiftEndHour * 60 + shiftEndMinute;
+                        const checkOutMinutes =
+                            checkOutHour * 60 + checkOutMinute;
+
+                        // Xử lý đặc biệt cho trường hợp ca kết thúc vào 00:00
+                        const isEndAtMidnight =
+                            shiftEndTime === "00:00" || shiftEndMinutes === 0;
+
+                        // Dung sai 10 phút
+                        const toleranceMinutes = 10;
+
+                        if (isEndAtMidnight) {
+                            // Nếu ca kết thúc lúc 00:00 và checkout trước 00:00
+                            if (checkOutMinutes < 24 * 60 - toleranceMinutes) {
+                                newDetectedStatuses.earlyLeave = true;
+                                newDetectedStatuses.earlyLeaveMinutes =
+                                    24 * 60 - checkOutMinutes;
+                            }
+                        } else if (
+                            checkOutMinutes <
+                            shiftEndMinutes - toleranceMinutes
+                        ) {
+                            newDetectedStatuses.earlyLeave = true;
+                            newDetectedStatuses.earlyLeaveMinutes =
+                                shiftEndMinutes - checkOutMinutes;
+                        }
+                    }
+                }
+            }
+
+            setDetectedStatuses(newDetectedStatuses);
+
+            // Tự động cập nhật ghi chú nếu phát hiện trạng thái đặc biệt
+            let currentNotes = addForm.getFieldValue("notes") || "";
+
+            // Xóa các trạng thái đặc biệt khỏi ghi chú hiện tại nếu có
+            currentNotes = currentNotes
+                .replace(/,?\s*late/g, "")
+                .replace(/,?\s*early_leave/g, "")
+                .trim();
+
+            // Thêm trạng thái đặc biệt mới
+            const specialStatuses = [];
+            if (newDetectedStatuses.late) specialStatuses.push("late");
+            if (newDetectedStatuses.earlyLeave)
+                specialStatuses.push("early_leave");
+
+            if (specialStatuses.length > 0) {
+                currentNotes = currentNotes
+                    ? `${currentNotes}, ${specialStatuses.join(", ")}`
+                    : specialStatuses.join(", ");
+            }
+
+            addForm.setFieldsValue({ notes: currentNotes });
+        }
+    };
 
     return (
         <div>
@@ -759,7 +1312,7 @@ export default function AttendanceManagement() {
                 </Tabs>
 
                 {/* Statistics */}
-                {/* {renderStatistics()} */}
+                {renderStatistics()}
 
                 <Table
                     columns={columns}
@@ -780,6 +1333,7 @@ export default function AttendanceManagement() {
                 onCancel={() => {
                     setAddModalVisible(false);
                     addForm.resetFields();
+                    setShowNotes(false);
                 }}
                 onOk={handleAddAttendance}
                 confirmLoading={loading}
@@ -788,36 +1342,7 @@ export default function AttendanceManagement() {
                 <Form
                     form={addForm}
                     layout="vertical"
-                    onValuesChange={(changedValues) => {
-                        // When employee or date changes, fetch shifts
-                        if (changedValues.employee_id || changedValues.date) {
-                            const employeeId =
-                                addForm.getFieldValue("employee_id");
-                            const date = addForm.getFieldValue("date");
-
-                            if (employeeId && date) {
-                                const fetchShifts = async () => {
-                                    try {
-                                        const formattedDate =
-                                            date.format("YYYY-MM-DD");
-                                        const response =
-                                            await getEmployeeShifts({
-                                                employeeId: employeeId,
-                                                date: formattedDate,
-                                            });
-                                        setEmployeeShifts(response);
-                                    } catch (error) {
-                                        console.error(
-                                            "Error fetching employee shifts:",
-                                            error
-                                        );
-                                        setEmployeeShifts([]);
-                                    }
-                                };
-                                fetchShifts();
-                            }
-                        }
-                    }}
+                    onValuesChange={onAddFormValuesChange}
                 >
                     <Row gutter={16}>
                         <Col span={12}>
@@ -953,6 +1478,92 @@ export default function AttendanceManagement() {
                             style={{ marginBottom: 16 }}
                         />
                     )}
+
+                    {/* Hiển thị cảnh báo nếu phát hiện đi trễ hoặc về sớm và chưa bỏ qua */}
+                    {(detectedStatuses.late || detectedStatuses.earlyLeave) &&
+                        !detectedStatuses.ignored && (
+                            <Alert
+                                message={
+                                    detectedStatuses.isSpecialShift
+                                        ? "Phát hiện trạng thái đặc biệt trong ca tối/đêm"
+                                        : "Phát hiện trạng thái đặc biệt"
+                                }
+                                description={
+                                    <div>
+                                        {detectedStatuses.late && (
+                                            <div>
+                                                Đi trễ:{" "}
+                                                <Text type="warning">
+                                                    {
+                                                        detectedStatuses.lateMinutes
+                                                    }{" "}
+                                                    phút
+                                                </Text>
+                                            </div>
+                                        )}
+                                        {detectedStatuses.earlyLeave && (
+                                            <div>
+                                                Về sớm:{" "}
+                                                <Text type="warning">
+                                                    {
+                                                        detectedStatuses.earlyLeaveMinutes
+                                                    }{" "}
+                                                    phút
+                                                </Text>
+                                                {detectedStatuses.isSpecialShift && (
+                                                    <Text
+                                                        type="secondary"
+                                                        style={{
+                                                            marginLeft: 8,
+                                                            fontSize: 12,
+                                                        }}
+                                                    >
+                                                        <InfoCircleOutlined />{" "}
+                                                        Về sớm trong ca đặc biệt
+                                                        vẫn được tính giờ làm
+                                                        đúng
+                                                    </Text>
+                                                )}
+                                            </div>
+                                        )}
+                                        <div style={{ marginTop: 8 }}>
+                                            Các trạng thái này sẽ được tự động
+                                            thêm vào ghi chú.
+                                            {detectedStatuses.isSpecialShift &&
+                                                detectedStatuses.earlyLeave && (
+                                                    <div
+                                                        style={{ marginTop: 5 }}
+                                                    >
+                                                        <Text type="success">
+                                                            <InfoCircleOutlined />{" "}
+                                                            Lưu ý: Với ca
+                                                            tối/đêm, hệ thống
+                                                            vẫn ghi nhận giờ làm
+                                                            việc thực tế.
+                                                        </Text>
+                                                    </div>
+                                                )}
+                                        </div>
+                                    </div>
+                                }
+                                type={
+                                    detectedStatuses.isSpecialShift
+                                        ? "info"
+                                        : "warning"
+                                }
+                                showIcon
+                                style={{ marginBottom: 16 }}
+                                action={
+                                    <Button
+                                        size="small"
+                                        onClick={() => ignoreWarning("add")}
+                                    >
+                                        Bỏ qua
+                                    </Button>
+                                }
+                            />
+                        )}
+
                     <Row gutter={16}>
                         <Col span={12}>
                             <Form.Item name="check_in" label="Giờ check-in">
@@ -973,8 +1584,46 @@ export default function AttendanceManagement() {
                             </Form.Item>
                         </Col>
                     </Row>
+
                     <Form.Item name="notes" label="Ghi chú">
-                        <Input.TextArea rows={3} placeholder="Nhập ghi chú" />
+                        <div
+                            style={{
+                                display: "flex",
+                                justifyContent: "flex-end",
+                                marginBottom: "8px",
+                            }}
+                        >
+                            <Switch
+                                checked={!showNotes}
+                                onChange={(checked) => setShowNotes(!checked)}
+                                checkedChildren="Ẩn"
+                                unCheckedChildren="Hiện"
+                            />
+                        </div>
+                        {!showNotes && (
+                            <Input.TextArea
+                                rows={3}
+                                placeholder="Nhập ghi chú"
+                                disabled={
+                                    (detectedStatuses.late ||
+                                        detectedStatuses.earlyLeave) &&
+                                    !detectedStatuses.ignored
+                                }
+                            />
+                        )}
+                        {(detectedStatuses.late ||
+                            detectedStatuses.earlyLeave) &&
+                            !detectedStatuses.ignored &&
+                            !showNotes && (
+                                <div style={{ marginTop: "4px" }}>
+                                    <Text type="secondary">
+                                        Trường ghi chú đã bị khóa do hệ thống tự
+                                        động thêm thông tin về trạng thái đi
+                                        trễ/về sớm. Nhấn "Bỏ qua" nếu bạn muốn
+                                        tự điền ghi chú.
+                                    </Text>
+                                </div>
+                            )}
                     </Form.Item>
                 </Form>
             </Modal>
@@ -986,6 +1635,7 @@ export default function AttendanceManagement() {
                 onCancel={() => {
                     setAdjustModalVisible(false);
                     adjustForm.resetFields();
+                    setShowNotes(false);
                 }}
                 onOk={handleAdjustRequest}
                 confirmLoading={loading}
@@ -995,6 +1645,18 @@ export default function AttendanceManagement() {
                     form={adjustForm}
                     layout="vertical"
                     onValuesChange={(changedValues) => {
+                        // Reset trạng thái ignored khi có thay đổi mới
+                        if (
+                            changedValues.employee_shift_id ||
+                            changedValues.check_in ||
+                            changedValues.check_out
+                        ) {
+                            setDetectedAdjustStatuses((prev) => ({
+                                ...prev,
+                                ignored: false,
+                            }));
+                        }
+
                         // When employee or date changes, fetch shifts
                         if (changedValues.employee_id || changedValues.date) {
                             const employeeId =
@@ -1022,6 +1684,155 @@ export default function AttendanceManagement() {
                                 };
                                 fetchShifts();
                             }
+                        }
+
+                        // Kiểm tra đi trễ/về sớm khi thay đổi ca làm việc hoặc thời gian checkin/checkout
+                        if (
+                            changedValues.employee_shift_id ||
+                            changedValues.check_in ||
+                            changedValues.check_out
+                        ) {
+                            const shiftId =
+                                adjustForm.getFieldValue("employee_shift_id");
+                            const checkIn =
+                                adjustForm.getFieldValue("check_in");
+                            const checkOut =
+                                adjustForm.getFieldValue("check_out");
+
+                            const newDetectedStatuses = {
+                                late: false,
+                                earlyLeave: false,
+                                lateMinutes: 0,
+                                earlyLeaveMinutes: 0,
+                                ignored: false, // Reset trạng thái ignored
+                            };
+
+                            if (shiftId && adjustShifts.length > 0) {
+                                const selectedShift = adjustShifts.find(
+                                    (s) => s.id === shiftId
+                                );
+
+                                if (selectedShift && selectedShift.shift) {
+                                    // Kiểm tra đi trễ
+                                    if (checkIn) {
+                                        const shiftStartTime =
+                                            selectedShift.shift.start_time;
+                                        const checkInTime =
+                                            checkIn.format("HH:mm");
+
+                                        // Chuyển đổi thời gian sang phút để so sánh
+                                        const [
+                                            shiftStartHour,
+                                            shiftStartMinute,
+                                        ] = shiftStartTime
+                                            .split(":")
+                                            .map(Number);
+                                        const [checkInHour, checkInMinute] =
+                                            checkInTime.split(":").map(Number);
+
+                                        const shiftStartMinutes =
+                                            shiftStartHour * 60 +
+                                            shiftStartMinute;
+                                        const checkInMinutes =
+                                            checkInHour * 60 + checkInMinute;
+
+                                        // Dung sai 10 phút
+                                        const toleranceMinutes = 10;
+
+                                        if (
+                                            checkInMinutes >
+                                            shiftStartMinutes + toleranceMinutes
+                                        ) {
+                                            newDetectedStatuses.late = true;
+                                            newDetectedStatuses.lateMinutes =
+                                                checkInMinutes -
+                                                shiftStartMinutes;
+                                        }
+                                    }
+
+                                    // Kiểm tra về sớm
+                                    if (checkOut) {
+                                        const shiftEndTime =
+                                            selectedShift.shift.end_time;
+                                        const checkOutTime =
+                                            checkOut.format("HH:mm");
+
+                                        // Chuyển đổi thời gian sang phút
+                                        const [shiftEndHour, shiftEndMinute] =
+                                            shiftEndTime.split(":").map(Number);
+                                        const [checkOutHour, checkOutMinute] =
+                                            checkOutTime.split(":").map(Number);
+
+                                        const shiftEndMinutes =
+                                            shiftEndHour * 60 + shiftEndMinute;
+                                        const checkOutMinutes =
+                                            checkOutHour * 60 + checkOutMinute;
+
+                                        // Dung sai 10 phút
+                                        const toleranceMinutes = 10;
+
+                                        if (
+                                            checkOutMinutes <
+                                            shiftEndMinutes - toleranceMinutes
+                                        ) {
+                                            newDetectedStatuses.earlyLeave = true;
+                                            newDetectedStatuses.earlyLeaveMinutes =
+                                                shiftEndMinutes -
+                                                checkOutMinutes;
+                                        }
+                                    }
+                                }
+                            }
+
+                            setDetectedAdjustStatuses(newDetectedStatuses);
+
+                            // Tự động cập nhật ghi chú nếu phát hiện trạng thái đặc biệt
+                            let currentNotes =
+                                adjustForm.getFieldValue("notes") || "";
+
+                            // Xóa các trạng thái đặc biệt khỏi ghi chú hiện tại nếu có
+                            currentNotes = currentNotes
+                                .replace(/,?\s*late/g, "")
+                                .replace(/,?\s*early_leave/g, "")
+                                .trim();
+
+                            // Thêm trạng thái đặc biệt mới
+                            const specialStatuses = [];
+                            if (newDetectedStatuses.late)
+                                specialStatuses.push("late");
+                            if (newDetectedStatuses.earlyLeave)
+                                specialStatuses.push("early_leave");
+
+                            if (specialStatuses.length > 0) {
+                                currentNotes = currentNotes
+                                    ? `${currentNotes}, ${specialStatuses.join(
+                                          ", "
+                                      )}`
+                                    : specialStatuses.join(", ");
+
+                                // Thêm vào trường adjustment_reason nếu chưa có nội dung
+                                let currentReason =
+                                    adjustForm.getFieldValue(
+                                        "adjustment_reason"
+                                    ) || "";
+                                if (!currentReason) {
+                                    if (newDetectedStatuses.late) {
+                                        currentReason = `Điều chỉnh do đi trễ ${newDetectedStatuses.lateMinutes} phút`;
+                                    }
+                                    if (newDetectedStatuses.earlyLeave) {
+                                        if (currentReason) {
+                                            currentReason += ` và về sớm ${newDetectedStatuses.earlyLeaveMinutes} phút`;
+                                        } else {
+                                            currentReason = `Điều chỉnh do về sớm ${newDetectedStatuses.earlyLeaveMinutes} phút`;
+                                        }
+                                    }
+                                    adjustForm.setFieldsValue({
+                                        adjustment_reason: currentReason,
+                                    });
+                                }
+                            }
+
+                            adjustForm.setFieldsValue({ notes: currentNotes });
                         }
                     }}
                 >
@@ -1127,26 +1938,57 @@ export default function AttendanceManagement() {
                             </Form.Item>
                         </Col>
                     </Row>
-                    <Row gutter={16}>
-                        <Col span={12}>
-                            <Form.Item name="check_in" label="Giờ check-in">
-                                <TimePicker
-                                    format="HH:mm"
-                                    style={{ width: "100%" }}
-                                    placeholder="Giờ check-in"
-                                />
-                            </Form.Item>
-                        </Col>
-                        <Col span={12}>
-                            <Form.Item name="check_out" label="Giờ check-out">
-                                <TimePicker
-                                    format="HH:mm"
-                                    style={{ width: "100%" }}
-                                    placeholder="Giờ check-out"
-                                />
-                            </Form.Item>
-                        </Col>
-                    </Row>
+
+                    {/* Hiển thị cảnh báo nếu phát hiện đi trễ hoặc về sớm */}
+                    {(detectedAdjustStatuses.late ||
+                        detectedAdjustStatuses.earlyLeave) &&
+                        !detectedAdjustStatuses.ignored && (
+                            <Alert
+                                message="Phát hiện trạng thái đặc biệt"
+                                description={
+                                    <div>
+                                        {detectedAdjustStatuses.late && (
+                                            <div>
+                                                Đi trễ:{" "}
+                                                <Text type="warning">
+                                                    {
+                                                        detectedAdjustStatuses.lateMinutes
+                                                    }{" "}
+                                                    phút
+                                                </Text>
+                                            </div>
+                                        )}
+                                        {detectedAdjustStatuses.earlyLeave && (
+                                            <div>
+                                                Về sớm:{" "}
+                                                <Text type="warning">
+                                                    {
+                                                        detectedAdjustStatuses.earlyLeaveMinutes
+                                                    }{" "}
+                                                    phút
+                                                </Text>
+                                            </div>
+                                        )}
+                                        <div style={{ marginTop: 8 }}>
+                                            Các trạng thái này đã được tự động
+                                            thêm vào ghi chú.
+                                        </div>
+                                    </div>
+                                }
+                                type="warning"
+                                showIcon
+                                style={{ marginBottom: 16 }}
+                                action={
+                                    <Button
+                                        size="small"
+                                        onClick={() => ignoreWarning("adjust")}
+                                    >
+                                        Bỏ qua
+                                    </Button>
+                                }
+                            />
+                        )}
+
                     <Form.Item
                         name="adjustment_reason"
                         label="Lý do điều chỉnh"
@@ -1162,11 +2004,56 @@ export default function AttendanceManagement() {
                             placeholder="Nhập lý do điều chỉnh"
                         />
                     </Form.Item>
+
                     <Form.Item name="notes" label="Ghi chú">
-                        <Input.TextArea rows={2} placeholder="Nhập ghi chú" />
+                        <div
+                            style={{
+                                display: "flex",
+                                justifyContent: "flex-end",
+                                marginBottom: "8px",
+                            }}
+                        >
+                            <Switch
+                                checked={!showNotes}
+                                onChange={(checked) => setShowNotes(!checked)}
+                                checkedChildren="Ẩn"
+                                unCheckedChildren="Hiện"
+                            />
+                        </div>
+                        {!showNotes && (
+                            <Input.TextArea
+                                rows={3}
+                                placeholder="Nhập ghi chú"
+                                disabled={
+                                    (detectedAdjustStatuses.late ||
+                                        detectedAdjustStatuses.earlyLeave) &&
+                                    !detectedAdjustStatuses.ignored
+                                }
+                            />
+                        )}
+                        {(detectedAdjustStatuses.late ||
+                            detectedAdjustStatuses.earlyLeave) &&
+                            !detectedAdjustStatuses.ignored &&
+                            !showNotes && (
+                                <div style={{ marginTop: "4px" }}>
+                                    <Text type="secondary">
+                                        Trường ghi chú đã bị khóa do hệ thống tự
+                                        động thêm thông tin về trạng thái đi
+                                        trễ/về sớm. Nhấn "Bỏ qua" nếu bạn muốn
+                                        tự điền ghi chú.
+                                    </Text>
+                                </div>
+                            )}
                     </Form.Item>
                 </Form>
             </Modal>
+
+            {/* Drawer hiển thị chi tiết chấm công */}
+            <AttendanceDetailDrawer
+                visible={drawerVisible}
+                onClose={closeDrawer}
+                selectedRecord={selectedRecord}
+            />
         </div>
     );
 }

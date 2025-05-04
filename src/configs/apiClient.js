@@ -43,9 +43,33 @@ const processQueue = (error, token = null) => {
 apiClient.interceptors.response.use(
     (response) => {
         // Log responses for debugging
+        console.log(
+            `🟢 [API Response] ${response.config.method.toUpperCase()} ${
+                response.config.url
+            }`,
+            {
+                status: response.status,
+                statusText: response.statusText,
+                headers: response.headers,
+                data: response.data,
+            }
+        );
         return response;
     },
     async (error) => {
+        // Log error responses
+        console.error(
+            `🔴 [API Error] ${error.config?.method?.toUpperCase()} ${
+                error.config?.url
+            }`,
+            {
+                status: error.response?.status,
+                statusText: error.response?.statusText,
+                data: error.response?.data,
+                message: error.message,
+            }
+        );
+
         const originalRequest = error.config;
 
         // Nếu lỗi 401 (Unauthorized) và chưa thử refresh token

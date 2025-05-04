@@ -8,9 +8,14 @@ import {
     Col,
     Typography,
     Tooltip,
+    Space,
 } from "antd";
 import dayjs from "dayjs";
-import { InfoCircleOutlined } from "@ant-design/icons";
+import {
+    InfoCircleOutlined,
+    PlusCircleOutlined,
+    MinusCircleOutlined,
+} from "@ant-design/icons";
 
 const { Text } = Typography;
 
@@ -92,14 +97,25 @@ const PayrollDetail = ({
                 <Descriptions.Item label="Số giờ làm việc">
                     {payroll.total_working_hours?.toFixed(1)} giờ
                 </Descriptions.Item>
-                <Descriptions.Item label="Số giờ tăng ca">
-                    {payroll.overtime_hours?.toFixed(1)} giờ
+                <Descriptions.Item label="Số giờ tăng ca" span={1}>
+                    <Text strong style={{ color: "#fa8c16" }}>
+                        {payroll.overtime_hours?.toFixed(1)} giờ
+                    </Text>
+                    {payroll.overtime_hours > 0 && (
+                        <Tooltip title="Hệ số lương tăng ca">
+                            <Tag color="orange" style={{ marginLeft: 8 }}>
+                                x
+                                {payroll.overtime_multiplier?.toFixed(2) ||
+                                    "1.50"}
+                            </Tag>
+                        </Tooltip>
+                    )}
                 </Descriptions.Item>
                 <Descriptions.Item label="Số giờ ca đêm" span={1}>
                     <Text strong style={{ color: "#0050b3" }}>
                         {payroll.night_shift_hours?.toFixed(1)} giờ
                     </Text>
-                    {payroll.night_shift_multiplier && (
+                    {payroll.night_shift_hours > 0 && (
                         <Tooltip title="Hệ số lương ca đêm">
                             <Tag color="blue" style={{ marginLeft: 8 }}>
                                 x
@@ -119,7 +135,19 @@ const PayrollDetail = ({
                         </span>
                     }
                 >
-                    {formatCurrency(payroll.overtime_pay)}
+                    <Text strong style={{ color: "#fa8c16" }}>
+                        {formatCurrency(payroll.overtime_pay)}
+                    </Text>
+                    {payroll.overtime_hours > 0 && (
+                        <div style={{ marginTop: 5 }}>
+                            <Text type="secondary" style={{ fontSize: 12 }}>
+                                ({payroll.overtime_hours?.toFixed(1)} giờ x{" "}
+                                {payroll.overtime_multiplier?.toFixed(2) ||
+                                    "1.50"}{" "}
+                                hệ số)
+                            </Text>
+                        </div>
+                    )}
                 </Descriptions.Item>
                 <Descriptions.Item
                     label={
@@ -146,23 +174,209 @@ const PayrollDetail = ({
                         </div>
                     )}
                 </Descriptions.Item>
-                <Descriptions.Item label="Phụ cấp">
-                    {formatCurrency(payroll.allowances)}
+                <Descriptions.Item
+                    label={
+                        <span>
+                            <PlusCircleOutlined style={{ color: "#52c41a" }} />{" "}
+                            Phụ cấp
+                        </span>
+                    }
+                >
+                    <Space direction="vertical" size={0}>
+                        <Text strong style={{ color: "#52c41a" }}>
+                            {formatCurrency(payroll.allowances)}
+                        </Text>
+                        {payroll.allowances > 0 && (
+                            <div style={{ marginTop: 5 }}>
+                                <Divider
+                                    orientation="left"
+                                    plain
+                                    style={{ margin: "8px 0", fontSize: 12 }}
+                                >
+                                    <Text type="secondary">
+                                        Không tính thuế (
+                                        {formatCurrency(
+                                            payroll.non_taxable_allowances
+                                        )}
+                                        )
+                                    </Text>
+                                </Divider>
+
+                                {payroll.meal_allowance > 0 && (
+                                    <div>
+                                        <Text
+                                            type="secondary"
+                                            style={{ fontSize: 12 }}
+                                        >
+                                            Phụ cấp ăn ca:{" "}
+                                            {formatCurrency(
+                                                payroll.meal_allowance
+                                            )}
+                                        </Text>
+                                    </div>
+                                )}
+                                {payroll.transport_allowance > 0 && (
+                                    <div>
+                                        <Text
+                                            type="secondary"
+                                            style={{ fontSize: 12 }}
+                                        >
+                                            Phụ cấp đi lại:{" "}
+                                            {formatCurrency(
+                                                payroll.transport_allowance
+                                            )}
+                                        </Text>
+                                    </div>
+                                )}
+                                {payroll.phone_allowance > 0 && (
+                                    <div>
+                                        <Text
+                                            type="secondary"
+                                            style={{ fontSize: 12 }}
+                                        >
+                                            Phụ cấp điện thoại:{" "}
+                                            {formatCurrency(
+                                                payroll.phone_allowance
+                                            )}
+                                            {payroll.phone_allowance >
+                                                1000000 && (
+                                                <Tooltip title="Phần vượt quá 1.000.000đ sẽ tính thuế">
+                                                    <InfoCircleOutlined
+                                                        style={{
+                                                            marginLeft: 5,
+                                                            color: "#faad14",
+                                                        }}
+                                                    />
+                                                </Tooltip>
+                                            )}
+                                        </Text>
+                                    </div>
+                                )}
+
+                                <Divider
+                                    orientation="left"
+                                    plain
+                                    style={{ margin: "8px 0", fontSize: 12 }}
+                                >
+                                    <Text type="secondary">
+                                        Tính thuế (
+                                        {formatCurrency(
+                                            payroll.taxable_allowances
+                                        )}
+                                        )
+                                    </Text>
+                                </Divider>
+
+                                {payroll.housing_allowance > 0 && (
+                                    <div>
+                                        <Text
+                                            type="secondary"
+                                            style={{ fontSize: 12 }}
+                                        >
+                                            Phụ cấp nhà ở:{" "}
+                                            {formatCurrency(
+                                                payroll.housing_allowance
+                                            )}
+                                        </Text>
+                                    </div>
+                                )}
+                                {payroll.position_allowance > 0 && (
+                                    <div>
+                                        <Text
+                                            type="secondary"
+                                            style={{ fontSize: 12 }}
+                                        >
+                                            Phụ cấp chức vụ:{" "}
+                                            {formatCurrency(
+                                                payroll.position_allowance
+                                            )}
+                                        </Text>
+                                    </div>
+                                )}
+                                {payroll.responsibility_allowance > 0 && (
+                                    <div>
+                                        <Text
+                                            type="secondary"
+                                            style={{ fontSize: 12 }}
+                                        >
+                                            Phụ cấp trách nhiệm:{" "}
+                                            {formatCurrency(
+                                                payroll.responsibility_allowance
+                                            )}
+                                        </Text>
+                                    </div>
+                                )}
+                                {payroll.attendance_bonus > 0 && (
+                                    <div>
+                                        <Text
+                                            type="secondary"
+                                            style={{ fontSize: 12 }}
+                                        >
+                                            Thưởng chuyên cần:{" "}
+                                            {formatCurrency(
+                                                payroll.attendance_bonus
+                                            )}
+                                        </Text>
+                                    </div>
+                                )}
+                                {payroll.performance_bonus > 0 && (
+                                    <div>
+                                        <Text
+                                            type="secondary"
+                                            style={{ fontSize: 12 }}
+                                        >
+                                            Thưởng hiệu suất:{" "}
+                                            {formatCurrency(
+                                                payroll.performance_bonus
+                                            )}
+                                        </Text>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </Space>
                 </Descriptions.Item>
-                <Descriptions.Item label="Thuế">
-                    {formatCurrency(payroll.tax)}
+                <Descriptions.Item
+                    label={
+                        <span>
+                            <MinusCircleOutlined style={{ color: "#f5222d" }} />{" "}
+                            Thuế
+                        </span>
+                    }
+                >
+                    <Text strong style={{ color: "#f5222d" }}>
+                        {formatCurrency(payroll.tax)}
+                    </Text>
                 </Descriptions.Item>
-                <Descriptions.Item label="Bảo hiểm">
-                    {formatCurrency(payroll.insurance)}
+                <Descriptions.Item
+                    label={
+                        <span>
+                            <MinusCircleOutlined style={{ color: "#f5222d" }} />{" "}
+                            Bảo hiểm
+                        </span>
+                    }
+                >
+                    <Text strong style={{ color: "#f5222d" }}>
+                        {formatCurrency(payroll.insurance)}
+                    </Text>
                 </Descriptions.Item>
-                <Descriptions.Item label="Khấu trừ khác">
-                    {formatCurrency(
-                        payroll.deductions
-                            ? payroll.deductions -
-                                  (payroll.tax || 0) -
-                                  (payroll.insurance || 0)
-                            : 0
-                    )}
+                <Descriptions.Item
+                    label={
+                        <span>
+                            <MinusCircleOutlined style={{ color: "#f5222d" }} />{" "}
+                            Khấu trừ khác
+                        </span>
+                    }
+                >
+                    <Text strong style={{ color: "#f5222d" }}>
+                        {formatCurrency(
+                            payroll.deductions
+                                ? payroll.deductions -
+                                      (payroll.tax || 0) -
+                                      (payroll.insurance || 0)
+                                : 0
+                        )}
+                    </Text>
                 </Descriptions.Item>
             </Descriptions>
 

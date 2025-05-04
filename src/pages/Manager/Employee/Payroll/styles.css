@@ -173,7 +173,70 @@
     font-weight: bold;
 }
 
+/* Overtime styling */
+.overtime-value {
+    color: #fa8c16;
+    font-weight: bold;
+}
+
+/* Allowance styling */
+.allowance-value {
+    color: #52c41a;
+    font-weight: bold;
+}
+
+/* Taxable allowance styling */
+.allowance-taxable-value {
+    color: #faad14;
+    font-weight: bold;
+}
+
+/* Deduction styling */
+.deduction-value {
+    color: #f5222d;
+    font-weight: bold;
+}
+
 /* Highlight night shift rows */
 .ant-table-row:hover .night-shift-value {
     color: #1890ff;
+}
+
+/* Highlight overtime rows */
+.ant-table-row:hover .overtime-value {
+    color: #fa541c;
+}
+
+/* Highlight rows */
+.ant-table-row:hover .allowance-value {
+    color: #389e0d;
+}
+
+.ant-table-row:hover .allowance-taxable-value {
+    color: #d48806;
+}
+
+/* Descriptions styling */
+.payroll-detail .ant-descriptions-item-content {
+    word-break: break-word;
+}
+
+/* Custom icon styles */
+.payroll-detail .anticon-plus-circle {
+    margin-right: 5px;
+}
+
+.payroll-detail .anticon-minus-circle {
+    margin-right: 5px;
+}
+
+/* Add/deduction columns styling */
+.addition-column .ant-descriptions-item-label {
+    color: #52c41a;
+    font-weight: 500;
+}
+
+.deduction-column .ant-descriptions-item-label {
+    color: #f5222d;
+    font-weight: 500;
 }

@@ -115,25 +115,10 @@ const SalaryConfigPage = () => {
                 queryParams.search = searchText.trim();
             }
 
-            console.log("Fetching with params:", queryParams);
             const configs = await getSalaryConfigs(queryParams);
 
             setSalaryConfigs(configs);
             calculateStats(configs);
-
-            // Hiển thị thông báo kết quả tìm kiếm khi có áp dụng bộ lọc
-            const hasFilters = Object.keys(queryParams).length > 0;
-            if (hasFilters) {
-                if (configs.length === 0) {
-                    message.info(
-                        "Không tìm thấy cấu hình lương nào phù hợp với bộ lọc"
-                    );
-                } else {
-                    message.success(
-                        `Đã tìm thấy ${configs.length} cấu hình lương`
-                    );
-                }
-            }
         } catch (error) {
             console.error("Error fetching salary configs:", error);
             message.error(
@@ -565,7 +550,6 @@ const SalaryConfigPage = () => {
             sortDirections: ["ascend", "descend"],
             width: 140,
         },
-
         {
             title: "Trạng thái",
             dataIndex: "is_active",
@@ -661,6 +645,155 @@ const SalaryConfigPage = () => {
             },
             width: 160,
             align: "center",
+        },
+        {
+            title: "Phụ cấp",
+            dataIndex: "allowances",
+            key: "allowances",
+            ellipsis: true,
+            render: (_, record) => {
+                const nonTaxable =
+                    (record.meal_allowance || 0) +
+                    (record.transport_allowance || 0) +
+                    (record.phone_allowance || 0);
+                const taxable =
+                    (record.housing_allowance || 0) +
+                    (record.position_allowance || 0) +
+                    (record.responsibility_allowance || 0) +
+                    (record.attendance_bonus || 0);
+                const total = nonTaxable + taxable;
+
+                return (
+                    <Tooltip
+                        title={
+                            <>
+                                <div>
+                                    <Text className="allowance-value">
+                                        Không tính thuế:{" "}
+                                        {formatCurrency(nonTaxable)}
+                                    </Text>
+                                </div>
+                                <div>
+                                    <Text className="allowance-taxable-value">
+                                        Tính thuế: {formatCurrency(taxable)}
+                                    </Text>
+                                </div>
+                                <div>
+                                    <Text strong>
+                                        {total > 0
+                                            ? "Chi tiết:"
+                                            : "Không có phụ cấp"}
+                                    </Text>
+                                </div>
+                                {record.meal_allowance > 0 && (
+                                    <div>
+                                        <small>
+                                            - Ăn ca:{" "}
+                                            <Text className="allowance-value">
+                                                {formatCurrency(
+                                                    record.meal_allowance
+                                                )}
+                                            </Text>
+                                        </small>
+                                    </div>
+                                )}
+                                {record.transport_allowance > 0 && (
+                                    <div>
+                                        <small>
+                                            - Đi lại:{" "}
+                                            <Text className="allowance-value">
+                                                {formatCurrency(
+                                                    record.transport_allowance
+                                                )}
+                                            </Text>
+                                        </small>
+                                    </div>
+                                )}
+                                {record.phone_allowance > 0 && (
+                                    <div>
+                                        <small>
+                                            - Điện thoại:{" "}
+                                            <Text className="allowance-value">
+                                                {formatCurrency(
+                                                    record.phone_allowance
+                                                )}
+                                            </Text>
+                                        </small>
+                                    </div>
+                                )}
+                                {record.housing_allowance > 0 && (
+                                    <div>
+                                        <small>
+                                            - Nhà ở:{" "}
+                                            <Text className="allowance-taxable-value">
+                                                {formatCurrency(
+                                                    record.housing_allowance
+                                                )}
+                                            </Text>
+                                        </small>
+                                    </div>
+                                )}
+                                {record.position_allowance > 0 && (
+                                    <div>
+                                        <small>
+                                            - Chức vụ:{" "}
+                                            <Text className="allowance-taxable-value">
+                                                {formatCurrency(
+                                                    record.position_allowance
+                                                )}
+                                            </Text>
+                                        </small>
+                                    </div>
+                                )}
+                                {record.responsibility_allowance > 0 && (
+                                    <div>
+                                        <small>
+                                            - Trách nhiệm:{" "}
+                                            <Text className="allowance-taxable-value">
+                                                {formatCurrency(
+                                                    record.responsibility_allowance
+                                                )}
+                                            </Text>
+                                        </small>
+                                    </div>
+                                )}
+                                {record.attendance_bonus > 0 && (
+                                    <div>
+                                        <small>
+                                            - Chuyên cần:{" "}
+                                            <Text className="allowance-taxable-value">
+                                                {formatCurrency(
+                                                    record.attendance_bonus
+                                                )}
+                                            </Text>
+                                        </small>
+                                    </div>
+                                )}
+                            </>
+                        }
+                        placement="topLeft"
+                    >
+                        <div>
+                            {nonTaxable > 0 && (
+                                <div>
+                                    <Text className="allowance-value">
+                                        {formatCurrency(nonTaxable)}
+                                    </Text>
+                                </div>
+                            )}
+                            {taxable > 0 && (
+                                <div>
+                                    <Text className="allowance-taxable-value">
+                                        {formatCurrency(taxable)}
+                                    </Text>
+                                </div>
+                            )}
+                            {total === 0 && "Không có"}
+                        </div>
+                    </Tooltip>
+                );
+            },
+            width: 150,
         },
         {
             title: "Hành động",
@@ -1095,20 +1228,103 @@ const SalaryConfigPage = () => {
                 <Divider orientation="left">Phụ cấp</Divider>
 
                 <Descriptions bordered layout="vertical">
-                    <Descriptions.Item label="Phụ cấp ăn uống" span={2}>
-                        {formatCurrency(config.meal_allowance)}
+                    <Descriptions.Item
+                        label={
+                            <Text className="allowance-value">
+                                Phụ cấp không tính thuế
+                            </Text>
+                        }
+                        span={4}
+                    >
+                        <Row gutter={[16, 8]}>
+                            <Col span={12}>
+                                <Tooltip title="Không tính thuế nếu ≤ 730.000đ/tháng">
+                                    <span>Phụ cấp ăn uống: </span>
+                                    <Text className="allowance-value">
+                                        {formatCurrency(config.meal_allowance)}
+                                    </Text>
+                                </Tooltip>
+                            </Col>
+                            <Col span={12}>
+                                <Tooltip title="Không tính thuế nếu theo thực tế">
+                                    <span>Phụ cấp đi lại: </span>
+                                    <Text className="allowance-value">
+                                        {formatCurrency(
+                                            config.transport_allowance
+                                        )}
+                                    </Text>
+                                </Tooltip>
+                            </Col>
+                            <Col span={12}>
+                                <Tooltip title="Không tính thuế nếu ≤ 1.000.000đ/tháng">
+                                    <span>Phụ cấp điện thoại: </span>
+                                    <Text className="allowance-value">
+                                        {formatCurrency(config.phone_allowance)}
+                                    </Text>
+                                </Tooltip>
+                            </Col>
+                        </Row>
                     </Descriptions.Item>
-                    <Descriptions.Item label="Phụ cấp đi lại" span={2}>
-                        {formatCurrency(config.transport_allowance)}
+
+                    <Descriptions.Item
+                        label={
+                            <Text className="allowance-taxable-value">
+                                Phụ cấp tính thuế
+                            </Text>
+                        }
+                        span={4}
+                    >
+                        <Row gutter={[16, 8]}>
+                            <Col span={12}>
+                                <span>Phụ cấp nhà ở: </span>
+                                <Text className="allowance-taxable-value">
+                                    {formatCurrency(config.housing_allowance)}
+                                </Text>
+                            </Col>
+                            <Col span={12}>
+                                <span>Phụ cấp chức vụ: </span>
+                                <Text className="allowance-taxable-value">
+                                    {formatCurrency(config.position_allowance)}
+                                </Text>
+                            </Col>
+                            <Col span={12}>
+                                <span>Phụ cấp trách nhiệm: </span>
+                                <Text className="allowance-taxable-value">
+                                    {formatCurrency(
+                                        config.responsibility_allowance
+                                    )}
+                                </Text>
+                            </Col>
+                            <Col span={12}>
+                                <span>Thưởng chuyên cần: </span>
+                                <Text className="allowance-taxable-value">
+                                    {formatCurrency(config.attendance_bonus)}
+                                </Text>
+                            </Col>
+                        </Row>
                     </Descriptions.Item>
-                    <Descriptions.Item label="Phụ cấp nhà ở" span={2}>
-                        {formatCurrency(config.housing_allowance)}
-                    </Descriptions.Item>
-                    <Descriptions.Item label="Phụ cấp chức vụ" span={2}>
-                        {formatCurrency(config.position_allowance)}
-                    </Descriptions.Item>
-                    <Descriptions.Item label="Thưởng chuyên cần" span={2}>
-                        {formatCurrency(config.attendance_bonus)}
+
+                    <Descriptions.Item label="Ngưỡng tính thuế" span={4}>
+                        <Row gutter={[16, 8]}>
+                            <Col span={12}>
+                                <span>Ngưỡng phụ cấp ăn ca: </span>
+                                <Text>
+                                    {formatCurrency(
+                                        config.meal_allowance_tax_threshold ||
+                                            730000
+                                    )}
+                                </Text>
+                            </Col>
+                            <Col span={12}>
+                                <span>Ngưỡng phụ cấp điện thoại: </span>
+                                <Text>
+                                    {formatCurrency(
+                                        config.phone_allowance_tax_threshold ||
+                                            1000000
+                                    )}
+                                </Text>
+                            </Col>
+                        </Row>
                     </Descriptions.Item>
                 </Descriptions>
 

@@ -22,6 +22,8 @@ import {
     ClockCircleOutlined,
     TeamOutlined,
     InfoCircleOutlined,
+    PlusCircleOutlined,
+    MinusCircleOutlined,
 } from "@ant-design/icons";
 
 const { Text, Title } = Typography;
@@ -393,7 +395,14 @@ const SalaryConfigForm = ({
                             name="overtime_multiplier"
                             label={
                                 <Tooltip title="Hệ số nhân cho giờ làm thêm">
-                                    Hệ số làm thêm giờ
+                                    <Text strong style={{ color: "#fa8c16" }}>
+                                        <span>
+                                            <ClockCircleOutlined
+                                                style={{ marginRight: 5 }}
+                                            />
+                                            Hệ số làm thêm giờ
+                                        </span>
+                                    </Text>
                                 </Tooltip>
                             }
                             rules={[
@@ -408,9 +417,17 @@ const SalaryConfigForm = ({
                                 style={{ width: "100%" }}
                                 min={1}
                                 step={0.1}
+                                className="overtime-input"
                             />
                         </Form.Item>
                         <HelperText text="Thông thường áp dụng hệ số ≥ 1.5" />
+                        <Alert
+                            message="Quan trọng về giờ tăng ca"
+                            description="Cần đảm bảo hệ số tăng ca được cấu hình đúng để tính lương cho nhân viên làm thêm giờ. Thông thường, hệ số này áp dụng là 1.5."
+                            type="warning"
+                            showIcon
+                            style={{ marginTop: 8 }}
+                        />
                     </Col>
                     <Col span={8}>
                         <Form.Item
@@ -418,7 +435,12 @@ const SalaryConfigForm = ({
                             label={
                                 <Tooltip title="Hệ số nhân cho giờ làm ca đêm">
                                     <Text strong style={{ color: "#0050b3" }}>
-                                        Hệ số ca đêm
+                                        <span>
+                                            <ClockCircleOutlined
+                                                style={{ marginRight: 5 }}
+                                            />
+                                            Hệ số ca đêm
+                                        </span>
                                     </Text>
                                 </Tooltip>
                             }
@@ -474,10 +496,28 @@ const SalaryConfigForm = ({
             <Card className="mb-3" title="Phụ cấp và khấu trừ">
                 <Row gutter={16}>
                     <Col span={12}>
-                        <Title level={5}>Phụ cấp</Title>
+                        <Title level={5}>
+                            <PlusCircleOutlined
+                                style={{ color: "#52c41a", marginRight: 5 }}
+                            />
+                            <span style={{ color: "#52c41a" }}>Phụ cấp</span>
+                        </Title>
+
+                        {/* Phụ cấp không tính thuế */}
+                        <Divider orientation="left">
+                            <Text className="allowance-value">
+                                Phụ cấp không tính thuế
+                            </Text>
+                        </Divider>
                         <Form.Item
                             name="meal_allowance"
-                            label="Phụ cấp ăn uống"
+                            label={
+                                <Tooltip title="Phụ cấp ăn uống không tính thuế nếu <= 730,000 VNĐ/tháng">
+                                    <span>
+                                        Phụ cấp ăn uống <InfoCircleOutlined />
+                                    </span>
+                                </Tooltip>
+                            }
                         >
                             <InputNumber
                                 style={{ width: "100%" }}
@@ -497,7 +537,13 @@ const SalaryConfigForm = ({
                         </Form.Item>
                         <Form.Item
                             name="transport_allowance"
-                            label="Phụ cấp đi lại"
+                            label={
+                                <Tooltip title="Phụ cấp đi lại không tính thuế nếu theo thực tế chi trả">
+                                    <span>
+                                        Phụ cấp đi lại <InfoCircleOutlined />
+                                    </span>
+                                </Tooltip>
+                            }
                         >
                             <InputNumber
                                 style={{ width: "100%" }}
@@ -516,8 +562,48 @@ const SalaryConfigForm = ({
                             />
                         </Form.Item>
                         <Form.Item
+                            name="phone_allowance"
+                            label={
+                                <Tooltip title="Phụ cấp điện thoại không tính thuế nếu <= 1,000,000 VNĐ/tháng">
+                                    <span>
+                                        Phụ cấp điện thoại{" "}
+                                        <InfoCircleOutlined />
+                                    </span>
+                                </Tooltip>
+                            }
+                        >
+                            <InputNumber
+                                style={{ width: "100%" }}
+                                formatter={(value) =>
+                                    `${value}`.replace(
+                                        /\B(?=(\d{3})+(?!\d))/g,
+                                        ","
+                                    )
+                                }
+                                parser={(value) =>
+                                    value.replace(/\$\s?|(,*)/g, "")
+                                }
+                                min={0}
+                                step={100000}
+                                addonAfter="VNĐ"
+                            />
+                        </Form.Item>
+
+                        {/* Phụ cấp tính thuế */}
+                        <Divider orientation="left">
+                            <Text className="allowance-taxable-value">
+                                Phụ cấp tính thuế
+                            </Text>
+                        </Divider>
+                        <Form.Item
                             name="housing_allowance"
-                            label="Phụ cấp nhà ở"
+                            label={
+                                <Tooltip title="Phụ cấp nhà ở (có tính thuế)">
+                                    <span>
+                                        Phụ cấp nhà ở <InfoCircleOutlined />
+                                    </span>
+                                </Tooltip>
+                            }
                         >
                             <InputNumber
                                 style={{ width: "100%" }}
@@ -537,7 +623,40 @@ const SalaryConfigForm = ({
                         </Form.Item>
                         <Form.Item
                             name="position_allowance"
-                            label="Phụ cấp chức vụ"
+                            label={
+                                <Tooltip title="Phụ cấp chức vụ (có tính thuế)">
+                                    <span>
+                                        Phụ cấp chức vụ <InfoCircleOutlined />
+                                    </span>
+                                </Tooltip>
+                            }
+                        >
+                            <InputNumber
+                                style={{ width: "100%" }}
+                                formatter={(value) =>
+                                    `${value}`.replace(
+                                        /\B(?=(\d{3})+(?!\d))/g,
+                                        ","
+                                    )
+                                }
+                                parser={(value) =>
+                                    value.replace(/\$\s?|(,*)/g, "")
+                                }
+                                min={0}
+                                step={100000}
+                                addonAfter="VNĐ"
+                            />
+                        </Form.Item>
+                        <Form.Item
+                            name="responsibility_allowance"
+                            label={
+                                <Tooltip title="Phụ cấp trách nhiệm (có tính thuế)">
+                                    <span>
+                                        Phụ cấp trách nhiệm{" "}
+                                        <InfoCircleOutlined />
+                                    </span>
+                                </Tooltip>
+                            }
                         >
                             <InputNumber
                                 style={{ width: "100%" }}
@@ -557,7 +676,13 @@ const SalaryConfigForm = ({
                         </Form.Item>
                         <Form.Item
                             name="attendance_bonus"
-                            label="Thưởng chuyên cần"
+                            label={
+                                <Tooltip title="Thưởng chuyên cần (có tính thuế)">
+                                    <span>
+                                        Thưởng chuyên cần <InfoCircleOutlined />
+                                    </span>
+                                </Tooltip>
+                            }
                         >
                             <InputNumber
                                 style={{ width: "100%" }}
@@ -577,7 +702,12 @@ const SalaryConfigForm = ({
                         </Form.Item>
                     </Col>
                     <Col span={12}>
-                        <Title level={5}>Khấu trừ</Title>
+                        <Title level={5}>
+                            <MinusCircleOutlined
+                                style={{ color: "#f5222d", marginRight: 5 }}
+                            />
+                            <span style={{ color: "#f5222d" }}>Khấu trừ</span>
+                        </Title>
                         <Form.Item
                             name="tax_rate"
                             label={
@@ -625,8 +755,92 @@ const SalaryConfigForm = ({
                             />
                         </Form.Item>
                         <HelperText text="Tỷ lệ BHXH thông thường là 10.5% (8% BHXH + 1.5% BHYT + 1% BHTN)" />
+
+                        <Divider />
+
+                        <Form.Item
+                            name="meal_allowance_tax_threshold"
+                            label={
+                                <Tooltip title="Ngưỡng tối đa phụ cấp ăn ca không tính thuế">
+                                    <span>
+                                        Ngưỡng phụ cấp ăn ca không thuế{" "}
+                                        <InfoCircleOutlined />
+                                    </span>
+                                </Tooltip>
+                            }
+                        >
+                            <InputNumber
+                                style={{ width: "100%" }}
+                                formatter={(value) =>
+                                    `${value}`.replace(
+                                        /\B(?=(\d{3})+(?!\d))/g,
+                                        ","
+                                    )
+                                }
+                                parser={(value) =>
+                                    value.replace(/\$\s?|(,*)/g, "")
+                                }
+                                min={0}
+                                step={100000}
+                                addonAfter="VNĐ"
+                                defaultValue={730000}
+                            />
+                        </Form.Item>
+                        <Form.Item
+                            name="phone_allowance_tax_threshold"
+                            label={
+                                <Tooltip title="Ngưỡng tối đa phụ cấp điện thoại không tính thuế">
+                                    <span>
+                                        Ngưỡng phụ cấp điện thoại không thuế{" "}
+                                        <InfoCircleOutlined />
+                                    </span>
+                                </Tooltip>
+                            }
+                        >
+                            <InputNumber
+                                style={{ width: "100%" }}
+                                formatter={(value) =>
+                                    `${value}`.replace(
+                                        /\B(?=(\d{3})+(?!\d))/g,
+                                        ","
+                                    )
+                                }
+                                parser={(value) =>
+                                    value.replace(/\$\s?|(,*)/g, "")
+                                }
+                                min={0}
+                                step={100000}
+                                addonAfter="VNĐ"
+                                defaultValue={1000000}
+                            />
+                        </Form.Item>
                     </Col>
                 </Row>
+                <Alert
+                    message="Phân loại phụ cấp theo thuế"
+                    description={
+                        <ul>
+                            <li>
+                                <Text strong className="allowance-value">
+                                    Phụ cấp không tính thuế:
+                                </Text>{" "}
+                                Ăn ca (≤730k), đi lại, điện thoại (≤1 triệu)
+                            </li>
+                            <li>
+                                <Text
+                                    strong
+                                    className="allowance-taxable-value"
+                                >
+                                    Phụ cấp tính thuế:
+                                </Text>{" "}
+                                Nhà ở, chức vụ, trách nhiệm, thưởng chuyên cần,
+                                thưởng hiệu suất
+                            </li>
+                        </ul>
+                    }
+                    type="info"
+                    showIcon
+                />
             </Card>
 
             <Card title="Thông tin khác">

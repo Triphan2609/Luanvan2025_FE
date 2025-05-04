@@ -224,3 +224,55 @@
     color: #0050b3;
     font-weight: bold;
 }
+
+/* Night shift input styling */
+.night-shift-input {
+    border-color: #1890ff;
+}
+.night-shift-input:hover,
+.night-shift-input:focus {
+    border-color: #0050b3;
+    box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+}
+
+/* Overtime input styling */
+.overtime-input {
+    border-color: #ff4d4f;
+}
+.overtime-input:hover,
+.overtime-input:focus {
+    border-color: #f5222d;
+    box-shadow: 0 0 0 2px rgba(245, 34, 45, 0.2);
+}
+
+/* Allowance styling */
+.allowance-value {
+    color: #52c41a;
+    font-weight: bold;
+}
+
+/* Taxable allowance styling */
+.allowance-taxable-value {
+    color: #faad14;
+    font-weight: bold;
+}
+
+/* Deduction styling */
+.deduction-value {
+    color: #f5222d;
+    font-weight: bold;
+}
+
+/* Highlight rows */
+.ant-table-row:hover .allowance-value {
+    color: #389e0d;
+}
+
+.ant-table-row:hover .allowance-taxable-value {
+    color: #d48806;
+}
+
+/* Tooltip styles */
+.ant-tooltip {
+    max-width: 300px;
+}
