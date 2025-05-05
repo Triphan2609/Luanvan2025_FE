@@ -1,4 +1,5 @@
 import apiClient from "../configs/apiClient";
+import axios from "axios";
 
 // Tạo bản ghi chấm công mới
 export const createAttendance = async (attendanceData) => {
@@ -56,15 +57,12 @@ export const createBulkAttendances = async (attendancesData) => {
 };
 
 // Cập nhật thông tin chấm công
-export const updateAttendance = async (id, attendanceData) => {
+export const updateAttendance = async (id, data) => {
     try {
-        const response = await apiClient.patch(
-            `/attendances/${id}`,
-            attendanceData
-        );
+        const response = await apiClient.put(`/attendances/${id}`, data);
         return response.data;
     } catch (error) {
-        console.error(`Error updating attendance with ID ${id}:`, error);
+        console.error("Error updating attendance:", error);
         throw error;
     }
 };

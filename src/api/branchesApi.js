@@ -7,6 +7,11 @@ export const getBranches = async () => {
     return response.data;
 };
 
+export const getBranchById = async (id) => {
+    const response = await apiClient.get(`${API_URL}/${id}`);
+    return response.data;
+};
+
 export const createBranch = async (data) => {
     const response = await apiClient.post(API_URL, data);
     return response.data;

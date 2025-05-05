@@ -302,7 +302,13 @@ const PayrollForm = ({
                     </Form.Item>
                 </Col>
             </Row>
-
+            <Divider orientation="left">Thông tin điều chỉnh chi tiết</Divider>
+            <Alert
+                message="Để trống nếu muốn sử dụng dữ liệu mặc định từ cấu hình lương."
+                type="info"
+                showIcon
+                style={{ marginBottom: 16 }}
+            />
             <Row gutter={16}>
                 <Col span={8}>
                     <Form.Item name="base_salary" label="Lương cơ bản">
@@ -348,6 +354,13 @@ const PayrollForm = ({
             >
                 <Text type="secondary">Phụ cấp không tính thuế</Text>
             </Divider>
+
+            <Alert
+                message="Để trống nếu muốn sử dụng dữ liệu mặc định từ cấu hình lương. Nhập số tiền phụ cấp trực tiếp."
+                type="info"
+                showIcon
+                style={{ marginBottom: 16 }}
+            />
 
             <Row gutter={16}>
                 <Col span={8}>
@@ -454,6 +467,13 @@ const PayrollForm = ({
                 <Text type="secondary">Phụ cấp có tính thuế</Text>
             </Divider>
 
+            <Alert
+                message="Để trống nếu muốn sử dụng dữ liệu mặc định từ cấu hình lương. Nhập số tiền phụ cấp trực tiếp."
+                type="info"
+                showIcon
+                style={{ marginBottom: 16 }}
+            />
+
             <Row gutter={16}>
                 <Col span={8}>
                     <Form.Item
@@ -558,6 +578,13 @@ const PayrollForm = ({
             >
                 <Text type="secondary">Thưởng (có tính thuế)</Text>
             </Divider>
+
+            <Alert
+                message="Để trống nếu không có thưởng cho kỳ lương này. Nhập số tiền thưởng trực tiếp."
+                type="info"
+                showIcon
+                style={{ marginBottom: 16 }}
+            />
 
             <Row gutter={16}>
                 <Col span={12}>

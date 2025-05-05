@@ -19,6 +19,7 @@ import {
     Badge,
     Empty,
     Statistic,
+    message,
 } from "antd";
 import {
     SearchOutlined,
@@ -30,10 +31,12 @@ import {
     CheckCircleOutlined,
     PlusCircleOutlined,
     MinusCircleOutlined,
+    BankOutlined,
 } from "@ant-design/icons";
 import dayjs from "dayjs";
 import { getEmployees } from "../../../../api/employeesApi";
 import { getAttendanceIntegration } from "../../../../api/salaryApi";
+import { getBranches } from "../../../../api/branchesApi";
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -43,16 +46,19 @@ const { TabPane } = Tabs;
 const PayrollAttendancePage = () => {
     const [loading, setLoading] = useState(false);
     const [employees, setEmployees] = useState([]);
+    const [branches, setBranches] = useState([]);
     const [selectedEmployee, setSelectedEmployee] = useState(null);
+    const [selectedBranch, setSelectedBranch] = useState(null);
     const [dateRange, setDateRange] = useState([
         dayjs().startOf("month"),
         dayjs().endOf("month"),
     ]);
     const [integrationData, setIntegrationData] = useState(null);
 
-    // Fetch initial employees data
+    // Fetch initial employees and branches data
     useEffect(() => {
         fetchEmployees();
+        fetchBranches();
     }, []);
 
     // Fetch data when employee or date range changes
@@ -61,6 +67,16 @@ const PayrollAttendancePage = () => {
             fetchIntegrationData();
         }
     }, [selectedEmployee, dateRange]);
+
+    const fetchBranches = async () => {
+        try {
+            const response = await getBranches();
+            setBranches(response || []);
+        } catch (error) {
+            console.error("Error fetching branches:", error);
+            setBranches([]);
+        }
+    };
 
     const fetchEmployees = async () => {
         try {
@@ -91,7 +107,15 @@ const PayrollAttendancePage = () => {
     };
 
     const fetchIntegrationData = async () => {
-        if (!selectedEmployee) return;
+        if (!selectedBranch) {
+            message.warning("Vui lòng chọn chi nhánh trước");
+            return;
+        }
+
+        if (!selectedEmployee) {
+            message.warning("Vui lòng chọn nhân viên");
+            return;
+        }
 
         try {
             setLoading(true);
@@ -112,6 +136,16 @@ const PayrollAttendancePage = () => {
         setSelectedEmployee(value);
     };
 
+    const handleBranchChange = (value) => {
+        setSelectedBranch(value);
+
+        // Reset selected employee và dữ liệu khi thay đổi chi nhánh
+        if (selectedEmployee) {
+            setSelectedEmployee(null);
+            setIntegrationData(null);
+        }
+    };
+
     const handleDateRangeChange = (dates) => {
         if (dates) {
             setDateRange(dates);
@@ -125,17 +159,260 @@ const PayrollAttendancePage = () => {
         }).format(value);
     };
 
-    // Convert attendance status to badge color
-    const getAttendanceStatusColor = (status) => {
-        const statusColors = {
-            present: "success",
-            absent: "error",
-            late: "warning",
-            early_leave: "warning",
-            on_leave: "processing",
-            pending: "default",
-        };
-        return statusColors[status] || "default";
+    // Filter employees by branch
+    const getFilteredEmployees = () => {
+        if (!selectedBranch) return employees;
+        return employees.filter(
+            (emp) => emp.branch && emp.branch.id === selectedBranch
+        );
+    };
+
+    // Get branch name by ID
+    const getBranchName = (branchId) => {
+        const branch = branches.find((b) => b.id === branchId);
+        return branch ? branch.name : "N/A";
+    };
+
+    // Render attendance summary
+    const renderAttendanceSummary = () => {
+        if (!integrationData || !integrationData.summary) {
+            return null;
+        }
+
+        const { summary, dailyData } = integrationData;
+
+        // Tính tổng lương ước tính từ dailyData nếu summary.estimatedSalary = 0
+        const calculatedEstimatedSalary =
+            summary.estimatedSalary > 0
+                ? summary.estimatedSalary
+                : dailyData && dailyData.length > 0
+                ? dailyData.reduce(
+                      (total, item) => total + (item.daily_pay || 0),
+                      0
+                  )
+                : 0;
+
+        // Tính lương trung bình theo giờ
+        const calculatedHourlyRate =
+            summary.totalWorkingHours > 0
+                ? calculatedEstimatedSalary / summary.totalWorkingHours
+                : 0;
+
+        return (
+            <Card
+                title={
+                    <Space>
+                        <CheckCircleOutlined />
+                        <span>Tổng hợp chấm công và ca làm việc</span>
+                    </Space>
+                }
+                style={{ marginBottom: 24 }}
+            >
+                <Row gutter={16}>
+                    <Col span={6}>
+                        <Statistic
+                            title="Tổng số ngày làm việc"
+                            value={summary.totalWorkingDays || 0}
+                            prefix={<CalendarOutlined />}
+                        />
+                    </Col>
+                    <Col span={6}>
+                        <Statistic
+                            title="Tổng giờ làm việc"
+                            value={summary.totalWorkingHours?.toFixed(1) || 0}
+                            suffix="giờ"
+                            prefix={<ClockCircleOutlined />}
+                        />
+                    </Col>
+                    <Col span={6}>
+                        <Statistic
+                            title="Tổng ca lịch trình"
+                            value={summary.totalScheduledShifts || 0}
+                            prefix={<CalendarOutlined />}
+                        />
+                    </Col>
+                    <Col span={6}>
+                        <Statistic
+                            title="Tổng lương ước tính"
+                            value={formatCurrency(calculatedEstimatedSalary)}
+                            prefix={<DollarOutlined />}
+                            valueStyle={{ color: "#3f8600" }}
+                        />
+                    </Col>
+                </Row>
+
+                {/* Thêm thông tin chi nhánh nếu có */}
+                {integrationData.employee &&
+                    integrationData.employee.branch && (
+                        <Row style={{ marginTop: 16 }}>
+                            <Col span={24}>
+                                <Alert
+                                    message={
+                                        <Space>
+                                            <BankOutlined />
+                                            <span>
+                                                <strong>Chi nhánh:</strong>{" "}
+                                                {
+                                                    integrationData.employee
+                                                        .branch.name
+                                                }
+                                                {integrationData.employee.branch
+                                                    .type &&
+                                                    ` (${
+                                                        integrationData.employee
+                                                            .branch.type ===
+                                                        "hotel"
+                                                            ? "Khách sạn"
+                                                            : integrationData
+                                                                  .employee
+                                                                  .branch
+                                                                  .type ===
+                                                              "restaurant"
+                                                            ? "Nhà hàng"
+                                                            : integrationData
+                                                                  .employee
+                                                                  .branch.type
+                                                    })`}
+                                            </span>
+                                        </Space>
+                                    }
+                                    type="info"
+                                    showIcon={false}
+                                />
+                            </Col>
+                        </Row>
+                    )}
+
+                <Divider style={{ margin: "24px 0" }} />
+
+                {/* Render các thống kê khác như cũ */}
+                <Row gutter={16}>
+                    <Col span={8}>
+                        <Card title="Điểm danh" size="small">
+                            <Row gutter={[16, 16]}>
+                                <Col span={8}>
+                                    <Statistic
+                                        title="Có mặt"
+                                        value={summary.presentCount || 0}
+                                        valueStyle={{ color: "#52c41a" }}
+                                    />
+                                </Col>
+                                <Col span={8}>
+                                    <Statistic
+                                        title="Đi muộn"
+                                        value={summary.lateCount || 0}
+                                        valueStyle={{ color: "#faad14" }}
+                                    />
+                                </Col>
+                                <Col span={8}>
+                                    <Statistic
+                                        title="Về sớm"
+                                        value={summary.earlyLeaveCount || 0}
+                                        valueStyle={{ color: "#faad14" }}
+                                    />
+                                </Col>
+                                <Col span={8}>
+                                    <Statistic
+                                        title="Vắng mặt"
+                                        value={summary.absentCount || 0}
+                                        valueStyle={{ color: "#f5222d" }}
+                                    />
+                                </Col>
+                                <Col span={8}>
+                                    <Statistic
+                                        title="Nghỉ phép"
+                                        value={summary.onLeaveCount || 0}
+                                        valueStyle={{ color: "#1890ff" }}
+                                    />
+                                </Col>
+                                <Col span={8}>
+                                    <Statistic
+                                        title="Chờ duyệt"
+                                        value={summary.pendingCount || 0}
+                                        valueStyle={{ color: "#bfbfbf" }}
+                                    />
+                                </Col>
+                            </Row>
+                        </Card>
+                    </Col>
+                    <Col span={8}>
+                        <Card title="Ca làm việc" size="small">
+                            <Row gutter={[16, 16]}>
+                                <Col span={8}>
+                                    <Statistic
+                                        title="Đã hoàn thành"
+                                        value={summary.completedShifts || 0}
+                                        valueStyle={{ color: "#52c41a" }}
+                                    />
+                                </Col>
+                                <Col span={8}>
+                                    <Statistic
+                                        title="Vắng mặt"
+                                        value={summary.missedShifts || 0}
+                                        valueStyle={{ color: "#f5222d" }}
+                                    />
+                                </Col>
+                                <Col span={8}>
+                                    <Statistic
+                                        title="Tỷ lệ hoàn thành"
+                                        value={
+                                            summary.totalScheduledShifts
+                                                ? Math.round(
+                                                      (summary.completedShifts /
+                                                          summary.totalScheduledShifts) *
+                                                          100
+                                                  )
+                                                : 0
+                                        }
+                                        suffix="%"
+                                        valueStyle={{ color: "#1890ff" }}
+                                    />
+                                </Col>
+                            </Row>
+                        </Card>
+                    </Col>
+                    <Col span={8}>
+                        <Card title="Thời gian & Lương" size="small">
+                            <Row gutter={[16, 16]}>
+                                <Col span={12}>
+                                    <Statistic
+                                        title="Giờ TB/ngày"
+                                        value={
+                                            summary.totalWorkingDays &&
+                                            summary.totalWorkingHours
+                                                ? summary.totalWorkingHours /
+                                                  summary.totalWorkingDays
+                                                : 0
+                                        }
+                                        formatter={(value) => (
+                                            <span>
+                                                {value.toFixed(1)} giờ/ngày
+                                            </span>
+                                        )}
+                                        valueStyle={{ color: "#1890ff" }}
+                                    />
+                                </Col>
+                                <Col span={12}>
+                                    <Statistic
+                                        title="Lương TB/giờ"
+                                        value={calculatedHourlyRate}
+                                        valueStyle={{ color: "#3f8600" }}
+                                        formatter={(value) => (
+                                            <span>
+                                                {value > 0
+                                                    ? formatCurrency(value)
+                                                    : "0 đ"}
+                                                /giờ
+                                            </span>
+                                        )}
+                                    />
+                                </Col>
+                            </Row>
+                        </Card>
+                    </Col>
+                </Row>
+            </Card>
+        );
     };
 
     // Render attendance calendar
@@ -307,205 +584,6 @@ const PayrollAttendancePage = () => {
         );
     };
 
-    // Render attendance summary
-    const renderAttendanceSummary = () => {
-        if (!integrationData || !integrationData.summary) {
-            return null;
-        }
-
-        const { summary, dailyData } = integrationData;
-
-        // Tính tổng lương ước tính từ dailyData nếu summary.estimatedSalary = 0
-        const calculatedEstimatedSalary =
-            summary.estimatedSalary > 0
-                ? summary.estimatedSalary
-                : dailyData && dailyData.length > 0
-                ? dailyData.reduce(
-                      (total, item) => total + (item.daily_pay || 0),
-                      0
-                  )
-                : 0;
-
-        // Tính lương trung bình theo giờ
-        const calculatedHourlyRate =
-            summary.totalWorkingHours > 0
-                ? calculatedEstimatedSalary / summary.totalWorkingHours
-                : 0;
-
-        return (
-            <Card
-                title={
-                    <Space>
-                        <CheckCircleOutlined />
-                        <span>Tổng hợp chấm công và ca làm việc</span>
-                    </Space>
-                }
-                style={{ marginBottom: 24 }}
-            >
-                <Row gutter={16}>
-                    <Col span={6}>
-                        <Statistic
-                            title="Tổng số ngày làm việc"
-                            value={summary.totalWorkingDays || 0}
-                            prefix={<CalendarOutlined />}
-                        />
-                    </Col>
-                    <Col span={6}>
-                        <Statistic
-                            title="Tổng giờ làm việc"
-                            value={summary.totalWorkingHours?.toFixed(1) || 0}
-                            suffix="giờ"
-                            prefix={<ClockCircleOutlined />}
-                        />
-                    </Col>
-                    <Col span={6}>
-                        <Statistic
-                            title="Tổng ca lịch trình"
-                            value={summary.totalScheduledShifts || 0}
-                            prefix={<CalendarOutlined />}
-                        />
-                    </Col>
-                    <Col span={6}>
-                        <Statistic
-                            title="Tổng lương ước tính"
-                            value={formatCurrency(calculatedEstimatedSalary)}
-                            prefix={<DollarOutlined />}
-                            valueStyle={{ color: "#3f8600" }}
-                        />
-                    </Col>
-                </Row>
-
-                <Divider style={{ margin: "24px 0" }} />
-
-                <Row gutter={16}>
-                    <Col span={8}>
-                        <Card title="Điểm danh" size="small">
-                            <Row gutter={[16, 16]}>
-                                <Col span={8}>
-                                    <Statistic
-                                        title="Có mặt"
-                                        value={summary.presentCount || 0}
-                                        valueStyle={{ color: "#52c41a" }}
-                                    />
-                                </Col>
-                                <Col span={8}>
-                                    <Statistic
-                                        title="Đi muộn"
-                                        value={summary.lateCount || 0}
-                                        valueStyle={{ color: "#faad14" }}
-                                    />
-                                </Col>
-                                <Col span={8}>
-                                    <Statistic
-                                        title="Về sớm"
-                                        value={summary.earlyLeaveCount || 0}
-                                        valueStyle={{ color: "#faad14" }}
-                                    />
-                                </Col>
-                                <Col span={8}>
-                                    <Statistic
-                                        title="Vắng mặt"
-                                        value={summary.absentCount || 0}
-                                        valueStyle={{ color: "#f5222d" }}
-                                    />
-                                </Col>
-                                <Col span={8}>
-                                    <Statistic
-                                        title="Nghỉ phép"
-                                        value={summary.onLeaveCount || 0}
-                                        valueStyle={{ color: "#1890ff" }}
-                                    />
-                                </Col>
-                                <Col span={8}>
-                                    <Statistic
-                                        title="Chờ duyệt"
-                                        value={summary.pendingCount || 0}
-                                        valueStyle={{ color: "#bfbfbf" }}
-                                    />
-                                </Col>
-                            </Row>
-                        </Card>
-                    </Col>
-                    <Col span={8}>
-                        <Card title="Ca làm việc" size="small">
-                            <Row gutter={[16, 16]}>
-                                <Col span={8}>
-                                    <Statistic
-                                        title="Đã hoàn thành"
-                                        value={summary.completedShifts || 0}
-                                        valueStyle={{ color: "#52c41a" }}
-                                    />
-                                </Col>
-                                <Col span={8}>
-                                    <Statistic
-                                        title="Vắng mặt"
-                                        value={summary.missedShifts || 0}
-                                        valueStyle={{ color: "#f5222d" }}
-                                    />
-                                </Col>
-                                <Col span={8}>
-                                    <Statistic
-                                        title="Tỷ lệ hoàn thành"
-                                        value={
-                                            summary.totalScheduledShifts
-                                                ? Math.round(
-                                                      (summary.completedShifts /
-                                                          summary.totalScheduledShifts) *
-                                                          100
-                                                  )
-                                                : 0
-                                        }
-                                        suffix="%"
-                                        valueStyle={{ color: "#1890ff" }}
-                                    />
-                                </Col>
-                            </Row>
-                        </Card>
-                    </Col>
-                    <Col span={8}>
-                        <Card title="Thời gian & Lương" size="small">
-                            <Row gutter={[16, 16]}>
-                                <Col span={12}>
-                                    <Statistic
-                                        title="Giờ TB/ngày"
-                                        value={
-                                            summary.totalWorkingDays &&
-                                            summary.totalWorkingHours
-                                                ? summary.totalWorkingHours /
-                                                  summary.totalWorkingDays
-                                                : 0
-                                        }
-                                        formatter={(value) => (
-                                            <span>
-                                                {value.toFixed(1)} giờ/ngày
-                                            </span>
-                                        )}
-                                        valueStyle={{ color: "#1890ff" }}
-                                    />
-                                </Col>
-                                <Col span={12}>
-                                    <Statistic
-                                        title="Lương TB/giờ"
-                                        value={calculatedHourlyRate}
-                                        valueStyle={{ color: "#3f8600" }}
-                                        formatter={(value) => (
-                                            <span>
-                                                {value > 0
-                                                    ? formatCurrency(value)
-                                                    : "0 đ"}
-                                                /giờ
-                                            </span>
-                                        )}
-                                    />
-                                </Col>
-                            </Row>
-                        </Card>
-                    </Col>
-                </Row>
-            </Card>
-        );
-    };
-
     // Render payroll summary
     const renderPayrollSummary = () => {
         if (!integrationData || !integrationData.payrolls) {
@@ -528,6 +606,47 @@ const PayrollAttendancePage = () => {
                         {dayjs(record.period_end).format("DD/MM/YYYY")}
                     </Text>
                 ),
+            },
+            {
+                title: "Chi nhánh",
+                key: "branch",
+                render: (_, record) => {
+                    const branchName = record.branch
+                        ? record.branch.name
+                        : record.employee && record.employee.branch
+                        ? record.employee.branch.name
+                        : "N/A";
+
+                    const branchType = record.branch
+                        ? record.branch.type
+                        : record.employee && record.employee.branch
+                        ? record.employee.branch.type
+                        : null;
+
+                    return (
+                        <span>
+                            {branchName}
+                            {branchType && (
+                                <Tag
+                                    color={
+                                        branchType === "hotel"
+                                            ? "blue"
+                                            : branchType === "restaurant"
+                                            ? "orange"
+                                            : "default"
+                                    }
+                                    style={{ marginLeft: 5 }}
+                                >
+                                    {branchType === "hotel"
+                                        ? "Khách sạn"
+                                        : branchType === "restaurant"
+                                        ? "Nhà hàng"
+                                        : branchType}
+                                </Tag>
+                            )}
+                        </span>
+                    );
+                },
             },
             {
                 title: "Số giờ làm việc",
@@ -655,6 +774,12 @@ const PayrollAttendancePage = () => {
             return <Empty description="Không có dữ liệu ca làm việc" />;
         }
 
+        // Lấy thông tin chi nhánh nếu có
+        const employeeBranch =
+            integrationData.employee && integrationData.employee.branch
+                ? integrationData.employee.branch
+                : null;
+
         const columns = [
             {
                 title: "Ngày",
@@ -682,6 +807,40 @@ const PayrollAttendancePage = () => {
                         {record.shift?.start_time} - {record.shift?.end_time}
                     </span>
                 ),
+            },
+            // Thêm thông tin chi nhánh nếu cần
+            {
+                title: "Chi nhánh",
+                key: "branch",
+                render: (_, record) => {
+                    // Ưu tiên lấy branch từ record trước, nếu không có thì lấy từ employee
+                    const branch = record.branch || employeeBranch;
+
+                    if (!branch) return "N/A";
+
+                    return (
+                        <Space>
+                            <span>{branch.name}</span>
+                            {branch.type && (
+                                <Tag
+                                    color={
+                                        branch.type === "hotel"
+                                            ? "blue"
+                                            : branch.type === "restaurant"
+                                            ? "orange"
+                                            : "default"
+                                    }
+                                >
+                                    {branch.type === "hotel"
+                                        ? "Khách sạn"
+                                        : branch.type === "restaurant"
+                                        ? "Nhà hàng"
+                                        : branch.type}
+                                </Tag>
+                            )}
+                        </Space>
+                    );
+                },
             },
             {
                 title: "Trạng thái",
@@ -763,6 +922,19 @@ const PayrollAttendancePage = () => {
                     <Space>
                         <CalendarOutlined />
                         <span>Lịch trình ca làm việc</span>
+                        {employeeBranch && (
+                            <Tag
+                                color={
+                                    employeeBranch.type === "hotel"
+                                        ? "blue"
+                                        : employeeBranch.type === "restaurant"
+                                        ? "orange"
+                                        : "default"
+                                }
+                            >
+                                {employeeBranch.name || "Chi nhánh"}
+                            </Tag>
+                        )}
                     </Space>
                 }
                 style={{ marginBottom: 24 }}
@@ -777,6 +949,19 @@ const PayrollAttendancePage = () => {
         );
     };
 
+    // Convert attendance status to badge color
+    const getAttendanceStatusColor = (status) => {
+        const statusColors = {
+            present: "success",
+            absent: "error",
+            late: "warning",
+            early_leave: "warning",
+            on_leave: "processing",
+            pending: "default",
+        };
+        return statusColors[status] || "default";
+    };
+
     return (
         <div className="payroll-attendance">
             <Card
@@ -788,6 +973,39 @@ const PayrollAttendancePage = () => {
                 }
             >
                 <Form layout="inline" style={{ marginBottom: 24 }}>
+                    {/* Thêm filter chi nhánh */}
+                    <Form.Item
+                        label="Chi nhánh"
+                        rules={[
+                            {
+                                required: true,
+                                message: "Vui lòng chọn chi nhánh trước",
+                            },
+                        ]}
+                    >
+                        <Select
+                            placeholder="Chọn chi nhánh trước"
+                            style={{ width: 200 }}
+                            onChange={handleBranchChange}
+                            value={selectedBranch}
+                            allowClear
+                        >
+                            {branches.map((branch) => (
+                                <Option key={branch.id} value={branch.id}>
+                                    {branch.name}
+                                    {branch.type &&
+                                        ` (${
+                                            branch.type === "hotel"
+                                                ? "Khách sạn"
+                                                : branch.type === "restaurant"
+                                                ? "Nhà hàng"
+                                                : branch.type
+                                        })`}
+                                </Option>
+                            ))}
+                        </Select>
+                    </Form.Item>
+
                     <Form.Item
                         label="Nhân viên"
                         rules={[
@@ -798,23 +1016,27 @@ const PayrollAttendancePage = () => {
                         ]}
                     >
                         <Select
-                            placeholder="Chọn nhân viên"
+                            placeholder={
+                                selectedBranch
+                                    ? "Chọn nhân viên"
+                                    : "Vui lòng chọn chi nhánh trước"
+                            }
                             style={{ width: 300 }}
                             onChange={handleEmployeeChange}
                             value={selectedEmployee}
                             loading={loading}
                             showSearch
                             optionFilterProp="children"
+                            disabled={!selectedBranch}
                         >
-                            {Array.isArray(employees)
-                                ? employees.map((emp) => (
-                                      <Option key={emp.id} value={emp.id}>
-                                          {emp.employee_code} - {emp.name} -{" "}
-                                          {emp.department?.name ||
-                                              "Chưa có phòng ban"}
-                                      </Option>
-                                  ))
-                                : null}
+                            {getFilteredEmployees().map((emp) => (
+                                <Option key={emp.id} value={emp.id}>
+                                    {emp.employee_code} - {emp.name} -{" "}
+                                    {emp.department?.name ||
+                                        "Chưa có phòng ban"}
+                                    {emp.branch && ` (${emp.branch.name})`}
+                                </Option>
+                            ))}
                         </Select>
                     </Form.Item>
                     <Form.Item label="Khoảng thời gian">
@@ -838,11 +1060,21 @@ const PayrollAttendancePage = () => {
                     </Form.Item>
                 </Form>
 
-                {!selectedEmployee && (
+                {!selectedBranch && (
+                    <Alert
+                        message="Vui lòng chọn chi nhánh để tiếp tục"
+                        type="info"
+                        showIcon
+                        style={{ marginBottom: 16 }}
+                    />
+                )}
+
+                {selectedBranch && !selectedEmployee && (
                     <Alert
                         message="Vui lòng chọn nhân viên để xem dữ liệu"
                         type="info"
                         showIcon
+                        style={{ marginBottom: 16 }}
                     />
                 )}
 

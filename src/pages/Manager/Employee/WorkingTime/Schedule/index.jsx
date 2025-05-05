@@ -515,8 +515,8 @@ export default function Schedule() {
         try {
             // Chuyển đổi dữ liệu từ frontend sang định dạng backend
             const scheduleData = {
-                employee_id: values.employeeId,
-                shift_id: values.shiftId,
+                employee_id: values.employee_id,
+                shift_id: values.shift_id,
                 date: values.date,
                 status: SCHEDULE_STATUS.PENDING,
             };

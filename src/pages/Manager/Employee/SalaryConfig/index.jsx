@@ -1085,7 +1085,7 @@ const SalaryConfigPage = () => {
             </Row>
 
             <Divider orientation="left">Thống kê theo phòng ban</Divider>
-            <Row gutter={[16, 16]}>
+            <Row gutter={[16, 16]} style={{ marginBottom: 20 }}>
                 {Object.entries(stats.byDepartment).map(([dept, count]) => (
                     <Col xs={24} sm={12} md={8} lg={6} key={dept}>
                         <Card className="stat-card">

@@ -153,6 +153,43 @@ const formatDataForExport = (data, options = {}) => {
                 "Trạng thái": EMPLOYEE_STATUS_LABELS[employee.status] || "",
             };
         });
+    } else if (type === "customers") {
+        console.log(
+            "Đang chuẩn bị xuất dữ liệu khách hàng:",
+            data.length,
+            "bản ghi"
+        );
+
+        return data.map((customer, index) => {
+            // Kiểm tra đảm bảo properties tồn tại
+            const branchName =
+                customer.branch && typeof customer.branch === "object"
+                    ? customer.branch.name
+                    : "";
+
+            const customerType =
+                customer.type === "vip" ? "Khách VIP" : "Khách thường";
+            const customerStatus =
+                customer.status === "active" ? "Đang hoạt động" : "Đã khóa";
+
+            return {
+                STT: index + 1,
+                "Mã KH": customer.customer_code || "",
+                "Họ và tên": customer.name || "",
+                "Số điện thoại": customer.phone || "",
+                Email: customer.email || "",
+                "CCCD/Passport": customer.idNumber || "",
+                "Địa chỉ": customer.address || "",
+                "Chi nhánh": branchName,
+                "Loại khách hàng": customerType,
+                "Trạng thái": customerStatus,
+                "Số lần đặt": customer.totalBookings || 0,
+                "Tổng chi tiêu": formatCurrency(customer.totalSpent || 0),
+                "Ngày sinh": formatDate(customer.birthday),
+                "Ngày tạo": formatDate(customer.createdAt),
+                "Ghi chú": customer.note || "",
+            };
+        });
     }
 
     // Mặc định trả về dữ liệu gốc chuyển sang dạng phẳng
@@ -201,4 +238,16 @@ const calculateColumnWidths = (data) => {
 
         return { wch: width };
     });
+};
+
+/**
+ * Định dạng số tiền thành tiền tệ Việt Nam
+ * @param {number} value - Số tiền cần định dạng
+ * @returns {string} - Chuỗi đã định dạng
+ */
+const formatCurrency = (value) => {
+    return new Intl.NumberFormat("vi-VN", {
+        style: "currency",
+        currency: "VND",
+    }).format(value);
 };

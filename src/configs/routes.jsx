@@ -51,6 +51,9 @@ const CustomerList = lazy(() =>
 const MembershipCard = lazy(() =>
     import("../pages/Manager/Customer/MembershipCard/index")
 );
+const RewardManagement = lazy(() =>
+    import("../pages/Manager/Customer/Rewards/index")
+);
 const Feedback = lazy(() => import("../pages/Manager/Customer/Feedback/index"));
 
 const EmployeeList = lazy(() =>
@@ -158,6 +161,10 @@ const routes = [
             {
                 path: "/customer/list-membership-card",
                 element: <MembershipCard />,
+            },
+            {
+                path: "/customer/rewards",
+                element: <RewardManagement />,
             },
             {
                 path: "/customer/feedback",

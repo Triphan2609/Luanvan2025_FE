@@ -43,6 +43,8 @@ const BREADCRUMB_MAP = {
     bookings: { label: "Đặt phòng" },
     customer: { label: "Quản lý khách hàng" },
     "list-customer": { label: "Danh sách khách hàng" },
+    "list-membership-card": { label: "Thẻ thành viên" },
+    rewards: { label: "Quản lý ưu đãi quà" },
     memberships: { label: "Thành viên" },
     feedback: { label: "Quản lý phản hồi" },
     employees: { label: "Quản lý nhân viên" },

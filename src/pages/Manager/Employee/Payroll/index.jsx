@@ -57,7 +57,7 @@ import {
     getDepartmentsByBranch,
 } from "../../../../api/departmentsApi";
 import { getEmployees } from "../../../../api/employeesApi";
-import { getBranches } from "../../../../api/branchesApi";
+import { getBranches, getBranchById } from "../../../../api/branchesApi";
 import {
     createPayroll,
     getPayrolls,
@@ -115,6 +115,7 @@ export default function PayrollPage() {
     const [branches, setBranches] = useState([]);
     const [employees, setEmployees] = useState([]);
     const [currentPayroll, setCurrentPayroll] = useState(null);
+    const [currentBranch, setCurrentBranch] = useState(null);
 
     // UI state
     const [loading, setLoading] = useState(false);
@@ -122,6 +123,120 @@ export default function PayrollPage() {
     const [createModalVisible, setCreateModalVisible] = useState(false);
     const [detailModalVisible, setDetailModalVisible] = useState(false);
     const [statusChangeLoading, setStatusChangeLoading] = useState({});
+
+    // Helper function to get branch display name
+    const getBranchDisplayName = (branch) => {
+        if (!branch) return "CÔNG TY KHÁCH SẠN & NHÀ HÀNG";
+
+        // Cố gắng xác định loại chi nhánh từ nhiều nguồn thông tin
+        let branchType = "";
+
+        // Kiểm tra trường type trực tiếp
+        if (branch.type) {
+            branchType = branch.type.toLowerCase();
+        }
+        // Kiểm tra thông tin từ branchType nếu có
+        else if (branch.branchType && branch.branchType.name) {
+            const btName = branch.branchType.name.toLowerCase();
+            if (btName.includes("hotel") || btName.includes("khách sạn")) {
+                branchType = "hotel";
+            } else if (
+                btName.includes("restaurant") ||
+                btName.includes("nhà hàng")
+            ) {
+                branchType = "restaurant";
+            }
+        }
+        // Kiểm tra tên chi nhánh nếu vẫn chưa xác định được
+        else if (branch.name) {
+            const branchName = branch.name.toLowerCase();
+            if (
+                branchName.includes("hotel") ||
+                branchName.includes("khách sạn")
+            ) {
+                branchType = "hotel";
+            } else if (
+                branchName.includes("restaurant") ||
+                branchName.includes("nhà hàng")
+            ) {
+                branchType = "restaurant";
+            }
+        }
+
+        // Lấy tên chi nhánh, ưu tiên tên đầy đủ nếu có
+        const branchName = branch.name || "";
+        const brandName = branch.brand_name || "";
+
+        // Xây dựng tên hiển thị dựa trên loại chi nhánh
+        if (branchType === "hotel") {
+            return `${branchName}`.trim();
+        } else if (branchType === "restaurant") {
+            return `${branchName}`.trim();
+        } else if (brandName) {
+            // Sử dụng brand_name nếu có
+            return brandName.toUpperCase();
+        } else if (branchName) {
+            // Sử dụng tên chi nhánh thông thường
+            return branchName.toUpperCase();
+        } else {
+            // Fallback nếu không có thông tin nào
+            return "CÔNG TY KHÁCH SẠN & NHÀ HÀNG";
+        }
+    };
+
+    // Helper function to get manager title based on branch type
+    const getManagerTitle = (branch) => {
+        if (!branch) return "Trưởng phòng nhân sự";
+
+        // Cố gắng xác định loại chi nhánh từ nhiều nguồn thông tin
+        let branchType = "";
+
+        // Kiểm tra trường type trực tiếp
+        if (branch.type) {
+            branchType = branch.type.toLowerCase();
+        }
+        // Kiểm tra thông tin từ branchType nếu có
+        else if (branch.branchType && branch.branchType.name) {
+            const btName = branch.branchType.name.toLowerCase();
+            if (btName.includes("hotel") || btName.includes("khách sạn")) {
+                branchType = "hotel";
+            } else if (
+                btName.includes("restaurant") ||
+                btName.includes("nhà hàng")
+            ) {
+                branchType = "restaurant";
+            }
+        }
+        // Kiểm tra tên chi nhánh nếu vẫn chưa xác định được
+        else if (branch.name) {
+            const branchName = branch.name.toLowerCase();
+            if (
+                branchName.includes("hotel") ||
+                branchName.includes("khách sạn")
+            ) {
+                branchType = "hotel";
+            } else if (
+                branchName.includes("restaurant") ||
+                branchName.includes("nhà hàng")
+            ) {
+                branchType = "restaurant";
+            }
+        }
+
+        // Ưu tiên sử dụng tên quản lý từ dữ liệu chi nhánh nếu có
+        if (branch.manager_name) {
+            return branch.manager_name;
+        }
+
+        // Nếu không có tên quản lý cụ thể, trả về chức danh dựa trên loại chi nhánh
+        if (branchType === "hotel") {
+            return "Quản lý khách sạn";
+        } else if (branchType === "restaurant") {
+            return "Quản lý nhà hàng";
+        } else {
+            return "Trưởng phòng nhân sự";
+        }
+    };
 
     // Forms
     const [filterForm] = Form.useForm();
@@ -393,12 +508,117 @@ export default function PayrollPage() {
     const handleViewDetail = async (id) => {
         try {
             setLoading(true);
+
+            // Lấy thông tin chi tiết của bảng lương
             const data = await getPayroll(id);
             setCurrentPayroll(data);
+
+            // Lấy thông tin chi nhánh để hiển thị trên phiếu lương
+            // Ưu tiên: 1. branch_id từ bảng Payroll, 2. branch từ Employee
+            const branchId = data?.branch?.id || data?.employee?.branch?.id;
+
+            if (branchId) {
+                try {
+                    // Fetch detailed branch information
+                    const branchData = await getBranchById(branchId);
+
+                    // Lấy các thông tin chi nhánh từ các nguồn dữ liệu có sẵn
+                    // Ưu tiên từ API, sau đó từ payroll.branch, cuối cùng từ employee.branch
+                    const payrollBranch = data?.branch || {};
+                    const employeeBranch = data?.employee?.branch || {};
+
+                    // Gộp thông tin từ các nguồn
+                    const completeData = {
+                        ...employeeBranch, // Dữ liệu cơ bản từ employee.branch
+                        ...payrollBranch, // Ghi đè bằng dữ liệu từ payroll.branch nếu có
+                        ...branchData, // Ghi đè bằng dữ liệu chi tiết từ API
+
+                        // Đảm bảo các trường quan trọng luôn có giá trị
+                        id: branchId,
+                        type:
+                            branchData.type ||
+                            payrollBranch.type ||
+                            employeeBranch.type ||
+                            "",
+                        name:
+                            branchData.name ||
+                            payrollBranch.name ||
+                            employeeBranch.name ||
+                            "",
+                        address:
+                            branchData.address ||
+                            payrollBranch.address ||
+                            employeeBranch.address ||
+                            "",
+                        phone:
+                            branchData.phone ||
+                            payrollBranch.phone ||
+                            employeeBranch.phone ||
+                            "",
+                        email:
+                            branchData.email ||
+                            payrollBranch.email ||
+                            employeeBranch.email ||
+                            "",
+                        tax_code:
+                            branchData.tax_code ||
+                            payrollBranch.tax_code ||
+                            employeeBranch.tax_code ||
+                            "",
+                        brand_name:
+                            branchData.brand_name ||
+                            payrollBranch.brand_name ||
+                            employeeBranch.brand_name ||
+                            "",
+                        branch_code:
+                            branchData.branch_code ||
+                            payrollBranch.branch_code ||
+                            employeeBranch.branch_code ||
+                            "",
+                    };
+
+                    // Nếu có branchType, sử dụng nó để xác định loại chi nhánh
+                    if (branchData.branchType?.name) {
+                        if (
+                            branchData.branchType.name
+                                .toLowerCase()
+                                .includes("hotel")
+                        ) {
+                            completeData.type = "hotel";
+                        } else if (
+                            branchData.branchType.name
+                                .toLowerCase()
+                                .includes("restaurant")
+                        ) {
+                            completeData.type = "restaurant";
+                        }
+                    }
+
+                    setCurrentBranch(completeData);
+                    console.log("Branch data for payroll:", completeData);
+                } catch (branchError) {
+                    console.error(
+                        "Error fetching branch details:",
+                        branchError
+                    );
+
+                    // Nếu API lỗi, sử dụng dữ liệu từ payroll.branch hoặc employee.branch
+                    const fallbackBranch =
+                        data?.branch || data?.employee?.branch;
+                    setCurrentBranch(fallbackBranch);
+                    console.log("Using fallback branch info:", fallbackBranch);
+                }
+            } else {
+                setCurrentBranch(null);
+                console.warn(
+                    "No branch information available for this payroll"
+                );
+            }
+
             setDetailModalVisible(true);
         } catch (error) {
             console.error("Error fetching payroll details:", error);
-            message.error("Không thể tải thông tin chi tiết bảng lương");
+            message.error("Không thể tải thông tin bảng lương");
         } finally {
             setLoading(false);
         }
@@ -1289,6 +1509,7 @@ export default function PayrollPage() {
                 onCancel={() => {
                     setDetailModalVisible(false);
                     setCurrentPayroll(null);
+                    setCurrentBranch(null);
                 }}
                 footer={[
                     <Button
@@ -1316,6 +1537,7 @@ export default function PayrollPage() {
                         onClick={() => {
                             setDetailModalVisible(false);
                             setCurrentPayroll(null);
+                            setCurrentBranch(null);
                         }}
                     >
                         Đóng
@@ -1333,38 +1555,75 @@ export default function PayrollPage() {
                         <div ref={printComponentRef} className="print-content">
                             <div className="print-header">
                                 <Row gutter={16} align="middle">
-                                    <Col span={4}>
-                                        <div className="company-logo">
-                                            <DollarOutlined
-                                                style={{ fontSize: 36 }}
-                                            />
-                                        </div>
-                                    </Col>
                                     <Col span={14}>
                                         <Typography.Title
                                             level={4}
                                             style={{
                                                 margin: 0,
-                                                textAlign: "center",
+                                                textAlign: "left",
                                             }}
                                         >
-                                            CÔNG TY KHÁCH SẠN & NHÀ HÀNG XYZ
+                                            {getBranchDisplayName(
+                                                currentBranch
+                                            )}
                                         </Typography.Title>
                                         <Typography.Text
                                             type="secondary"
                                             style={{
                                                 display: "block",
-                                                textAlign: "center",
+                                                textAlign: "left",
+                                                fontSize: "12px",
+                                                marginTop: "4px",
+                                            }}
+                                        >
+                                            {currentBranch?.address
+                                                ? `Địa chỉ: ${currentBranch.address}`
+                                                : "Địa chỉ chưa cập nhật"}
+                                        </Typography.Text>
+
+                                        <Typography.Text
+                                            type="secondary"
+                                            style={{
+                                                display: "block",
+                                                textAlign: "left",
                                                 fontSize: "12px",
                                             }}
                                         >
-                                            123 Đường ABC, Quận/Huyện,
-                                            Tỉnh/Thành phố
+                                            {currentBranch?.phone
+                                                ? `ĐT: ${currentBranch.phone}`
+                                                : ""}
+                                            {currentBranch?.phone &&
+                                            currentBranch?.email
+                                                ? " | "
+                                                : ""}
+                                            {currentBranch?.email
+                                                ? `Email: ${currentBranch.email}`
+                                                : ""}
+                                            {!currentBranch?.phone &&
+                                                !currentBranch?.email &&
+                                                "Thông tin liên hệ chưa cập nhật"}
                                         </Typography.Text>
+
+                                        {currentBranch?.tax_code && (
+                                            <Typography.Text
+                                                type="secondary"
+                                                style={{
+                                                    display: "block",
+                                                    textAlign: "center",
+                                                    fontSize: "12px",
+                                                }}
+                                            >
+                                                Mã số thuế:{" "}
+                                                {currentBranch.tax_code}
+                                            </Typography.Text>
+                                        )}
                                     </Col>
                                     <Col
-                                        span={6}
-                                        style={{ textAlign: "right" }}
+                                        span={10}
+                                        style={{
+                                            textAlign: "right",
+                                            float: "right",
+                                        }}
                                     >
                                         <div className="document-info">
                                             <Typography.Text
@@ -1510,20 +1769,14 @@ export default function PayrollPage() {
                                     >
                                         <Typography.Text
                                             type="secondary"
-                                            style={{ fontSize: "11px" }}
+                                            style={{ fontSize: "10px" }}
                                         >
-                                            CÔNG TY KHÁCH SẠN & NHÀ HÀNG XYZ -
-                                            MST: 0123456789
-                                        </Typography.Text>
-                                        <br />
-                                        <Typography.Text
-                                            type="secondary"
-                                            style={{ fontSize: "11px" }}
-                                        >
-                                            Địa chỉ: 123 Đường ABC, Quận/Huyện,
-                                            Tỉnh/Thành phố | Điện thoại: (+84)
-                                            123 456 789 | Email:
-                                            contact@example.com
+                                            © {new Date().getFullYear()}{" "}
+                                            {getBranchDisplayName(
+                                                currentBranch
+                                            )}
+                                            {currentBranch?.tax_code &&
+                                                ` - Mã số thuế: ${currentBranch.tax_code}`}
                                         </Typography.Text>
                                     </Col>
                                 </Row>

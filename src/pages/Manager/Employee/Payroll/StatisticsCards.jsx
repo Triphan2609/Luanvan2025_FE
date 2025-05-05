@@ -33,18 +33,6 @@ const StatisticsCards = ({
                         prefix={<FileTextOutlined />}
                         valueStyle={{ color: "#1677ff" }}
                     />
-                    <div className="stat-footer">
-                        <Button
-                            type="link"
-                            size="small"
-                            onClick={() => {
-                                resetFilters();
-                                onChangeTab("all");
-                            }}
-                        >
-                            Xem tất cả
-                        </Button>
-                    </div>
                 </Card>
             </Col>
             <Col xs={24} sm={12} lg={6}>
@@ -66,18 +54,6 @@ const StatisticsCards = ({
                             </small>
                         }
                     />
-                    <div className="stat-footer">
-                        <Button
-                            type="link"
-                            size="small"
-                            onClick={() => {
-                                resetFilters();
-                                onChangeTab(statusFilters.PAID);
-                            }}
-                        >
-                            Lọc theo trạng thái
-                        </Button>
-                    </div>
                 </Card>
             </Col>
             <Col xs={24} sm={12} lg={6}>
@@ -88,11 +64,6 @@ const StatisticsCards = ({
                         valueStyle={{ color: "#722ed1" }}
                         prefix={<UserOutlined />}
                     />
-                    <div className="stat-footer">
-                        <Button type="link" size="small" disabled>
-                            Thông tin chi tiết
-                        </Button>
-                    </div>
                 </Card>
             </Col>
             <Col xs={24} sm={12} lg={6}>
@@ -103,11 +74,6 @@ const StatisticsCards = ({
                         prefix={<DollarOutlined />}
                         valueStyle={{ color: "#cf1322" }}
                     />
-                    <div className="stat-footer">
-                        <Button type="link" size="small" disabled>
-                            Xem báo cáo
-                        </Button>
-                    </div>
                 </Card>
             </Col>
         </Row>

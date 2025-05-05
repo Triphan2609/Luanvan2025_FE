@@ -17,6 +17,7 @@ import {
     LineChartOutlined,
     CalendarOutlined,
     CheckCircleOutlined,
+    GiftOutlined,
 } from "@ant-design/icons";
 import { TbGps } from "react-icons/tb";
 import { IoRestaurantOutline } from "react-icons/io5";
@@ -189,6 +190,11 @@ const items = [
                         Thẻ thành viên
                     </Link>
                 ),
+            },
+            {
+                key: "rewards",
+                icon: <GiftOutlined />,
+                label: <Link to="/customer/rewards">Quản lý ưu đãi quà</Link>,
             },
             {
                 key: "feedback",

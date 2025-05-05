@@ -1,9 +1,34 @@
-import React from "react";
-import { Drawer, Descriptions, Tag, Space, Typography, Tooltip } from "antd";
+import React, { useState } from "react";
+import {
+    Drawer,
+    Descriptions,
+    Button,
+    Space,
+    Tag,
+    Divider,
+    Typography,
+    Popconfirm,
+    message,
+    Timeline,
+    Card,
+} from "antd";
+import {
+    CheckCircleOutlined,
+    CloseCircleOutlined,
+    ClockCircleOutlined,
+    UserOutlined,
+    CalendarOutlined,
+    EditOutlined,
+    AuditOutlined,
+    FileDoneOutlined,
+} from "@ant-design/icons";
 import dayjs from "dayjs";
-import { InfoCircleOutlined } from "@ant-design/icons";
+import {
+    approveAttendanceAdjustment,
+    rejectAttendanceAdjustment,
+} from "../../../../api/attendanceApi";
 
-const { Text } = Typography;
+const { Title, Text } = Typography;
 
 // Sử dụng các enum để phù hợp với file chính
 const AttendanceType = {
@@ -39,240 +64,266 @@ const typeLabels = {
 };
 
 const AttendanceDetailDrawer = ({ visible, onClose, selectedRecord }) => {
-    if (!selectedRecord) return null;
+    const [loading, setLoading] = useState(false);
 
-    // Kiểm tra xem có phải ca đặc biệt không (ca tối/ca đêm)
-    const isSpecialShift = () => {
-        if (!selectedRecord.employeeShift?.shift) return false;
+    // Kiểm tra nếu record là undefined
+    if (!selectedRecord) {
+        return null;
+    }
 
-        const shift = selectedRecord.employeeShift.shift;
-        return (
-            selectedRecord.type === AttendanceType.NIGHT_SHIFT ||
-            shift.end_time === "00:00:00" ||
-            shift.start_time === "00:00:00" ||
-            shift.start_time > shift.end_time
-        );
+    const handleApprove = async () => {
+        try {
+            setLoading(true);
+            await approveAttendanceAdjustment(selectedRecord.id);
+            message.success("Đã phê duyệt yêu cầu điều chỉnh");
+            onClose(); // Đóng drawer sau khi phê duyệt
+        } catch (error) {
+            console.error("Error approving adjustment:", error);
+            message.error("Không thể phê duyệt yêu cầu điều chỉnh");
+        } finally {
+            setLoading(false);
+        }
     };
 
-    // Hiển thị thông tin giờ làm việc với định dạng đẹp hơn
-    const renderWorkingHours = () => {
-        if (!selectedRecord.working_hours) return "0 giờ";
-
-        // Nếu đây là ca đặc biệt
-        if (isSpecialShift()) {
-            return (
-                <Space direction="vertical" size={0}>
-                    <Text strong style={{ color: "#1890ff" }}>
-                        {selectedRecord.working_hours.toFixed(1)} giờ
-                    </Text>
-                    {selectedRecord.notes &&
-                        selectedRecord.notes.includes("early_leave") && (
-                            <Tooltip title="Checkout sớm trong ca tối/đêm vẫn được tính đúng giờ làm việc thực tế">
-                                <Text type="secondary" style={{ fontSize: 12 }}>
-                                    <InfoCircleOutlined
-                                        style={{ marginRight: 5 }}
-                                    />
-                                    {selectedRecord.check_in} -{" "}
-                                    {selectedRecord.check_out}
-                                </Text>
-                            </Tooltip>
-                        )}
-                </Space>
-            );
+    const handleReject = async () => {
+        try {
+            setLoading(true);
+            await rejectAttendanceAdjustment(selectedRecord.id);
+            message.success("Đã từ chối yêu cầu điều chỉnh");
+            onClose(); // Đóng drawer sau khi từ chối
+        } catch (error) {
+            console.error("Error rejecting adjustment:", error);
+            message.error("Không thể từ chối yêu cầu điều chỉnh");
+        } finally {
+            setLoading(false);
         }
-
-        return `${selectedRecord.working_hours.toFixed(1)} giờ`;
     };
 
-    // Hiển thị trạng thái đặc biệt với các ghi chú bổ sung
-    const renderSpecialStatus = () => {
-        const notes = selectedRecord.notes || "";
-        const tags = [];
+    // Xác định trạng thái và màu sắc tương ứng
+    const getStatusTag = (status) => {
+        const statusMap = {
+            pending: { color: "warning", text: "Chờ xác nhận" },
+            approved: { color: "success", text: "Đã xác nhận" },
+            rejected: { color: "error", text: "Đã từ chối" },
+        };
 
-        if (notes.includes("late")) {
-            tags.push(
-                <Tag color="orange" key="late">
-                    Đi trễ
-                </Tag>
-            );
-        }
+        const statusInfo = statusMap[status] || {
+            color: "default",
+            text: status,
+        };
 
-        // Nếu là ca đặc biệt và về sớm, hiển thị tag với tooltip giải thích
-        if (notes.includes("early_leave")) {
-            if (isSpecialShift()) {
-                tags.push(
-                    <Tooltip
-                        key="early_leave"
-                        title="Về sớm trong ca tối/đêm được tính đúng thời gian thực tế"
-                    >
-                        <Tag color="gold" style={{ cursor: "help" }}>
-                            Về sớm <InfoCircleOutlined />
-                        </Tag>
-                    </Tooltip>
-                );
-            } else {
-                tags.push(
-                    <Tag color="gold" key="early_leave">
-                        Về sớm
-                    </Tag>
-                );
-            }
-        }
-
-        if (notes.includes("on_leave")) {
-            tags.push(
-                <Tag color="blue" key="on_leave">
-                    Nghỉ phép
-                </Tag>
-            );
-        }
-
-        return tags.length > 0 ? <Space>{tags}</Space> : "-";
+        return <Tag color={statusInfo.color}>{statusInfo.text}</Tag>;
     };
 
-    // Hiển thị ghi chú với phân tích và định dạng đẹp hơn
-    const renderNotes = () => {
-        const notes = selectedRecord.notes || "";
-        if (!notes) return "-";
+    // Xác định loại chấm công và màu sắc tương ứng
+    const getTypeTag = (type) => {
+        const typeMap = {
+            normal: { color: "blue", text: "Thường" },
+            overtime: { color: "orange", text: "Tăng ca" },
+            night_shift: { color: "purple", text: "Ca đêm" },
+            holiday: { color: "green", text: "Ngày lễ" },
+        };
 
-        // Thay thế các key bằng văn bản đã dịch
-        let displayNotes = notes
-            .replace(/late/g, "Đi trễ")
-            .replace(/early_leave/g, "Về sớm")
-            .replace(/on_leave/g, "Nghỉ phép");
+        const typeInfo = typeMap[type] || { color: "default", text: type };
 
-        // Thêm chú thích đặc biệt cho ca tối/đêm có checkout sớm
-        if (isSpecialShift() && notes.includes("early_leave")) {
-            return (
-                <>
-                    <div>{displayNotes}</div>
-                    <Text
-                        type="secondary"
-                        style={{ fontSize: 12, marginTop: 5 }}
-                    >
-                        <InfoCircleOutlined style={{ marginRight: 5 }} />
-                        Về sớm trong ca tối/đêm vẫn được tính chính xác giờ làm
-                        việc
-                    </Text>
-                </>
-            );
-        }
-
-        return displayNotes;
+        return <Tag color={typeInfo.color}>{typeInfo.text}</Tag>;
     };
+
+    // Kiểm tra xem có phải yêu cầu điều chỉnh không
+    const isAdjustment = selectedRecord.is_adjustment === true;
 
     return (
         <Drawer
-            title="Chi tiết chấm công"
+            title={
+                <Space>
+                    <ClockCircleOutlined />
+                    {isAdjustment
+                        ? "Chi tiết yêu cầu điều chỉnh"
+                        : "Chi tiết chấm công"}
+                </Space>
+            }
             placement="right"
+            closable={true}
             onClose={onClose}
-            open={visible}
-            width={500}
+            visible={visible}
+            width={600}
+            footer={
+                isAdjustment && selectedRecord.status === "pending" ? (
+                    <div
+                        style={{
+                            textAlign: "right",
+                        }}
+                    >
+                        <Space>
+                            <Popconfirm
+                                title="Bạn có chắc muốn từ chối yêu cầu này?"
+                                onConfirm={handleReject}
+                                okText="Có"
+                                cancelText="Không"
+                            >
+                                <Button danger loading={loading}>
+                                    <CloseCircleOutlined /> Từ chối
+                                </Button>
+                            </Popconfirm>
+                            <Popconfirm
+                                title="Bạn có chắc muốn phê duyệt yêu cầu này?"
+                                onConfirm={handleApprove}
+                                okText="Có"
+                                cancelText="Không"
+                            >
+                                <Button type="primary" loading={loading}>
+                                    <CheckCircleOutlined /> Phê duyệt
+                                </Button>
+                            </Popconfirm>
+                        </Space>
+                    </div>
+                ) : null
+            }
         >
-            <Descriptions bordered column={1}>
+            {isAdjustment && (
+                <>
+                    <Card style={{ marginBottom: 16, borderColor: "#faad14" }}>
+                        <Title level={5}>
+                            <AuditOutlined /> Thông tin yêu cầu điều chỉnh
+                        </Title>
+                        <Descriptions column={1} size="small">
+                            <Descriptions.Item label="Trạng thái">
+                                {getStatusTag(selectedRecord.status)}
+                            </Descriptions.Item>
+                            <Descriptions.Item label="Lý do điều chỉnh">
+                                {selectedRecord.adjustment_reason ||
+                                    "Không có lý do"}
+                            </Descriptions.Item>
+                            {selectedRecord.requested_by && (
+                                <Descriptions.Item label="Người yêu cầu">
+                                    {selectedRecord.requested_by_name ||
+                                        selectedRecord.requested_by}
+                                </Descriptions.Item>
+                            )}
+                            <Descriptions.Item label="Ngày yêu cầu">
+                                {selectedRecord.created_at
+                                    ? dayjs(selectedRecord.created_at).format(
+                                          "DD/MM/YYYY HH:mm"
+                                      )
+                                    : "N/A"}
+                            </Descriptions.Item>
+                        </Descriptions>
+                    </Card>
+                </>
+            )}
+
+            <Title level={5}>
+                <UserOutlined /> Thông tin nhân viên
+            </Title>
+            <Descriptions column={1} size="small">
                 <Descriptions.Item label="Mã nhân viên">
-                    {selectedRecord.employee?.employee_code}
+                    {selectedRecord.employee?.employee_code || "N/A"}
                 </Descriptions.Item>
                 <Descriptions.Item label="Tên nhân viên">
-                    {selectedRecord.employee?.name}
+                    {selectedRecord.employee?.name || "N/A"}
                 </Descriptions.Item>
                 <Descriptions.Item label="Phòng ban">
-                    {selectedRecord.employee?.department?.name || "Không có"}
+                    {selectedRecord.employee?.department?.name ||
+                        "Không có phòng ban"}
                 </Descriptions.Item>
+                <Descriptions.Item label="Chi nhánh">
+                    {selectedRecord.employee?.branch?.name ||
+                        "Không có chi nhánh"}
+                </Descriptions.Item>
+            </Descriptions>
+
+            <Divider style={{ margin: "16px 0" }} />
+
+            <Title level={5}>
+                <CalendarOutlined /> Thông tin chấm công
+            </Title>
+            <Descriptions column={1} size="small">
                 <Descriptions.Item label="Ngày">
                     {dayjs(selectedRecord.date).format("DD/MM/YYYY")}
                 </Descriptions.Item>
-                <Descriptions.Item label="Giờ check-in">
-                    {selectedRecord.check_in || "-"}
-                </Descriptions.Item>
-                <Descriptions.Item label="Giờ check-out">
-                    {selectedRecord.check_out || "-"}
-                </Descriptions.Item>
-                <Descriptions.Item label="Giờ làm việc">
-                    {renderWorkingHours()}
-                </Descriptions.Item>
-
-                <Descriptions.Item label="Loại chấm công">
-                    <Tag
-                        color={
-                            selectedRecord.type === AttendanceType.OVERTIME
-                                ? "orange"
-                                : selectedRecord.type ===
-                                  AttendanceType.NIGHT_SHIFT
-                                ? "purple"
-                                : selectedRecord.type === AttendanceType.HOLIDAY
-                                ? "green"
-                                : "blue"
-                        }
-                    >
-                        {typeLabels[selectedRecord.type]}
-                    </Tag>
-                    {selectedRecord.type === AttendanceType.NIGHT_SHIFT && (
-                        <Tooltip title="Ca đêm được tính với hệ số 1.3">
-                            <Tag color="#1890ff">Hệ số 1.3</Tag>
-                        </Tooltip>
-                    )}
-                </Descriptions.Item>
-                <Descriptions.Item label="Trạng thái">
-                    <Tag color={statusColors[selectedRecord.status]}>
-                        {statusLabels[selectedRecord.status]}
-                    </Tag>
-                </Descriptions.Item>
-                <Descriptions.Item label="Trạng thái đặc biệt">
-                    {renderSpecialStatus()}
-                </Descriptions.Item>
-                <Descriptions.Item label="Ghi chú">
-                    {renderNotes()}
-                </Descriptions.Item>
                 <Descriptions.Item label="Ca làm việc">
-                    {selectedRecord.employeeShift?.shift ? (
+                    {selectedRecord.employeeShift ? (
                         <>
-                            {selectedRecord.employeeShift.shift.name} (
-                            {selectedRecord.employeeShift.shift.start_time} -{" "}
-                            {selectedRecord.employeeShift.shift.end_time})
-                            {isSpecialShift() && (
-                                <Tag color="purple" style={{ marginLeft: 5 }}>
-                                    Ca đặc biệt
-                                </Tag>
-                            )}
+                            {selectedRecord.employeeShift.shift?.name} (
+                            {selectedRecord.employeeShift.shift?.start_time} -{" "}
+                            {selectedRecord.employeeShift.shift?.end_time})
                         </>
                     ) : (
-                        "Không có"
+                        "Không có ca làm việc"
                     )}
                 </Descriptions.Item>
-                {selectedRecord.is_adjustment && (
-                    <>
-                        <Descriptions.Item label="Lý do điều chỉnh">
-                            {selectedRecord.adjustment_reason || "-"}
-                        </Descriptions.Item>
-                        <Descriptions.Item label="Người yêu cầu">
-                            {selectedRecord.requested_by || "-"}
-                        </Descriptions.Item>
-                        {selectedRecord.approved_by && (
-                            <Descriptions.Item label="Người duyệt">
-                                {selectedRecord.approved_by}
-                            </Descriptions.Item>
-                        )}
-                        {selectedRecord.approved_at && (
-                            <Descriptions.Item label="Thời gian duyệt">
-                                {dayjs(selectedRecord.approved_at).format(
-                                    "DD/MM/YYYY HH:mm"
-                                )}
-                            </Descriptions.Item>
-                        )}
-                    </>
+                <Descriptions.Item label="Giờ vào">
+                    {selectedRecord.check_in || "Chưa ghi nhận"}
+                </Descriptions.Item>
+                <Descriptions.Item label="Giờ ra">
+                    {selectedRecord.check_out || "Chưa ghi nhận"}
+                </Descriptions.Item>
+                <Descriptions.Item label="Tổng thời gian">
+                    {selectedRecord.working_hours
+                        ? `${selectedRecord.working_hours.toFixed(1)} giờ`
+                        : "0 giờ"}
+                </Descriptions.Item>
+                <Descriptions.Item label="Loại chấm công">
+                    {getTypeTag(selectedRecord.type)}
+                </Descriptions.Item>
+                <Descriptions.Item label="Trạng thái">
+                    {getStatusTag(selectedRecord.status)}
+                </Descriptions.Item>
+                {selectedRecord.notes && (
+                    <Descriptions.Item label="Ghi chú">
+                        {selectedRecord.notes
+                            .split(",")
+                            .map((note) => note.trim())
+                            .filter((note) => note)
+                            .map((note, index) => {
+                                let color = "default";
+                                let text = note;
+
+                                if (note.includes("late")) {
+                                    color = "orange";
+                                    text = "Đi trễ";
+                                } else if (note.includes("early_leave")) {
+                                    color = "gold";
+                                    text = "Về sớm";
+                                } else if (note.includes("on_leave")) {
+                                    color = "blue";
+                                    text = "Nghỉ phép";
+                                }
+
+                                return (
+                                    <Tag
+                                        color={color}
+                                        key={index}
+                                        style={{ margin: 2 }}
+                                    >
+                                        {text}
+                                    </Tag>
+                                );
+                            })}
+                    </Descriptions.Item>
                 )}
-                <Descriptions.Item label="Thời gian tạo">
-                    {dayjs(selectedRecord.created_at).format(
-                        "DD/MM/YYYY HH:mm"
-                    )}
-                </Descriptions.Item>
-                <Descriptions.Item label="Cập nhật lần cuối">
-                    {dayjs(selectedRecord.updated_at).format(
-                        "DD/MM/YYYY HH:mm"
-                    )}
-                </Descriptions.Item>
             </Descriptions>
+
+            {selectedRecord.status === "approved" && (
+                <>
+                    <Divider style={{ margin: "16px 0" }} />
+                    <Title level={5}>
+                        <FileDoneOutlined /> Thông tin duyệt
+                    </Title>
+                    <Descriptions column={1} size="small">
+                        <Descriptions.Item label="Người duyệt">
+                            {selectedRecord.approved_by_name || "Admin"}
+                        </Descriptions.Item>
+                        <Descriptions.Item label="Thời gian duyệt">
+                            {selectedRecord.updated_at
+                                ? dayjs(selectedRecord.updated_at).format(
+                                      "DD/MM/YYYY HH:mm"
+                                  )
+                                : "N/A"}
+                        </Descriptions.Item>
+                    </Descriptions>
+                </>
+            )}
         </Drawer>
     );
 };
