@@ -527,22 +527,22 @@ export default function ListEmployee() {
                 <Tag color="cyan">{record.branch?.name || "Chưa có"}</Tag>
             ),
         },
-        {
-            title: "Liên hệ",
-            key: "contact",
-            width: 150,
-            sorter: (a, b) => a.phone.localeCompare(b.phone),
-            render: (_, record) => (
-                <Space direction="vertical" size={0}>
-                    <Text>{record.phone}</Text>
-                    <Text type="secondary" style={{ fontSize: "12px" }}>
-                        {record.address && record.address.length > 15
-                            ? record.address.substring(0, 15) + "..."
-                            : record.address}
-                    </Text>
-                </Space>
-            ),
-        },
+        // {
+        //     title: "Liên hệ",
+        //     key: "contact",
+        //     width: 150,
+        //     sorter: (a, b) => a.phone.localeCompare(b.phone),
+        //     render: (_, record) => (
+        //         <Space direction="vertical" size={0}>
+        //             <Text>{record.phone}</Text>
+        //             <Text type="secondary" style={{ fontSize: "12px" }}>
+        //                 {record.address && record.address.length > 15
+        //                     ? record.address.substring(0, 15) + "..."
+        //                     : record.address}
+        //             </Text>
+        //         </Space>
+        //     ),
+        // },
         {
             title: "Trạng thái",
             dataIndex: "status",

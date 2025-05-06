@@ -1,11 +1,57 @@
-import React, { useState } from "react";
-import { Card, Table, Button, Space, Tag, Typography, message, Tooltip, Popconfirm, Input, Select, Row, Col, Badge } from "antd";
-import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, ReloadOutlined, EyeOutlined } from "@ant-design/icons";
+import React, { useState, useEffect, useMemo } from "react";
+import {
+    Card,
+    Table,
+    Button,
+    Space,
+    Tag,
+    Typography,
+    message,
+    Tooltip,
+    Popconfirm,
+    Input,
+    Select,
+    Row,
+    Col,
+    Badge,
+    Statistic,
+    Image,
+    Tabs,
+    Empty,
+    Alert,
+} from "antd";
+import {
+    PlusOutlined,
+    EditOutlined,
+    DeleteOutlined,
+    SearchOutlined,
+    ReloadOutlined,
+    EyeOutlined,
+    DashboardOutlined,
+    InboxOutlined,
+    UnorderedListOutlined,
+    BranchesOutlined,
+    SyncOutlined,
+    ExclamationCircleOutlined,
+    WarningOutlined,
+} from "@ant-design/icons";
 import StuffForm from "./Modals/StuffForm";
 import StuffDetail from "./Drawer/StuffDetail";
+import Categories from "./Categories";
+import {
+    getItems,
+    deleteItem,
+    createItem,
+    updateItem,
+    getItemCategories,
+    updateAllItemsBranch,
+    updateAllCategoriesBranch,
+} from "../../../../api/stuffApi";
+import { getHotelBranches } from "../../../../api/branchesApi";
 
-const { Title } = Typography;
+const { Title, Text } = Typography;
 const { Search } = Input;
+const { Option } = Select;
 
 // Constants
 const STUFF_STATUS = {
@@ -49,8 +95,9 @@ export default function RoomStuffs() {
     const [editingStuff, setEditingStuff] = useState(null);
     const [selectedStuff, setSelectedStuff] = useState(null);
     const [searchText, setSearchText] = useState("");
-    const [filterType, setFilterType] = useState("all");
-    const [filterStatus, setFilterStatus] = useState("all");
+    const [filterCategory, setFilterCategory] = useState(null);
+    const [filterBranch, setFilterBranch] = useState(null);
+    const [loading, setLoading] = useState(false);
     const [sortedInfo, setSortedInfo] = useState({});
     const [pagination, setPagination] = useState({
         current: 1,
@@ -59,30 +106,105 @@ export default function RoomStuffs() {
         showSizeChanger: true,
         showQuickJumper: true,
     });
+    const [stuffItems, setStuffItems] = useState([]);
+    const [categories, setCategories] = useState([]);
+    const [branches, setBranches] = useState([]);
+    const [stats, setStats] = useState({
+        total: 0,
+        outOfStock: 0,
+        lowStock: 0,
+    });
+    const [isMigratingData, setIsMigratingData] = useState(false);
+    const [needsMigration, setNeedsMigration] = useState(false);
+    const [filterItemType, setFilterItemType] = useState(null);
 
-    // Dữ liệu mẫu
-    const [stuffs, setStuffs] = useState([
-        {
-            id: 1,
-            name: "Khăn tắm",
-            type: STUFF_TYPE.BATHROOM,
-            quantity: 100,
-            minQuantity: 20,
-            unit: "cái",
-            status: STUFF_STATUS.AVAILABLE,
-            note: "Khăn cotton 100%",
-        },
-        {
-            id: 2,
-            name: "Dép đi trong phòng",
-            type: STUFF_TYPE.AMENITIES,
-            quantity: 15,
-            minQuantity: 20,
-            unit: "đôi",
-            status: STUFF_STATUS.LOW,
-            note: "Size người lớn",
-        },
-    ]);
+    // Fetch data
+    const fetchItems = async () => {
+        try {
+            setLoading(true);
+            const response = await getItems(filterCategory, filterBranch);
+            setStuffItems(response);
+
+            // Kiểm tra xem có items nào không có branchId không
+            const itemsWithoutBranch = response.filter(
+                (item) => !item.branchId
+            );
+            if (itemsWithoutBranch.length > 0 && !needsMigration) {
+                setNeedsMigration(true);
+            }
+
+            // Calculate statistics
+            const outOfStock = response.filter(
+                (item) => !item.stockQuantity || item.stockQuantity <= 0
+            ).length;
+            const lowStock = response.filter(
+                (item) => item.stockQuantity > 0 && item.stockQuantity < 20
+            ).length;
+
+            setStats({
+                total: response.length,
+                outOfStock,
+                lowStock,
+            });
+
+            setLoading(false);
+        } catch (error) {
+            console.error("Failed to fetch items:", error);
+            message.error("Không thể tải danh sách vật dụng");
+            setLoading(false);
+        }
+    };
+
+    const fetchCategories = async () => {
+        try {
+            const response = await getItemCategories(filterBranch);
+            setCategories(response);
+        } catch (error) {
+            console.error("Failed to fetch categories:", error);
+            message.error("Không thể tải danh mục vật dụng");
+        }
+    };
+
+    const fetchBranches = async () => {
+        try {
+            setLoading(true);
+            console.log("Fetching hotel branches...");
+            const response = await getHotelBranches();
+            console.log("Hotel branches response:", response);
+
+            // Lấy chi nhánh loại khách sạn hoặc cả hai
+            const hotelBranches = Array.isArray(response) ? response : [];
+            console.log("Filtered hotel branches:", hotelBranches);
+
+            setBranches(hotelBranches);
+
+            // Auto-select the first branch if no branch is selected
+            if (hotelBranches.length > 0 && !filterBranch) {
+                console.log(
+                    "Auto-selecting first hotel branch:",
+                    hotelBranches[0]
+                );
+                setFilterBranch(hotelBranches[0].id);
+            }
+
+            setLoading(false);
+        } catch (error) {
+            console.error("Failed to fetch hotel branches:", error);
+            message.error("Không thể tải danh sách chi nhánh khách sạn");
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchBranches();
+    }, []);
+
+    useEffect(() => {
+        if (filterBranch) {
+            fetchCategories();
+            fetchItems();
+        }
+    }, [filterCategory, filterBranch]);
 
     // Table handlers
     const handleTableChange = (pagination, filters, sorter) => {
@@ -90,27 +212,29 @@ export default function RoomStuffs() {
         setPagination(pagination);
     };
 
-    const getFilteredData = () => {
-        let data = [...stuffs];
+    // Use useMemo for filtered data to prevent unnecessary re-renders
+    const filteredData = useMemo(() => {
+        let data = [...stuffItems];
 
         if (searchText) {
             data = data.filter(
                 (item) =>
-                    item.name.toLowerCase().includes(searchText.toLowerCase()) ||
-                    item.note?.toLowerCase().includes(searchText.toLowerCase())
+                    item.name
+                        .toLowerCase()
+                        .includes(searchText.toLowerCase()) ||
+                    item.description
+                        ?.toLowerCase()
+                        .includes(searchText.toLowerCase())
             );
         }
 
-        if (filterType !== "all") {
-            data = data.filter((item) => item.type === filterType);
-        }
-
-        if (filterStatus !== "all") {
-            data = data.filter((item) => item.status === filterStatus);
+        // Filter by item type if selected
+        if (filterItemType) {
+            data = data.filter((item) => item.itemType === filterItemType);
         }
 
         return data;
-    };
+    }, [stuffItems, searchText, filterItemType]);
 
     // Action handlers
     const handleAdd = () => {
@@ -128,53 +252,144 @@ export default function RoomStuffs() {
         setIsDrawerVisible(true);
     };
 
-    const handleDelete = (id) => {
-        setStuffs(stuffs.filter((item) => item.id !== id));
-        message.success("Xóa vật dụng thành công");
+    const handleDelete = async (id) => {
+        try {
+            setLoading(true);
+            await deleteItem(id);
+            message.success("Xóa vật dụng thành công");
+            fetchItems();
+        } catch (error) {
+            console.error("Failed to delete item:", error);
+            message.error("Không thể xóa vật dụng");
+            setLoading(false);
+        }
     };
 
-    const handleSubmit = (values) => {
-        if (editingStuff) {
-            setStuffs(
-                stuffs.map((item) =>
-                    item.id === editingStuff.id
-                        ? {
-                              ...item,
-                              ...values,
-                              status:
-                                  values.quantity <= 0
-                                      ? STUFF_STATUS.OUT_OF_STOCK
-                                      : values.quantity <= values.minQuantity
-                                      ? STUFF_STATUS.LOW
-                                      : STUFF_STATUS.AVAILABLE,
-                          }
-                        : item
-                )
-            );
-            message.success("Cập nhật vật dụng thành công");
-        } else {
-            const newStuff = {
-                ...values,
-                id: Math.max(...stuffs.map((s) => s.id)) + 1,
-                status:
-                    values.quantity <= 0
-                        ? STUFF_STATUS.OUT_OF_STOCK
-                        : values.quantity <= values.minQuantity
-                        ? STUFF_STATUS.LOW
-                        : STUFF_STATUS.AVAILABLE,
-            };
-            setStuffs([...stuffs, newStuff]);
-            message.success("Thêm vật dụng thành công");
+    const handleSubmit = async (values) => {
+        try {
+            setLoading(true);
+            if (editingStuff) {
+                await updateItem(editingStuff.id, values);
+                message.success("Cập nhật vật dụng thành công");
+            } else {
+                await createItem(values);
+                message.success("Thêm vật dụng thành công");
+            }
+            setIsModalVisible(false);
+            fetchItems();
+        } catch (error) {
+            console.error("Failed to save item:", error);
+            message.error("Không thể lưu vật dụng");
+            setLoading(false);
         }
-        setIsModalVisible(false);
     };
 
     const handleReset = () => {
         setSearchText("");
-        setFilterType("all");
-        setFilterStatus("all");
+        setFilterCategory(null);
+        // Don't reset branch filter since we want to keep the context
+        // setFilterBranch(null);
         setSortedInfo({});
         setPagination({ ...pagination, current: 1 });
+        fetchItems();
+    };
+
+    const handleBranchChange = (value) => {
+        setFilterBranch(value);
+        // Reset category filter when branch changes
+        setFilterCategory(null);
+    };
+
+    // Hàm cập nhật branchId cho tất cả items và categories
+    const handleMigrateData = async () => {
+        try {
+            if (!filterBranch) {
+                message.error(
+                    "Vui lòng chọn chi nhánh trước khi cập nhật dữ liệu"
+                );
+                return;
+            }
+
+            setIsMigratingData(true);
+
+            // Cập nhật categories trước
+            const categoriesResult = await updateAllCategoriesBranch(
+                filterBranch
+            );
+
+            // Sau đó cập nhật items
+            const itemsResult = await updateAllItemsBranch(filterBranch);
+
+            const totalUpdated =
+                (categoriesResult.updated || 0) + (itemsResult.updated || 0);
+
+            if (totalUpdated > 0) {
+                message.success(
+                    `Đã cập nhật ${totalUpdated} mục dữ liệu vào chi nhánh`
+                );
+                setNeedsMigration(false);
+            } else {
+                message.info("Không có dữ liệu nào cần cập nhật");
+            }
+
+            // Tải lại dữ liệu
+            fetchItems();
+            fetchCategories();
+        } catch (error) {
+            console.error("Failed to migrate data:", error);
+            message.error("Không thể cập nhật dữ liệu chi nhánh");
+        } finally {
+            setIsMigratingData(false);
+        }
+    };
+
+    // Render status tag
+    const renderStatusTag = (item) => {
+        if (!item.stockQuantity || item.stockQuantity <= 0) {
+            return <Tag color="#ff4d4f">Hết hàng</Tag>;
+        } else if (item.stockQuantity < 20) {
+            // Sample threshold, should be dynamic in real application
+            return <Tag color="#faad14">Sắp hết</Tag>;
+        } else {
+            return <Tag color="#52c41a">Còn hàng</Tag>;
+        }
+    };
+
+    // Find the current branch name
+    const getCurrentBranchName = () => {
+        if (!filterBranch || !branches) return "Tất cả chi nhánh";
+
+        const branch = branches.find((b) => b.id === filterBranch);
+        return branch ? branch.name : "Tất cả chi nhánh";
+    };
+
+    // Render the migration alert if needed
+    const renderMigrationAlert = () => {
+        if (!needsMigration || !filterBranch) return null;
+
+        return (
+            <Alert
+                message="Dữ liệu cần cập nhật"
+                description={
+                    <div>
+                        <p>
+                            Có vật dụng hoặc danh mục chưa được gán chi nhánh.
+                            Cập nhật ngay để quản lý tốt hơn.
+                        </p>
+                        <Button
+                            type="primary"
+                            onClick={handleMigrateData}
+                            loading={isMigratingData}
+                        >
+                            Cập nhật tất cả vào chi nhánh hiện tại
+                        </Button>
+                    </div>
+                }
+                type="warning"
+                showIcon
+                style={{ marginBottom: 16 }}
+            />
+        );
     };
 
     // Table columns
@@ -183,7 +398,32 @@ export default function RoomStuffs() {
             title: "STT",
             key: "index",
             width: 60,
-            render: (_, __, index) => (pagination.current - 1) * pagination.pageSize + index + 1,
+            render: (_, __, index) =>
+                (pagination.current - 1) * pagination.pageSize + index + 1,
+        },
+        {
+            title: "Hình ảnh",
+            dataIndex: "image",
+            key: "image",
+            width: 80,
+            render: (image) => (
+                <div style={{ textAlign: "center" }}>
+                    {image ? (
+                        <Image
+                            src={image}
+                            alt="Item"
+                            width={50}
+                            height={50}
+                            style={{ objectFit: "cover" }}
+                            fallback="error"
+                        />
+                    ) : (
+                        <InboxOutlined
+                            style={{ fontSize: 24, color: "#bfbfbf" }}
+                        />
+                    )}
+                </div>
+            ),
         },
         {
             title: "Tên vật dụng",
@@ -193,31 +433,99 @@ export default function RoomStuffs() {
             sortOrder: sortedInfo.columnKey === "name" && sortedInfo.order,
         },
         {
+            title: "Chi nhánh",
+            dataIndex: ["branch", "name"],
+            key: "branch",
+            render: (text, record) => {
+                const branchName = record.branch?.name || "Không xác định";
+                const branchType = record.branch?.branchType?.name || "";
+
+                return (
+                    <Space direction="vertical" size={0}>
+                        <Text strong>{branchName}</Text>
+                        {branchType && (
+                            <Text type="secondary" style={{ fontSize: "12px" }}>
+                                {branchType}
+                            </Text>
+                        )}
+                    </Space>
+                );
+            },
+        },
+        {
             title: "Loại",
-            dataIndex: "type",
-            key: "type",
-            render: (type) => TYPE_LABELS[type],
-            filters: Object.entries(TYPE_LABELS).map(([value, label]) => ({
-                text: label,
-                value: value,
-            })),
-            onFilter: (value, record) => record.type === value,
+            dataIndex: ["category", "name"],
+            key: "category",
+            render: (text) => text || "Không xác định",
+        },
+        {
+            title: "Loại sử dụng",
+            dataIndex: "itemType",
+            key: "itemType",
+            render: (itemType) => {
+                switch (itemType) {
+                    case "long_term":
+                        return <Tag color="#108ee9">Dài hạn</Tag>;
+                    case "single_use":
+                        return <Tag color="#f50">Dùng 1 lần</Tag>;
+                    case "multiple_use":
+                        return <Tag color="#87d068">Dùng nhiều lần</Tag>;
+                    default:
+                        return <Tag color="#108ee9">Dài hạn</Tag>;
+                }
+            },
         },
         {
             title: "Số lượng",
-            dataIndex: "quantity",
-            key: "quantity",
+            dataIndex: "stockQuantity",
+            key: "stockQuantity",
+            width: 100,
+            align: "right",
+            sorter: (a, b) => a.stockQuantity - b.stockQuantity,
+            render: (stockQuantity) => stockQuantity || 0,
+        },
+        {
+            title: "Đang sử dụng",
+            dataIndex: "inUseQuantity",
+            key: "inUseQuantity",
             width: 120,
             align: "right",
-            sorter: (a, b) => a.quantity - b.quantity,
-            render: (quantity, record) => `${quantity} ${record.unit}`,
+            render: (inUseQuantity, record) => {
+                const usage = inUseQuantity || 0;
+
+                // For multiple use items, also show usage count
+                if (record.itemType === "multiple_use" && record.maxUses > 0) {
+                    return (
+                        <>
+                            {usage}{" "}
+                            <Text type="secondary" style={{ fontSize: "12px" }}>
+                                ({record.currentUses || 0}/{record.maxUses || 0}{" "}
+                                lần)
+                            </Text>
+                        </>
+                    );
+                }
+
+                return usage;
+            },
+        },
+        {
+            title: "Đơn giá",
+            dataIndex: "unitPrice",
+            key: "unitPrice",
+            width: 140,
+            align: "right",
+            sorter: (a, b) => (a.unitPrice || 0) - (b.unitPrice || 0),
+            render: (unitPrice) =>
+                unitPrice
+                    ? `${unitPrice.toLocaleString("vi-VN")} VNĐ`
+                    : "Không có",
         },
         {
             title: "Trạng thái",
-            dataIndex: "status",
             key: "status",
             width: 120,
-            render: (status) => <Tag color={STATUS_COLORS[status]}>{STATUS_LABELS[status]}</Tag>,
+            render: (_, record) => renderStatusTag(record),
         },
         {
             title: "Thao tác",
@@ -226,10 +534,19 @@ export default function RoomStuffs() {
             render: (_, record) => (
                 <Space>
                     <Tooltip title="Xem chi tiết">
-                        <Button icon={<EyeOutlined />} onClick={() => handleView(record)} size="small" />
+                        <Button
+                            icon={<EyeOutlined />}
+                            onClick={() => handleView(record)}
+                            size="small"
+                        />
                     </Tooltip>
                     <Tooltip title="Sửa">
-                        <Button type="primary" icon={<EditOutlined />} onClick={() => handleEdit(record)} size="small" />
+                        <Button
+                            type="primary"
+                            icon={<EditOutlined />}
+                            onClick={() => handleEdit(record)}
+                            size="small"
+                        />
                     </Tooltip>
                     <Tooltip title="Xóa">
                         <Popconfirm
@@ -239,7 +556,11 @@ export default function RoomStuffs() {
                             okText="Xóa"
                             cancelText="Hủy"
                         >
-                            <Button danger icon={<DeleteOutlined />} size="small" />
+                            <Button
+                                danger
+                                icon={<DeleteOutlined />}
+                                size="small"
+                            />
                         </Popconfirm>
                     </Tooltip>
                 </Space>
@@ -247,85 +568,212 @@ export default function RoomStuffs() {
         },
     ];
 
-    return (
-        <div style={{ padding: 24 }}>
-            <Card>
-                <Space direction="vertical" style={{ width: "100%" }} size="large">
-                    <Row justify="space-between" align="middle">
-                        <Col>
-                            <Title level={4} style={{ margin: 0 }}>
-                                Quản lý vật dụng khách sạn
-                            </Title>
+    const tabItems = [
+        {
+            key: "items",
+            label: (
+                <span>
+                    <InboxOutlined /> Vật dụng
+                </span>
+            ),
+            children: (
+                <>
+                    {/* Branch info banner */}
+                    {filterBranch && (
+                        <Card
+                            style={{ marginBottom: 16, background: "#f0f7ff" }}
+                        >
+                            <Space>
+                                <BranchesOutlined style={{ fontSize: 18 }} />
+                                <Text strong>Chi nhánh hiện tại:</Text>
+                                <Text>{getCurrentBranchName()}</Text>
+                            </Space>
+                        </Card>
+                    )}
+
+                    {/* Migration alert if needed */}
+                    {renderMigrationAlert()}
+
+                    {/* Stats row */}
+                    <Row gutter={16} style={{ marginBottom: 20 }}>
+                        <Col span={8}>
+                            <Card>
+                                <Statistic
+                                    title="Tổng số vật dụng"
+                                    value={stats.total}
+                                    prefix={<InboxOutlined />}
+                                />
+                            </Card>
                         </Col>
-                        <Col>
-                            <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
-                                Thêm vật dụng
-                            </Button>
+                        <Col span={8}>
+                            <Card>
+                                <Statistic
+                                    title="Sắp hết hàng"
+                                    value={stats.lowStock}
+                                    valueStyle={{ color: "#faad14" }}
+                                    prefix={<Badge status="warning" />}
+                                />
+                            </Card>
+                        </Col>
+                        <Col span={8}>
+                            <Card>
+                                <Statistic
+                                    title="Đã hết hàng"
+                                    value={stats.outOfStock}
+                                    valueStyle={{ color: "#ff4d4f" }}
+                                    prefix={<Badge status="error" />}
+                                />
+                            </Card>
                         </Col>
                     </Row>
 
-                    <Row gutter={[16, 16]} align="middle">
-                        <Col flex="auto">
+                    {/* Filter row */}
+                    <Row gutter={16} style={{ marginBottom: 16 }}>
+                        <Col span={6}>
+                            <Select
+                                placeholder="Chọn chi nhánh"
+                                style={{ width: "100%" }}
+                                value={filterBranch}
+                                onChange={handleBranchChange}
+                                optionFilterProp="children"
+                                showSearch
+                                allowClear
+                                loading={loading}
+                                notFoundContent={
+                                    loading
+                                        ? "Đang tải..."
+                                        : "Không có chi nhánh"
+                                }
+                            >
+                                {branches && branches.length > 0 ? (
+                                    branches.map((branch) => (
+                                        <Option
+                                            key={branch.id}
+                                            value={branch.id}
+                                        >
+                                            {branch.name}
+                                        </Option>
+                                    ))
+                                ) : (
+                                    <Option disabled>Không có chi nhánh</Option>
+                                )}
+                            </Select>
+                        </Col>
+                        <Col span={6}>
                             <Search
-                                placeholder="Tìm kiếm theo tên hoặc ghi chú"
+                                placeholder="Tìm kiếm vật dụng..."
                                 value={searchText}
                                 onChange={(e) => setSearchText(e.target.value)}
+                                style={{ width: "100%" }}
                                 allowClear
                             />
                         </Col>
-                        <Col>
-                            <Select value={filterType} onChange={setFilterType} style={{ width: 150 }}>
-                                <Select.Option value="all">Tất cả loại</Select.Option>
-                                {Object.entries(TYPE_LABELS).map(([value, label]) => (
-                                    <Select.Option key={value} value={value}>
-                                        {label}
-                                    </Select.Option>
+                        <Col span={6}>
+                            <Select
+                                placeholder="Lọc theo loại"
+                                style={{ width: "100%" }}
+                                value={filterCategory}
+                                onChange={setFilterCategory}
+                                optionFilterProp="children"
+                                showSearch
+                                allowClear
+                                disabled={!filterBranch}
+                            >
+                                {categories.map((category) => (
+                                    <Option
+                                        key={category.id}
+                                        value={category.id}
+                                    >
+                                        {category.name}
+                                    </Option>
                                 ))}
                             </Select>
                         </Col>
-                        <Col>
-                            <Select value={filterStatus} onChange={setFilterStatus} style={{ width: 150 }}>
-                                <Select.Option value="all">Tất cả trạng thái</Select.Option>
-                                {Object.entries(STATUS_LABELS).map(([value, label]) => (
-                                    <Select.Option key={value} value={value}>
-                                        {label}
-                                    </Select.Option>
-                                ))}
-                            </Select>
-                        </Col>
-                        <Col>
-                            <Button icon={<ReloadOutlined />} onClick={handleReset}>
-                                Đặt lại
-                            </Button>
+                        <Col span={6} style={{ textAlign: "right" }}>
+                            <Space>
+                                <Button
+                                    icon={<ReloadOutlined />}
+                                    onClick={handleReset}
+                                >
+                                    Làm mới
+                                </Button>
+                                <Button
+                                    type="primary"
+                                    icon={<PlusOutlined />}
+                                    onClick={handleAdd}
+                                    disabled={!filterBranch}
+                                >
+                                    Thêm vật dụng
+                                </Button>
+                            </Space>
                         </Col>
                     </Row>
 
-                    <Table
-                        columns={columns}
-                        dataSource={getFilteredData()}
-                        rowKey="id"
-                        bordered
-                        pagination={pagination}
-                        onChange={handleTableChange}
-                    />
-                </Space>
+                    {/* Table */}
+                    {!filterBranch ? (
+                        <Empty
+                            description="Vui lòng chọn chi nhánh để xem danh sách vật dụng"
+                            image={Empty.PRESENTED_IMAGE_SIMPLE}
+                        />
+                    ) : (
+                        <Table
+                            columns={columns}
+                            dataSource={filteredData}
+                            rowKey="id"
+                            pagination={pagination}
+                            onChange={handleTableChange}
+                            loading={loading}
+                            bordered
+                            locale={{ emptyText: "Không có dữ liệu" }}
+                        />
+                    )}
+                </>
+            ),
+        },
+        {
+            key: "categories",
+            label: (
+                <span>
+                    <UnorderedListOutlined /> Danh mục
+                </span>
+            ),
+            children: <Categories branchId={filterBranch} />,
+        },
+    ];
+
+    return (
+        <div className="stuff-management">
+            <Card>
+                <Title level={4}>
+                    <DashboardOutlined /> Quản lý vật dụng khách sạn
+                </Title>
+
+                <Tabs
+                    defaultActiveKey="items"
+                    items={tabItems}
+                    size="large"
+                    type="card"
+                    style={{ marginTop: 8 }}
+                />
             </Card>
 
+            {/* Modal for adding/editing stuff */}
             <StuffForm
                 open={isModalVisible}
                 onCancel={() => setIsModalVisible(false)}
                 onSubmit={handleSubmit}
                 editingStuff={editingStuff}
-                TYPE_LABELS={TYPE_LABELS}
+                categories={categories}
+                branches={branches}
+                selectedBranch={filterBranch}
+                loading={loading}
             />
 
+            {/* Drawer for viewing stuff details */}
             <StuffDetail
                 open={isDrawerVisible}
                 onClose={() => setIsDrawerVisible(false)}
                 stuffData={selectedStuff}
-                STATUS_LABELS={STATUS_LABELS}
-                TYPE_LABELS={TYPE_LABELS}
-                STATUS_COLORS={STATUS_COLORS}
             />
         </div>
     );

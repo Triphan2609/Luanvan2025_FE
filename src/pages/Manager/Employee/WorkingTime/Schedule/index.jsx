@@ -34,9 +34,11 @@ import {
     SearchOutlined,
     ExportOutlined,
     SyncOutlined,
+    EyeOutlined,
 } from "@ant-design/icons";
 import dayjs from "dayjs";
 import ScheduleForm from "./ScheduleForm";
+import ScheduleDetailModal from "./ScheduleDetailModal";
 import {
     getEmployeeShifts,
     createEmployeeShift,
@@ -65,6 +67,8 @@ const SCHEDULE_STATUS = {
 export default function Schedule() {
     // States
     const [isModalVisible, setIsModalVisible] = useState(false);
+    const [isDetailModalVisible, setIsDetailModalVisible] = useState(false);
+    const [selectedSchedule, setSelectedSchedule] = useState(null);
     const [selectedDate, setSelectedDate] = useState(null);
     const [selectedDepartment, setSelectedDepartment] = useState("all");
     const [selectedBranch, setSelectedBranch] = useState(undefined);
@@ -317,6 +321,12 @@ export default function Schedule() {
         }
     };
 
+    // Show detail modal
+    const showDetailModal = (record) => {
+        setSelectedSchedule(record);
+        setIsDetailModalVisible(true);
+    };
+
     const getStatusTagColor = (status) => {
         switch (status) {
             case SCHEDULE_STATUS.PENDING:
@@ -365,7 +375,7 @@ export default function Schedule() {
                 />
             ),
             key: "selection",
-            width: 50,
+            width: 40,
             render: (_, record) => (
                 <Checkbox
                     checked={selectedItems.includes(record.id)}
@@ -385,19 +395,29 @@ export default function Schedule() {
             title: "#",
             dataIndex: "schedule_code",
             key: "schedule_code",
+            width: 80,
+        },
+        {
+            title: "Ngày",
+            dataIndex: "date",
+            key: "date",
             width: 100,
+            render: (text) => dayjs(text).format("DD/MM/YYYY"),
+            sorter: (a, b) => dayjs(a.date).valueOf() - dayjs(b.date).valueOf(),
         },
         {
             title: "Nhân viên",
             dataIndex: "employeeName",
             key: "employeeName",
-            render: (text) => <Text strong>{text}</Text>,
-        },
-        {
-            title: "Chi nhánh",
-            key: "branch",
             width: 150,
-            render: (_, record) => record.branchName || "Chưa phân chi nhánh",
+            render: (text, record) => (
+                <Space direction="vertical" size={0}>
+                    <Text strong>{text}</Text>
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                        {record.roleName || "Chưa có chức vụ"}
+                    </Text>
+                </Space>
+            ),
         },
         {
             title: "Phòng ban",
@@ -415,7 +435,7 @@ export default function Schedule() {
         {
             title: "Ca làm việc",
             key: "shift",
-            width: 120,
+            width: 150,
             render: (_, record) => (
                 <Space direction="vertical" size={0}>
                     <Text>{record.shiftName}</Text>
@@ -424,21 +444,6 @@ export default function Schedule() {
                     </Text>
                 </Space>
             ),
-        },
-        {
-            title: "Chi nhánh ca",
-            key: "shift_branch",
-            width: 150,
-            render: (_, record) =>
-                record.shiftBranchName || "Chưa phân chi nhánh",
-        },
-        {
-            title: "Ngày",
-            dataIndex: "date",
-            key: "date",
-            width: 120,
-            render: (text) => dayjs(text).format("DD/MM/YYYY"),
-            sorter: (a, b) => dayjs(a.date).valueOf() - dayjs(b.date).valueOf(),
         },
         {
             title: "Trạng thái",
@@ -462,6 +467,12 @@ export default function Schedule() {
             width: 100,
             render: (_, record) => {
                 const items = [
+                    {
+                        key: "0",
+                        label: "Xem chi tiết",
+                        icon: <EyeOutlined />,
+                        onClick: () => showDetailModal(record),
+                    },
                     {
                         key: "1",
                         label: "Xác nhận lịch",
@@ -494,13 +505,20 @@ export default function Schedule() {
                 ];
 
                 return (
-                    <Dropdown
-                        menu={{ items }}
-                        trigger={["click"]}
-                        placement="bottomRight"
-                    >
-                        <Button icon={<EllipsisOutlined />} size="small" />
-                    </Dropdown>
+                    <Space>
+                        <Button
+                            icon={<EyeOutlined />}
+                            size="small"
+                            onClick={() => showDetailModal(record)}
+                        />
+                        <Dropdown
+                            menu={{ items }}
+                            trigger={["click"]}
+                            placement="bottomRight"
+                        >
+                            <Button icon={<EllipsisOutlined />} size="small" />
+                        </Dropdown>
+                    </Space>
                 );
             },
         },
@@ -647,6 +665,15 @@ export default function Schedule() {
                                 whiteSpace: "nowrap",
                                 overflow: "hidden",
                                 textOverflow: "ellipsis",
+                                cursor: "pointer",
+                            }}
+                            onClick={() => {
+                                const firstItem = listData.find(
+                                    (item) => item.shiftId === group.shiftId
+                                );
+                                if (firstItem) {
+                                    showDetailModal(firstItem);
+                                }
                             }}
                         >
                             {group.shiftName}: {group.employees.length} nhân
@@ -928,11 +955,19 @@ export default function Schedule() {
                 </Col>
             </Row>
 
+            {/* Form Modal */}
             <ScheduleForm
                 open={isModalVisible}
                 onCancel={() => setIsModalVisible(false)}
                 onSubmit={handleSubmit}
                 selectedDate={selectedDate}
+            />
+
+            {/* Detail Modal */}
+            <ScheduleDetailModal
+                open={isDetailModalVisible}
+                onCancel={() => setIsDetailModalVisible(false)}
+                schedule={selectedSchedule}
             />
         </Space>
     );

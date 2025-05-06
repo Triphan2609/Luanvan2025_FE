@@ -1,49 +1,57 @@
-import React, { useState } from "react";
-import { Card, Table, Button, Space, Typography, Input, message, Tooltip, Popconfirm, Tag } from "antd";
+import React, { useState, useEffect, useMemo } from "react";
 import {
-    HomeOutlined, // Thay BedOutlined bằng HomeOutlined
+    Card,
+    Table,
+    Button,
+    Space,
+    Typography,
+    Input,
+    message,
+    Tooltip,
+    Popconfirm,
+    Tag,
+} from "antd";
+import {
+    HomeOutlined,
     PlusOutlined,
     EditOutlined,
     DeleteOutlined,
     SearchOutlined,
 } from "@ant-design/icons";
 import AddEditRoomTypeModal from "./Modals/AddEditRoomTypeModal";
+import {
+    getRoomTypes,
+    createRoomType,
+    updateRoomType,
+    deleteRoomType,
+} from "../../../../api/roomTypesApi";
 
 const { Title } = Typography;
 
-// Dữ liệu mẫu đơn giản hóa
-const initialRoomTypes = [
-    {
-        id: 1,
-        name: "Phòng đơn",
-        description: "1 giường đơn",
-        bedCount: 1,
-        bedType: "Single",
-        basePrice: 500000,
-    },
-    {
-        id: 2,
-        name: "Phòng đôi",
-        description: "1 giường đôi",
-        bedCount: 1,
-        bedType: "Double",
-        basePrice: 700000,
-    },
-    {
-        id: 3,
-        name: "Phòng twin",
-        description: "2 giường đơn",
-        bedCount: 2,
-        bedType: "Single",
-        basePrice: 800000,
-    },
-];
-
 export default function RoomTypeManagement() {
-    const [roomTypes, setRoomTypes] = useState(initialRoomTypes);
+    const [roomTypes, setRoomTypes] = useState([]);
     const [searchKeyword, setSearchKeyword] = useState("");
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingType, setEditingType] = useState(null);
+    const [loading, setLoading] = useState(false);
+
+    // Fetch room types on component mount
+    useEffect(() => {
+        fetchRoomTypes();
+    }, []);
+
+    const fetchRoomTypes = async () => {
+        try {
+            setLoading(true);
+            const data = await getRoomTypes();
+            setRoomTypes(data);
+        } catch (error) {
+            message.error("Không thể tải dữ liệu loại phòng!");
+            console.error("Error fetching room types:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const columns = [
         {
@@ -61,7 +69,8 @@ export default function RoomTypeManagement() {
             key: "beds",
             render: (_, record) => (
                 <Tag icon={<HomeOutlined />} color="blue">
-                    {record.bedCount} giường {record.bedType === "Single" ? "đơn" : "đôi"}
+                    {record.bedCount} giường{" "}
+                    {record.bedType === "Single" ? "đơn" : "đôi"}
                 </Tag>
             ),
         },
@@ -69,7 +78,7 @@ export default function RoomTypeManagement() {
             title: "Giá cơ bản",
             dataIndex: "basePrice",
             key: "basePrice",
-            render: (price) => `${price.toLocaleString()}đ/đêm`,
+            render: (price) => `${Number(price).toLocaleString()}đ/đêm`,
         },
         {
             title: "Thao tác",
@@ -102,35 +111,56 @@ export default function RoomTypeManagement() {
         },
     ];
 
-    const handleAdd = (values) => {
-        const newType = {
-            id: Date.now(),
-            ...values,
-        };
-        setRoomTypes([...roomTypes, newType]);
-        message.success("Thêm loại phòng mới thành công!");
+    const handleAdd = async (values) => {
+        try {
+            await createRoomType(values);
+            message.success("Thêm loại phòng mới thành công!");
+            fetchRoomTypes();
+        } catch (error) {
+            message.error("Không thể thêm loại phòng!");
+            console.error("Error adding room type:", error);
+        }
     };
 
-    const handleEdit = (values) => {
-        setRoomTypes(roomTypes.map((type) => (type.id === editingType.id ? { ...type, ...values } : type)));
-        message.success("Cập nhật loại phòng thành công!");
+    const handleEdit = async (values) => {
+        try {
+            await updateRoomType(values.id, values);
+            message.success("Cập nhật loại phòng thành công!");
+            fetchRoomTypes();
+        } catch (error) {
+            message.error("Không thể cập nhật loại phòng!");
+            console.error("Error updating room type:", error);
+        }
     };
 
-    const handleDelete = (typeId) => {
-        setRoomTypes(roomTypes.filter((type) => type.id !== typeId));
-        message.success("Xóa loại phòng thành công!");
+    const handleDelete = async (typeId) => {
+        try {
+            await deleteRoomType(typeId);
+            message.success("Xóa loại phòng thành công!");
+            fetchRoomTypes();
+        } catch (error) {
+            message.error("Không thể xóa loại phòng!");
+            console.error("Error deleting room type:", error);
+        }
     };
 
-    const filteredData = roomTypes.filter(
-        (type) =>
-            type.name.toLowerCase().includes(searchKeyword.toLowerCase()) ||
-            type.description.toLowerCase().includes(searchKeyword.toLowerCase())
-    );
+    // Use useMemo for filtered data to prevent unnecessary re-renders
+    const filteredData = useMemo(() => {
+        return roomTypes.filter(
+            (type) =>
+                type.name.toLowerCase().includes(searchKeyword.toLowerCase()) ||
+                type.description
+                    .toLowerCase()
+                    .includes(searchKeyword.toLowerCase())
+        );
+    }, [roomTypes, searchKeyword]);
 
     return (
         <Card>
             <Space direction="vertical" size="large" style={{ width: "100%" }}>
-                <Space style={{ justifyContent: "space-between", width: "100%" }}>
+                <Space
+                    style={{ justifyContent: "space-between", width: "100%" }}
+                >
                     <Title level={4}>
                         <HomeOutlined /> Quản lý Loại Phòng
                     </Title>
@@ -160,6 +190,7 @@ export default function RoomTypeManagement() {
                     columns={columns}
                     dataSource={filteredData}
                     rowKey="id"
+                    loading={loading}
                     pagination={{
                         pageSize: 10,
                         showTotal: (total) => `Tổng số ${total} loại phòng`,

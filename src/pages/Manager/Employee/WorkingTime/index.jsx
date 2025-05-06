@@ -7,16 +7,6 @@ import Schedule from "./Schedule/index";
 export default function WorkingTime() {
     const items = [
         {
-            key: "shifts",
-            label: (
-                <span>
-                    <FieldTimeOutlined />
-                    Quản lý Ca làm việc
-                </span>
-            ),
-            children: <Shifts />,
-        },
-        {
             key: "schedule",
             label: (
                 <span>
@@ -26,12 +16,22 @@ export default function WorkingTime() {
             ),
             children: <Schedule />,
         },
+        {
+            key: "shifts",
+            label: (
+                <span>
+                    <FieldTimeOutlined />
+                    Quản lý Ca làm việc
+                </span>
+            ),
+            children: <Shifts />,
+        },
     ];
 
     return (
         <div style={{ padding: 24 }}>
             <Card>
-                <Tabs defaultActiveKey="shifts" items={items} size="large" />
+                <Tabs defaultActiveKey="schedule" items={items} size="large" />
             </Card>
         </div>
     );

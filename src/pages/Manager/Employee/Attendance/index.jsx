@@ -559,7 +559,6 @@ export default function AttendanceManagement() {
             setDepartments(deptData || []);
         } catch (error) {
             console.error("Error loading departments by branch:", error);
-            message.error("Không thể tải danh sách phòng ban theo chi nhánh");
         } finally {
             setLoading(false);
         }
@@ -593,6 +592,7 @@ export default function AttendanceManagement() {
             employee_id: undefined,
             employee_shift_id: undefined,
         });
+        setSelectedBranch(value);
     };
 
     const handleEdit = (record) => {
@@ -1591,7 +1591,6 @@ export default function AttendanceManagement() {
                                     onChange={fetchAttendances}
                                     showSearch
                                     optionFilterProp="children"
-                                    disabled={!selectedBranch}
                                 >
                                     {getFilteredEmployees().map((emp) => (
                                         <Option key={emp.id} value={emp.id}>

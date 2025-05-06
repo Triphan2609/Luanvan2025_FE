@@ -425,6 +425,7 @@ export default function CustomerList() {
             title: "Thao tác",
             key: "action",
             width: 150,
+            fixed: "right",
             render: (_, record) => (
                 <Space>
                     <Tooltip title="Xem chi tiết">

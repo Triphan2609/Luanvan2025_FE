@@ -985,7 +985,7 @@ const PayrollAttendancePage = () => {
                     >
                         <Select
                             placeholder="Chọn chi nhánh trước"
-                            style={{ width: 200 }}
+                            style={{ width: 170 }}
                             onChange={handleBranchChange}
                             value={selectedBranch}
                             allowClear
@@ -1021,7 +1021,7 @@ const PayrollAttendancePage = () => {
                                     ? "Chọn nhân viên"
                                     : "Vui lòng chọn chi nhánh trước"
                             }
-                            style={{ width: 300 }}
+                            style={{ width: 250 }}
                             onChange={handleEmployeeChange}
                             value={selectedEmployee}
                             loading={loading}
@@ -1041,6 +1041,7 @@ const PayrollAttendancePage = () => {
                     </Form.Item>
                     <Form.Item label="Khoảng thời gian">
                         <RangePicker
+                            style={{ width: 220 }}
                             value={dateRange}
                             onChange={handleDateRangeChange}
                             format="DD/MM/YYYY"

@@ -1,25 +1,9 @@
 import React from "react";
-import { Modal, Form, Input, Select, Space, TimePicker, Checkbox } from "antd";
-import {
-    ClearOutlined, // Thay thế BroomStickOutlined bằng ClearOutlined
-    UserOutlined,
-    ClockCircleOutlined,
-} from "@ant-design/icons";
+import { Modal, Form, Input, Space, Card, Typography, DatePicker } from "antd";
+import { ClearOutlined, CalendarOutlined } from "@ant-design/icons";
+import dayjs from "dayjs";
 
-const cleaningTasks = [
-    { label: "Dọn giường và thay ga", value: "bed" },
-    { label: "Lau dọn phòng tắm", value: "bathroom" },
-    { label: "Hút bụi và lau sàn", value: "floor" },
-    { label: "Thay khăn tắm mới", value: "towels" },
-    { label: "Bổ sung vật dụng", value: "supplies" },
-    { label: "Kiểm tra minibar", value: "minibar" },
-];
-
-const staffOptions = [
-    { label: "Nhân viên A", value: "staff_a" },
-    { label: "Nhân viên B", value: "staff_b" },
-    { label: "Nhân viên C", value: "staff_c" },
-];
+const { Text } = Typography;
 
 export default function CleaningModal({ open, onClose, room, onSubmit }) {
     const [form] = Form.useForm();
@@ -28,22 +12,38 @@ export default function CleaningModal({ open, onClose, room, onSubmit }) {
         form.validateFields().then((values) => {
             onSubmit({
                 roomId: room.id,
-                roomCode: room.roomCode,
-                ...values,
-                status: "Cleaning",
-                startTime: new Date().toISOString(),
+                note: values.note,
+                cleaningEndDate: values.cleaningEndDate
+                    ? values.cleaningEndDate.toDate()
+                    : null,
             });
             form.resetFields();
             onClose();
         });
     };
 
+    // Set default end date to 2 hours from now
+    React.useEffect(() => {
+        if (open) {
+            form.setFieldsValue({
+                cleaningEndDate: dayjs().add(2, "hour"),
+            });
+        }
+    }, [open, form]);
+
+    if (!room) return null;
+
+    const disabledDate = (current) => {
+        // Không cho phép chọn ngày quá khứ
+        return current && current < dayjs().startOf("day");
+    };
+
     return (
         <Modal
             title={
                 <Space>
-                    <ClearOutlined /> {/* Sử dụng ClearOutlined thay vì BroomStickOutlined */}
-                    Yêu cầu dọn phòng {room?.roomCode}
+                    <ClearOutlined />
+                    Yêu cầu dọn phòng {room.roomCode}
                 </Space>
             }
             open={open}
@@ -54,45 +54,61 @@ export default function CleaningModal({ open, onClose, room, onSubmit }) {
             onOk={handleSubmit}
             okText="Xác nhận"
             cancelText="Hủy"
+            width={600}
         >
+            <Card style={{ marginBottom: 16 }}>
+                <Space direction="vertical">
+                    <Text>
+                        Phòng: <strong>{room.roomCode}</strong>
+                    </Text>
+                    <Text>
+                        Loại phòng: <strong>{room.roomType?.name}</strong>
+                    </Text>
+                    <Text>
+                        Tầng: <strong>{room.floor}</strong>
+                    </Text>
+                </Space>
+            </Card>
+
             <Form form={form} layout="vertical">
+                <Form.Item name="note" label="Ghi chú yêu cầu dọn phòng">
+                    <Input.TextArea
+                        rows={3}
+                        placeholder="Nhập ghi chú nếu có..."
+                    />
+                </Form.Item>
+
                 <Form.Item
-                    name="staffId"
+                    name="cleaningEndDate"
                     label={
                         <Space>
-                            <UserOutlined />
-                            Nhân viên phụ trách
+                            <CalendarOutlined />
+                            Thời gian dự kiến hoàn thành dọn dẹp
                         </Space>
                     }
-                    rules={[{ required: true, message: "Vui lòng chọn nhân viên" }]}
+                    rules={[
+                        {
+                            required: true,
+                            message:
+                                "Vui lòng chọn thời gian hoàn thành dọn dẹp",
+                        },
+                    ]}
+                    tooltip="Phòng sẽ tự động được chuyển trạng thái thành 'Còn trống' sau thời gian này"
                 >
-                    <Select options={staffOptions} placeholder="Chọn nhân viên" />
+                    <DatePicker
+                        showTime
+                        format="DD/MM/YYYY HH:mm"
+                        placeholder="Chọn thời gian hoàn thành"
+                        style={{ width: "100%" }}
+                        disabledDate={disabledDate}
+                    />
                 </Form.Item>
 
-                <Form.Item
-                    name="estimatedTime"
-                    label={
-                        <Space>
-                            <ClockCircleOutlined />
-                            Thời gian dự kiến hoàn thành
-                        </Space>
-                    }
-                    rules={[{ required: true, message: "Vui lòng chọn thời gian" }]}
-                >
-                    <TimePicker format="HH:mm" />
-                </Form.Item>
-
-                <Form.Item
-                    name="tasks"
-                    label="Công việc cần thực hiện"
-                    rules={[{ required: true, message: "Vui lòng chọn ít nhất một công việc" }]}
-                >
-                    <Checkbox.Group options={cleaningTasks} />
-                </Form.Item>
-
-                <Form.Item name="note" label="Ghi chú thêm">
-                    <Input.TextArea rows={3} placeholder="Nhập ghi chú nếu có..." />
-                </Form.Item>
+                <Text type="secondary">
+                    Khi bạn xác nhận, trạng thái phòng sẽ được chuyển sang "Đang
+                    dọn" và sẽ tự động chuyển lại thành "Còn trống" sau thời
+                    gian đã chọn.
+                </Text>
             </Form>
         </Modal>
     );
