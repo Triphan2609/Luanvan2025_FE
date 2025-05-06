@@ -123,11 +123,6 @@ export default function RewardManagement() {
                         : 0,
                 };
                 setStatistics(stats);
-
-                message.success({
-                    content: "Tải dữ liệu thành công!",
-                    key: "rewardsLoading",
-                });
             } else {
                 setRewards([]);
                 setPagination((prev) => ({

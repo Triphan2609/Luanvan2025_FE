@@ -193,17 +193,6 @@ const CustomerDetail = ({
                                 <Space>
                                     <BankOutlined />
                                     {branchInfo.name}
-                                    <Tag
-                                        color={
-                                            branchInfo.type === "hotel"
-                                                ? "blue"
-                                                : "orange"
-                                        }
-                                    >
-                                        {branchInfo.type === "hotel"
-                                            ? "Khách sạn"
-                                            : "Nhà hàng"}
-                                    </Tag>
                                 </Space>
                             ) : (
                                 "Không có chi nhánh"

@@ -107,10 +107,6 @@ export default function MembershipCard() {
     const fetchCards = async (serverFilters = {}) => {
         try {
             setLoading(true);
-            message.loading({
-                content: "Đang tải dữ liệu thẻ thành viên...",
-                key: "cardsLoading",
-            });
 
             // Prepare query params for server-side filtering
             const params = {
@@ -133,10 +129,6 @@ export default function MembershipCard() {
                     ...prev,
                     total: response.total || 0,
                 }));
-                message.success({
-                    content: "Tải dữ liệu thành công!",
-                    key: "cardsLoading",
-                });
             } else {
                 setCards([]);
                 setPagination((prev) => ({

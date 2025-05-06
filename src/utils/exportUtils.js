@@ -88,7 +88,7 @@ export const exportToCSV = (data, fileName = "export", options = {}) => {
  * @returns {Array} - Dữ liệu đã được định dạng
  */
 const formatDataForExport = (data, options = {}) => {
-    const { type = "all" } = options;
+    const { type = "all", branches = [] } = options;
 
     // Kiểm tra dữ liệu hợp lệ
     if (!data || data.length === 0) {
@@ -161,11 +161,80 @@ const formatDataForExport = (data, options = {}) => {
         );
 
         return data.map((customer, index) => {
-            // Kiểm tra đảm bảo properties tồn tại
-            const branchName =
-                customer.branch && typeof customer.branch === "object"
-                    ? customer.branch.name
-                    : "";
+            // Xử lý thông tin chi nhánh
+            let branchName = "";
+            let branchId = null;
+
+            // Xác định branchId từ dữ liệu khách hàng
+            if (
+                customer.branch &&
+                typeof customer.branch === "object" &&
+                customer.branch.id
+            ) {
+                branchId = customer.branch.id;
+            } else if (customer.branch && typeof customer.branch !== "object") {
+                branchId = customer.branch;
+            } else if (customer.branchId) {
+                branchId = customer.branchId;
+            }
+
+            // Tìm tên chi nhánh từ danh sách branches nếu có
+            if (branchId && branches && branches.length > 0) {
+                const foundBranch = branches.find(
+                    (branch) => String(branch.id) === String(branchId)
+                );
+                if (foundBranch) {
+                    branchName = foundBranch.name;
+                } else {
+                    branchName = `Chi nhánh ${branchId}`;
+                }
+            } else {
+                // Các trường hợp có thể xảy ra với dữ liệu chi nhánh khi không có branches
+                if (customer.branch) {
+                    // Trường hợp 1: branch là object có thuộc tính name
+                    if (
+                        typeof customer.branch === "object" &&
+                        customer.branch.name
+                    ) {
+                        branchName = customer.branch.name;
+                    }
+                    // Trường hợp 2: branch có đủ thông tin nhưng tên được lưu ở branchName
+                    else if (
+                        typeof customer.branch === "object" &&
+                        customer.branch.branchName
+                    ) {
+                        branchName = customer.branch.branchName;
+                    }
+                    // Ghi log để debug nếu chi nhánh là object nhưng không có tên
+                    else if (typeof customer.branch === "object") {
+                        console.log("Chi nhánh không có tên:", customer.branch);
+                        // Nếu có id, hiển thị tên chi nhánh theo id
+                        if (customer.branch.id) {
+                            branchName = customer.branch.id
+                                .toString()
+                                .includes("Chi nhánh")
+                                ? customer.branch.id.toString()
+                                : `Chi nhánh ${customer.branch.id}`;
+                        }
+                    }
+                    // Trường hợp 3: branch là giá trị đơn (có thể là string hoặc số)
+                    else if (typeof customer.branch !== "object") {
+                        // Kiểm tra nếu đã có tiền tố "Chi nhánh" thì không thêm nữa
+                        branchName = String(customer.branch).includes(
+                            "Chi nhánh"
+                        )
+                            ? String(customer.branch)
+                            : `Chi nhánh ${customer.branch}`;
+                    }
+                }
+                // Trường hợp 4: không có branch nhưng có branchId
+                else if (customer.branchId) {
+                    // Kiểm tra nếu đã có tiền tố "Chi nhánh" thì không thêm nữa
+                    branchName = String(customer.branchId).includes("Chi nhánh")
+                        ? String(customer.branchId)
+                        : `Chi nhánh ${customer.branchId}`;
+                }
+            }
 
             const customerType =
                 customer.type === "vip" ? "Khách VIP" : "Khách thường";
@@ -180,7 +249,7 @@ const formatDataForExport = (data, options = {}) => {
                 Email: customer.email || "",
                 "CCCD/Passport": customer.idNumber || "",
                 "Địa chỉ": customer.address || "",
-                "Chi nhánh": branchName,
+                "Chi nhánh": branchName || "Chưa có chi nhánh",
                 "Loại khách hàng": customerType,
                 "Trạng thái": customerStatus,
                 "Số lần đặt": customer.totalBookings || 0,

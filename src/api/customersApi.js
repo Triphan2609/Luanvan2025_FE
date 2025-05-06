@@ -175,3 +175,97 @@ export const getCustomersByStatus = async (status) => {
         );
     }
 };
+
+// Import danh sách khách hàng
+export const importCustomers = async (customers) => {
+    try {
+        const response = await apiClient.post(`${API_URL}/import`, {
+            customers,
+        });
+        return response.data;
+    } catch (error) {
+        console.error("Error in importCustomers API:", error);
+        throw (
+            error.response?.data || {
+                message: "Lỗi khi nhập danh sách khách hàng",
+            }
+        );
+    }
+};
+
+// Thao tác hàng loạt - Thay đổi trạng thái (kích hoạt/khóa)
+export const batchToggleStatus = async (ids, status) => {
+    try {
+        const response = await apiClient.patch(
+            `${API_URL}/batch/toggle-status`,
+            {
+                ids,
+                status,
+            }
+        );
+        return response.data;
+    } catch (error) {
+        console.error("Error in batchToggleStatus API:", error);
+        throw (
+            error.response?.data || {
+                message: "Lỗi khi thay đổi trạng thái hàng loạt khách hàng",
+            }
+        );
+    }
+};
+
+// Thao tác hàng loạt - Thay đổi loại khách hàng (normal/vip)
+export const batchUpdateType = async (ids, type) => {
+    try {
+        const response = await apiClient.patch(`${API_URL}/batch/update-type`, {
+            ids,
+            type,
+        });
+        return response.data;
+    } catch (error) {
+        console.error("Error in batchUpdateType API:", error);
+        throw (
+            error.response?.data || {
+                message: "Lỗi khi thay đổi loại hàng loạt khách hàng",
+            }
+        );
+    }
+};
+
+// Thao tác hàng loạt - Xóa khách hàng
+export const batchDeleteCustomers = async (ids) => {
+    try {
+        const response = await apiClient.delete(`${API_URL}/batch`, {
+            data: { ids },
+        });
+        return response.data;
+    } catch (error) {
+        console.error("Error in batchDeleteCustomers API:", error);
+        throw (
+            error.response?.data || {
+                message: "Lỗi khi xóa hàng loạt khách hàng",
+            }
+        );
+    }
+};
+
+// Thao tác hàng loạt - Gán chi nhánh
+export const batchAssignBranch = async (ids, branchId) => {
+    try {
+        const response = await apiClient.patch(
+            `${API_URL}/batch/assign-branch`,
+            {
+                ids,
+                branchId,
+            }
+        );
+        return response.data;
+    } catch (error) {
+        console.error("Error in batchAssignBranch API:", error);
+        throw (
+            error.response?.data || {
+                message: "Lỗi khi gán chi nhánh hàng loạt cho khách hàng",
+            }
+        );
+    }
+};

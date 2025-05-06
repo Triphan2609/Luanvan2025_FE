@@ -100,13 +100,41 @@ const CustomerExportModal = ({
             }
 
             // Lọc theo chi nhánh
-            if (
-                filters.branchId &&
-                String(item.branchId) !== String(filters.branchId) &&
-                (!item.branch ||
-                    String(item.branch.id) !== String(filters.branchId))
-            ) {
-                return false;
+            if (filters.branchId) {
+                // Chuyển đổi ID chi nhánh thành string để so sánh
+                const targetBranchId = String(filters.branchId);
+
+                // Kiểm tra các trường hợp khác nhau của dữ liệu branch
+                let matched = false;
+
+                // Trường hợp 1: branchId trực tiếp từ khách hàng
+                if (
+                    item.branchId !== undefined &&
+                    String(item.branchId) === targetBranchId
+                ) {
+                    matched = true;
+                }
+                // Trường hợp 2: branch là object và có id
+                else if (
+                    item.branch &&
+                    typeof item.branch === "object" &&
+                    item.branch.id !== undefined &&
+                    String(item.branch.id) === targetBranchId
+                ) {
+                    matched = true;
+                }
+                // Trường hợp 3: branch là giá trị đơn (string hoặc số)
+                else if (
+                    item.branch &&
+                    typeof item.branch !== "object" &&
+                    String(item.branch) === targetBranchId
+                ) {
+                    matched = true;
+                }
+
+                if (!matched) {
+                    return false;
+                }
             }
 
             // Lọc theo số lần đặt
@@ -194,6 +222,7 @@ const CustomerExportModal = ({
                 type: "customers",
                 columns: selectedColumns,
                 includeHeader: includeHeader,
+                branches: branches,
             };
 
             // Xuất dữ liệu theo định dạng đã chọn
@@ -254,7 +283,60 @@ const CustomerExportModal = ({
             render: (text, record) => {
                 // Xử lý trường hợp cột là chi nhánh
                 if (col.key === "branch") {
-                    return record.branch?.name || "";
+                    // Xử lý các trường hợp khác nhau của dữ liệu branch
+                    let branchName = "";
+
+                    if (record.branch) {
+                        // Trường hợp 1: branch là object có thuộc tính name
+                        if (
+                            typeof record.branch === "object" &&
+                            record.branch.name
+                        ) {
+                            branchName = record.branch.name;
+                        }
+                        // Trường hợp 2: branch có đủ thông tin nhưng tên được lưu ở branchName
+                        else if (
+                            typeof record.branch === "object" &&
+                            record.branch.branchName
+                        ) {
+                            branchName = record.branch.branchName;
+                        }
+                        // Trường hợp 3: branch là object nhưng không có tên
+                        else if (
+                            typeof record.branch === "object" &&
+                            record.branch.id
+                        ) {
+                            // Tìm chi nhánh từ danh sách nếu có
+                            const foundBranch = branches.find(
+                                (b) => String(b.id) === String(record.branch.id)
+                            );
+                            branchName = foundBranch
+                                ? foundBranch.name
+                                : `Chi nhánh ${record.branch.id}`;
+                        }
+                        // Trường hợp 4: branch là giá trị đơn (có thể là string hoặc số)
+                        else if (typeof record.branch !== "object") {
+                            // Tìm chi nhánh từ danh sách nếu có
+                            const foundBranch = branches.find(
+                                (b) => String(b.id) === String(record.branch)
+                            );
+                            branchName = foundBranch
+                                ? foundBranch.name
+                                : `Chi nhánh ${record.branch}`;
+                        }
+                    }
+                    // Trường hợp 5: không có branch nhưng có branchId
+                    else if (record.branchId) {
+                        // Tìm chi nhánh từ danh sách nếu có
+                        const foundBranch = branches.find(
+                            (b) => String(b.id) === String(record.branchId)
+                        );
+                        branchName = foundBranch
+                            ? foundBranch.name
+                            : `Chi nhánh ${record.branchId}`;
+                    }
+
+                    return branchName || "Không có chi nhánh";
                 }
 
                 // Xử lý trường hợp dataIndex là mảng (đường dẫn lồng nhau)

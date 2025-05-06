@@ -15,6 +15,7 @@ import {
     Popconfirm,
     message,
     Tag,
+    Dropdown,
 } from "antd";
 import {
     UserAddOutlined,
@@ -25,12 +26,17 @@ import {
     CheckCircleOutlined,
     ReloadOutlined,
     DownloadOutlined,
+    UploadOutlined,
+    MoreOutlined,
+    SettingOutlined,
 } from "@ant-design/icons";
 import { debounce } from "lodash";
 import * as XLSX from "xlsx";
 import CustomerForm from "./Modals/CustomerForm";
 import CustomerDetail from "./Drawer/CustomerDetail";
 import CustomerExportModal from "./Modals/CustomerExportModal";
+import CustomerImportModal from "./Modals/CustomerImportModal";
+import BatchActionsModal from "./Modals/BatchActionsModal";
 import {
     getCustomers,
     getCustomerStats,
@@ -39,6 +45,11 @@ import {
     createCustomer,
     updateCustomer,
     getCustomersByStatus,
+    importCustomers,
+    batchToggleStatus,
+    batchUpdateType,
+    batchDeleteCustomers,
+    batchAssignBranch,
 } from "../../../../api/customersApi";
 import { getBranches } from "../../../../api/branchesApi";
 
@@ -96,6 +107,12 @@ export default function CustomerList() {
     });
     const [branches, setBranches] = useState([]);
     const [isExportModalVisible, setIsExportModalVisible] = useState(false);
+    const [isImportModalVisible, setIsImportModalVisible] = useState(false);
+
+    // Thêm state mới để quản lý thao tác hàng loạt
+    const [selectedRowKeys, setSelectedRowKeys] = useState([]);
+    const [selectedRows, setSelectedRows] = useState([]);
+    const [isBatchModalVisible, setIsBatchModalVisible] = useState(false);
 
     // Fetch all customers on initial load
     useEffect(() => {
@@ -313,6 +330,35 @@ export default function CustomerList() {
                 searchText ? highlightText(text, searchText) : text,
         },
         {
+            title: "Chi nhánh",
+            dataIndex: "branchId",
+            key: "branch",
+            width: 150,
+            render: (branchId, record) => {
+                // Trường hợp branch là object và có name
+                if (
+                    record.branch &&
+                    typeof record.branch === "object" &&
+                    record.branch.name
+                ) {
+                    return record.branch.name;
+                }
+
+                // Trường hợp có branchId, tìm tên chi nhánh từ danh sách branches
+                if (branchId) {
+                    const branch = branches.find(
+                        (b) => String(b.id) === String(branchId)
+                    );
+                    if (branch) {
+                        return branch.name;
+                    }
+                    return `Chi nhánh ${branchId}`;
+                }
+
+                return "Không có chi nhánh";
+            },
+        },
+        {
             title: "Loại khách hàng",
             dataIndex: "type",
             key: "type",
@@ -437,6 +483,89 @@ export default function CustomerList() {
             ),
         },
     ];
+
+    // Cấu hình rowSelection cho Table
+    const rowSelection = {
+        selectedRowKeys,
+        onChange: (selectedKeys, selectedRows) => {
+            setSelectedRowKeys(selectedKeys);
+            setSelectedRows(selectedRows);
+        },
+        selections: [
+            Table.SELECTION_ALL,
+            Table.SELECTION_INVERT,
+            {
+                key: "select-active",
+                text: "Chọn tất cả khách hàng đang hoạt động",
+                onSelect: () => {
+                    const keys = filteredCustomers
+                        .filter(
+                            (customer) =>
+                                customer.status === CUSTOMER_STATUS.ACTIVE
+                        )
+                        .map((item) => item.id);
+                    setSelectedRowKeys(keys);
+                    setSelectedRows(
+                        filteredCustomers.filter((item) =>
+                            keys.includes(item.id)
+                        )
+                    );
+                },
+            },
+            {
+                key: "select-blocked",
+                text: "Chọn tất cả khách hàng đã khóa",
+                onSelect: () => {
+                    const keys = filteredCustomers
+                        .filter(
+                            (customer) =>
+                                customer.status === CUSTOMER_STATUS.BLOCKED
+                        )
+                        .map((item) => item.id);
+                    setSelectedRowKeys(keys);
+                    setSelectedRows(
+                        filteredCustomers.filter((item) =>
+                            keys.includes(item.id)
+                        )
+                    );
+                },
+            },
+            {
+                key: "select-vip",
+                text: "Chọn tất cả khách hàng VIP",
+                onSelect: () => {
+                    const keys = filteredCustomers
+                        .filter(
+                            (customer) => customer.type === CUSTOMER_TYPE.VIP
+                        )
+                        .map((item) => item.id);
+                    setSelectedRowKeys(keys);
+                    setSelectedRows(
+                        filteredCustomers.filter((item) =>
+                            keys.includes(item.id)
+                        )
+                    );
+                },
+            },
+            {
+                key: "select-normal",
+                text: "Chọn tất cả khách hàng thường",
+                onSelect: () => {
+                    const keys = filteredCustomers
+                        .filter(
+                            (customer) => customer.type === CUSTOMER_TYPE.NORMAL
+                        )
+                        .map((item) => item.id);
+                    setSelectedRowKeys(keys);
+                    setSelectedRows(
+                        filteredCustomers.filter((item) =>
+                            keys.includes(item.id)
+                        )
+                    );
+                },
+            },
+        ],
+    };
 
     // Handlers
     const handleToggleStatus = async (record) => {
@@ -621,6 +750,270 @@ export default function CustomerList() {
         setIsExportModalVisible(true);
     };
 
+    // Handle import modal
+    const handleImport = async (data) => {
+        try {
+            console.log("Dữ liệu import:", data);
+
+            // Chuyển đổi dữ liệu từ Excel sang định dạng API
+            const customersToImport = data.map((item) => ({
+                name: item["Họ và tên"],
+                phone: item["Số điện thoại"],
+                email: item["Email"],
+                idNumber: item["CCCD/Passport"],
+                birthday: item["Ngày sinh (YYYY-MM-DD)"],
+                address: item["Địa chỉ"],
+                type: item["Loại khách hàng"],
+                branchId: item["Chi nhánh ID"]
+                    ? parseInt(item["Chi nhánh ID"])
+                    : undefined,
+                note: item["Ghi chú"],
+                gender: item["Giới tính"],
+            }));
+
+            // Validate dữ liệu trước khi gửi
+            if (!customersToImport.length) {
+                message.error("Không có dữ liệu khách hàng để import!");
+                return;
+            }
+
+            // Kiểm tra trường bắt buộc
+            const invalidRecords = customersToImport.filter(
+                (customer, index) => {
+                    const errors = [];
+
+                    // Kiểm tra các trường bắt buộc
+                    if (!customer.name) errors.push("Họ tên");
+                    if (!customer.phone) errors.push("Số điện thoại");
+                    if (!customer.idNumber) errors.push("CCCD/Passport");
+                    if (!customer.type) errors.push("Loại khách hàng");
+
+                    // Kiểm tra giá trị loại khách hàng
+                    if (
+                        customer.type &&
+                        !["normal", "vip"].includes(customer.type)
+                    ) {
+                        errors.push(
+                            `Loại khách hàng '${customer.type}' không hợp lệ (phải là 'normal' hoặc 'vip')`
+                        );
+                    }
+
+                    // Kiểm tra giá trị giới tính
+                    if (
+                        customer.gender &&
+                        !["male", "female", "other"].includes(customer.gender)
+                    ) {
+                        errors.push(
+                            `Giới tính '${customer.gender}' không hợp lệ (phải là 'male', 'female' hoặc 'other')`
+                        );
+                    }
+
+                    if (errors.length > 0) {
+                        message.error(
+                            `Dòng ${index + 2} (${
+                                customer.name || "Không có tên"
+                            }): ${errors.join(", ")}`
+                        );
+                        return true;
+                    }
+                    return false;
+                }
+            );
+
+            if (invalidRecords.length > 0) {
+                message.error(
+                    `Có ${invalidRecords.length} dòng dữ liệu không hợp lệ. Vui lòng kiểm tra lại!`
+                );
+                return;
+            }
+
+            // Gửi dữ liệu lên server
+            const result = await importCustomers(customersToImport);
+            message.success(`Import thành công ${result.imported} khách hàng!`);
+
+            // Refresh danh sách khách hàng
+            fetchAllCustomers();
+            fetchCustomerStats();
+        } catch (error) {
+            console.error("Lỗi khi import:", error);
+
+            // Hiển thị thông báo lỗi chi tiết
+            if (
+                error.importResults &&
+                error.importResults.errors &&
+                error.importResults.errors.length > 0
+            ) {
+                const errorDetails = error.importResults.errors
+                    .map(
+                        (e) =>
+                            `- ${e.customer.name || "Không có tên"} (${
+                                e.customer.phone || "Không có SĐT"
+                            }): ${e.error}`
+                    )
+                    .join("\n");
+
+                message.error(
+                    <div>
+                        <p>Import không hoàn tất. Chi tiết lỗi:</p>
+                        <pre style={{ maxHeight: "200px", overflow: "auto" }}>
+                            {errorDetails}
+                        </pre>
+                    </div>
+                );
+            } else {
+                message.error(
+                    "Không thể import danh sách khách hàng: " +
+                        (error.message || "Lỗi không xác định")
+                );
+            }
+        }
+    };
+
+    // Thêm xử lý thao tác hàng loạt
+    const handleBatchActionClick = () => {
+        if (selectedRowKeys.length === 0) {
+            message.warning(
+                "Vui lòng chọn ít nhất một khách hàng để thực hiện thao tác hàng loạt"
+            );
+            return;
+        }
+        setIsBatchModalVisible(true);
+    };
+
+    const handleBatchToggleStatus = async (ids, status) => {
+        setLoading(true);
+        try {
+            await batchToggleStatus(ids, status);
+            message.success(
+                `Đã cập nhật trạng thái của ${ids.length} khách hàng thành ${
+                    status === CUSTOMER_STATUS.ACTIVE ? "kích hoạt" : "khóa"
+                }`
+            );
+
+            // Cập nhật state của khách hàng đã thay đổi
+            setCustomers((prevCustomers) =>
+                prevCustomers.map((customer) =>
+                    ids.includes(customer.id)
+                        ? { ...customer, status }
+                        : customer
+                )
+            );
+
+            // Làm mới thống kê
+            fetchCustomerStats();
+
+            // Xóa chọn
+            setSelectedRowKeys([]);
+            setSelectedRows([]);
+        } catch (error) {
+            console.error("Error in batch toggle status:", error);
+            message.error(
+                "Không thể cập nhật trạng thái hàng loạt: " +
+                    (error.message || "Lỗi không xác định")
+            );
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleBatchUpdateType = async (ids, type) => {
+        setLoading(true);
+        try {
+            await batchUpdateType(ids, type);
+            message.success(
+                `Đã cập nhật loại của ${ids.length} khách hàng thành ${
+                    type === CUSTOMER_TYPE.VIP ? "VIP" : "thường"
+                }`
+            );
+
+            // Cập nhật state của khách hàng đã thay đổi
+            setCustomers((prevCustomers) =>
+                prevCustomers.map((customer) =>
+                    ids.includes(customer.id) ? { ...customer, type } : customer
+                )
+            );
+
+            // Làm mới thống kê
+            fetchCustomerStats();
+
+            // Xóa chọn
+            setSelectedRowKeys([]);
+            setSelectedRows([]);
+        } catch (error) {
+            console.error("Error in batch update type:", error);
+            message.error(
+                "Không thể cập nhật loại khách hàng hàng loạt: " +
+                    (error.message || "Lỗi không xác định")
+            );
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleBatchDelete = async (ids) => {
+        setLoading(true);
+        try {
+            await batchDeleteCustomers(ids);
+            message.success(`Đã xóa ${ids.length} khách hàng thành công`);
+
+            // Xóa các khách hàng đã chọn khỏi state
+            setCustomers((prevCustomers) =>
+                prevCustomers.filter((customer) => !ids.includes(customer.id))
+            );
+
+            // Làm mới thống kê
+            fetchCustomerStats();
+
+            // Xóa chọn
+            setSelectedRowKeys([]);
+            setSelectedRows([]);
+        } catch (error) {
+            console.error("Error in batch delete:", error);
+            message.error(
+                "Không thể xóa khách hàng hàng loạt: " +
+                    (error.message || "Lỗi không xác định")
+            );
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleBatchAssignBranch = async (ids, branchId) => {
+        setLoading(true);
+        try {
+            await batchAssignBranch(ids, branchId);
+
+            // Tìm tên chi nhánh để hiển thị trong thông báo
+            const branchName =
+                branches.find((b) => b.id === branchId)?.name || branchId;
+
+            message.success(
+                `Đã gán ${ids.length} khách hàng vào chi nhánh ${branchName}`
+            );
+
+            // Cập nhật state của khách hàng đã thay đổi
+            setCustomers((prevCustomers) =>
+                prevCustomers.map((customer) =>
+                    ids.includes(customer.id)
+                        ? { ...customer, branchId }
+                        : customer
+                )
+            );
+
+            // Xóa chọn
+            setSelectedRowKeys([]);
+            setSelectedRows([]);
+        } catch (error) {
+            console.error("Error in batch assign branch:", error);
+            message.error(
+                "Không thể gán chi nhánh hàng loạt: " +
+                    (error.message || "Lỗi không xác định")
+            );
+        } finally {
+            setLoading(false);
+        }
+    };
+
     return (
         <div style={{ padding: 24 }}>
             <style jsx="true">{`
@@ -685,6 +1078,9 @@ export default function CustomerList() {
                 .refresh-button {
                     margin-left: 8px;
                 }
+                .batch-action-button {
+                    margin-left: 8px;
+                }
             `}</style>
             <Card>
                 <Space
@@ -734,7 +1130,7 @@ export default function CustomerList() {
                                             value={searchText}
                                             onChange={handleSearchChange}
                                             onSearch={handleSearch}
-                                            style={{ width: 300 }}
+                                            style={{ width: 600 }}
                                             allowClear
                                         />
                                     </div>
@@ -843,6 +1239,16 @@ export default function CustomerList() {
                                     >
                                         Thêm khách hàng
                                     </Button>
+
+                                    <Button
+                                        type="primary"
+                                        icon={<UploadOutlined />}
+                                        onClick={() =>
+                                            setIsImportModalVisible(true)
+                                        }
+                                    >
+                                        Import khách hàng
+                                    </Button>
                                     <Button
                                         className="export-button"
                                         icon={<DownloadOutlined />}
@@ -850,6 +1256,17 @@ export default function CustomerList() {
                                     >
                                         Xuất Excel
                                     </Button>
+                                    {selectedRowKeys.length > 0 && (
+                                        <Button
+                                            type="primary"
+                                            className="batch-action-button"
+                                            icon={<SettingOutlined />}
+                                            onClick={handleBatchActionClick}
+                                        >
+                                            Thao tác hàng loạt (
+                                            {selectedRowKeys.length})
+                                        </Button>
+                                    )}
                                 </Space>
                             </Col>
                         </Row>
@@ -889,6 +1306,16 @@ export default function CustomerList() {
                             )}
                         </div>
                         <Space>
+                            {selectedRowKeys.length > 0 && (
+                                <Button
+                                    size="small"
+                                    type="primary"
+                                    onClick={handleBatchActionClick}
+                                >
+                                    Thao tác với {selectedRowKeys.length} khách
+                                    hàng đã chọn
+                                </Button>
+                            )}
                             {(searchText ||
                                 filters.type !== "all" ||
                                 filters.status !== "all" ||
@@ -915,6 +1342,7 @@ export default function CustomerList() {
 
                     {/* Table Section */}
                     <Table
+                        rowSelection={rowSelection}
                         columns={columns}
                         dataSource={paginatedCustomers}
                         rowKey="id"
@@ -956,6 +1384,26 @@ export default function CustomerList() {
                 branches={branches}
                 customerTypes={CUSTOMER_TYPE}
                 customerStatuses={CUSTOMER_STATUS}
+            />
+
+            <CustomerImportModal
+                open={isImportModalVisible}
+                onCancel={() => setIsImportModalVisible(false)}
+                onImport={handleImport}
+                branches={branches}
+            />
+
+            <BatchActionsModal
+                open={isBatchModalVisible}
+                onCancel={() => setIsBatchModalVisible(false)}
+                selectedCustomers={selectedRows}
+                onToggleStatus={handleBatchToggleStatus}
+                onUpdateType={handleBatchUpdateType}
+                onDelete={handleBatchDelete}
+                onAssignBranch={handleBatchAssignBranch}
+                branches={branches}
+                CUSTOMER_TYPE={CUSTOMER_TYPE}
+                CUSTOMER_STATUS={CUSTOMER_STATUS}
             />
         </div>
     );
