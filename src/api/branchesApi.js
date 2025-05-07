@@ -5,9 +5,8 @@ const API_URL = "/branches";
 
 export const getBranches = async () => {
     try {
-        console.log("Calling getBranches API...");
         const response = await apiClient.get(API_URL);
-        console.log("getBranches raw response:", response);
+
         return response.data || [];
     } catch (error) {
         console.error("Error fetching branches:", error);
@@ -21,9 +20,7 @@ export const getBranches = async () => {
 // Add new function to get hotel branches only
 export const getHotelBranches = async () => {
     try {
-        console.log("Fetching hotel branches...");
         const response = await apiClient.get(API_URL);
-        console.log("All branches response:", response);
 
         // Filter branches that have branchType.key_name as 'hotel' or 'both'
         const hotelBranches = (response.data || []).filter(
@@ -33,7 +30,6 @@ export const getHotelBranches = async () => {
                     branch.branchType.key_name === "both")
         );
 
-        console.log("Filtered hotel branches:", hotelBranches);
         return hotelBranches;
     } catch (error) {
         console.error("Error fetching hotel branches:", error);

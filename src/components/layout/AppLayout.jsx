@@ -19,6 +19,7 @@ import {
     CheckCircleOutlined,
     GiftOutlined,
     TagOutlined,
+    AuditOutlined,
 } from "@ant-design/icons";
 import { TbGps } from "react-icons/tb";
 import { IoRestaurantOutline } from "react-icons/io5";
@@ -171,7 +172,12 @@ const items = [
                 key: "bookings",
                 icon: <ScheduleOutlined />,
                 label: <Link to="/hotel/bookings">Quản lý đặt phòng</Link>,
-            }, //
+            },
+            {
+                key: "front-desk",
+                icon: <AuditOutlined />,
+                label: <Link to="/hotel/front-desk">Đặt phòng - Lễ tân</Link>,
+            },
             {
                 key: "stuff",
                 icon: <OrderedListOutlined />,

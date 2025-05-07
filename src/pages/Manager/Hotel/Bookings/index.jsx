@@ -1,5 +1,19 @@
-import React, { useState } from "react";
-import { Card, Table, Button, Tag, Space, Input, DatePicker, Select, Typography, Badge, Tooltip, message, Popconfirm } from "antd";
+import React, { useState, useEffect } from "react";
+import {
+    Card,
+    Table,
+    Button,
+    Tag,
+    Space,
+    Input,
+    DatePicker,
+    Select,
+    Typography,
+    Badge,
+    Tooltip,
+    message,
+    Popconfirm,
+} from "antd";
 import {
     PlusOutlined,
     EditOutlined,
@@ -13,10 +27,22 @@ import {
     CheckCircleOutlined,
     CloseCircleOutlined,
     CreditCardOutlined,
+    ReloadOutlined,
 } from "@ant-design/icons";
 import dayjs from "dayjs";
 import BookingModal from "./Modals/BookingModal";
 import BookingDrawer from "./Drawer/BookingDrawer";
+import {
+    getBookings,
+    createBooking,
+    updateBooking,
+    deleteBooking,
+    confirmBooking,
+    rejectBooking,
+    getBookingById,
+    checkInBooking,
+    checkOutBooking,
+} from "../../../../api/bookingsApi";
 
 const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
@@ -69,6 +95,35 @@ export default function BookingManagement() {
     const [editingBooking, setEditingBooking] = useState(null);
     const [selectedBooking, setSelectedBooking] = useState(null);
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+    const [loading, setLoading] = useState(false);
+
+    // Fetch bookings when component mounts
+    useEffect(() => {
+        fetchBookings();
+    }, []);
+
+    const fetchBookings = async () => {
+        try {
+            setLoading(true);
+            console.log("Fetching bookings data...");
+
+            // Lấy dữ liệu đặt phòng với đầy đủ thông tin quan hệ
+            const data = await getBookings({
+                relations: true, // Đảm bảo lấy cả thông tin liên quan như customer, room, ...
+            });
+
+            console.log(`Loaded ${data.length} bookings`);
+            setBookings(data);
+        } catch (error) {
+            console.error("Error fetching bookings:", error);
+            message.error(
+                "Không thể tải danh sách đặt phòng: " +
+                    (error.message || "Lỗi không xác định")
+            );
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const handleAdd = () => {
         setEditingBooking(null);
@@ -80,31 +135,177 @@ export default function BookingManagement() {
         setIsModalOpen(true);
     };
 
-    const handleDelete = (id) => {
-        setBookings((prev) => prev.filter((booking) => booking.id !== id));
-        message.success("Đã xóa đặt phòng thành công");
-    };
-
-    const handleSave = (data) => {
-        if (data.id) {
-            setBookings((prev) => prev.map((b) => (b.id === data.id ? { ...b, ...data } : b)));
-            message.success("Cập nhật đặt phòng thành công");
-        } else {
-            const newBooking = {
-                ...data,
-                id: Date.now(),
-                status: "pending",
-                paymentStatus: "unpaid",
-            };
-            setBookings((prev) => [...prev, newBooking]);
-            message.success("Thêm đặt phòng mới thành công");
+    const handleDelete = async (id) => {
+        try {
+            await deleteBooking(id);
+            setBookings((prev) => prev.filter((booking) => booking.id !== id));
+            message.success("Đã xóa đặt phòng thành công");
+        } catch (error) {
+            message.error("Không thể xóa đặt phòng");
+            console.error("Error deleting booking:", error);
         }
-        setIsModalOpen(false);
     };
 
-    const handleView = (record) => {
-        setSelectedBooking(record);
-        setIsDrawerOpen(true);
+    const handleSave = async (data) => {
+        try {
+            if (data.id) {
+                // Update existing booking
+                const updatedBooking = await updateBooking(data.id, data);
+                setBookings((prev) =>
+                    prev.map((b) => (b.id === data.id ? updatedBooking : b))
+                );
+                message.success("Cập nhật đặt phòng thành công");
+            } else {
+                // Create new booking
+                const newBooking = await createBooking(data);
+                setBookings((prev) => [...prev, newBooking]);
+                message.success("Thêm đặt phòng mới thành công");
+            }
+            setIsModalOpen(false);
+        } catch (error) {
+            message.error("Không thể lưu đặt phòng");
+            console.error("Error saving booking:", error);
+        }
+    };
+
+    const handleView = async (record) => {
+        try {
+            setLoading(true);
+            // Lấy thông tin chi tiết đặt phòng từ API
+            const bookingDetail = await getBookingById(record.id);
+            setSelectedBooking(bookingDetail);
+            setIsDrawerOpen(true);
+        } catch (error) {
+            console.error("Error fetching booking details:", error);
+            message.error("Không thể tải thông tin chi tiết đặt phòng");
+            // Nếu gặp lỗi, vẫn hiển thị thông tin từ bảng
+            setSelectedBooking(record);
+            setIsDrawerOpen(true);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Hàm tải lại dữ liệu
+    const refreshData = async () => {
+        await fetchBookings();
+        message.success("Đã tải lại dữ liệu");
+    };
+
+    const handleConfirmBooking = async (id) => {
+        try {
+            setLoading(true);
+            const updatedBooking = await confirmBooking(id);
+
+            // Cập nhật danh sách đặt phòng
+            setBookings((prev) =>
+                prev.map((item) => (item.id === id ? updatedBooking : item))
+            );
+
+            // Nếu đang hiển thị chi tiết của booking này, cập nhật thông tin
+            if (selectedBooking && selectedBooking.id === id) {
+                setSelectedBooking(updatedBooking);
+            }
+
+            message.success("Đã xác nhận đặt phòng thành công");
+
+            // Tải lại dữ liệu để đảm bảo đồng bộ
+            await fetchBookings();
+        } catch (error) {
+            console.error("Error confirming booking:", error);
+            message.error(
+                "Không thể xác nhận đặt phòng: " +
+                    (error.message || "Lỗi không xác định")
+            );
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleRejectBooking = async (id, reason) => {
+        try {
+            setLoading(true);
+            const updatedBooking = await rejectBooking(id, reason);
+
+            // Cập nhật danh sách đặt phòng
+            setBookings((prev) =>
+                prev.map((item) => (item.id === id ? updatedBooking : item))
+            );
+
+            // Nếu đang hiển thị chi tiết của booking này, cập nhật thông tin
+            if (selectedBooking && selectedBooking.id === id) {
+                setSelectedBooking(updatedBooking);
+            }
+
+            message.success("Đã từ chối đặt phòng thành công");
+        } catch (error) {
+            console.error("Error rejecting booking:", error);
+            message.error(
+                "Không thể từ chối đặt phòng: " +
+                    (error.message || "Lỗi không xác định")
+            );
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleCheckIn = async (id) => {
+        try {
+            setLoading(true);
+            const updatedBooking = await checkInBooking(id);
+
+            // Cập nhật danh sách đặt phòng
+            setBookings((prev) =>
+                prev.map((item) => (item.id === id ? updatedBooking : item))
+            );
+
+            // Nếu đang hiển thị chi tiết của booking này, cập nhật thông tin
+            if (selectedBooking && selectedBooking.id === id) {
+                setSelectedBooking(updatedBooking);
+            }
+
+            message.success("Check-in thành công!");
+
+            // Tải lại dữ liệu để đảm bảo đồng bộ
+            await fetchBookings();
+        } catch (error) {
+            console.error("Error checking in booking:", error);
+            message.error(
+                "Không thể check-in: " + (error.message || "Lỗi không xác định")
+            );
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleCheckOut = async (id) => {
+        try {
+            setLoading(true);
+            const updatedBooking = await checkOutBooking(id);
+
+            // Cập nhật danh sách đặt phòng
+            setBookings((prev) =>
+                prev.map((item) => (item.id === id ? updatedBooking : item))
+            );
+
+            // Nếu đang hiển thị chi tiết của booking này, cập nhật thông tin
+            if (selectedBooking && selectedBooking.id === id) {
+                setSelectedBooking(updatedBooking);
+            }
+
+            message.success("Check-out thành công!");
+
+            // Tải lại dữ liệu để đảm bảo đồng bộ
+            await fetchBookings();
+        } catch (error) {
+            console.error("Error checking out booking:", error);
+            message.error(
+                "Không thể check-out: " +
+                    (error.message || "Lỗi không xác định")
+            );
+        } finally {
+            setLoading(false);
+        }
     };
 
     const columns = [
@@ -125,10 +326,12 @@ export default function BookingManagement() {
         {
             title: "Phòng",
             key: "room",
-            filters: [...new Set(bookings.map((item) => item.roomType))].map((type) => ({
-                text: type,
-                value: type,
-            })),
+            filters: [...new Set(bookings.map((item) => item.roomType))].map(
+                (type) => ({
+                    text: type,
+                    value: type,
+                })
+            ),
             onFilter: (value, record) => record.roomType === value,
             render: (_, record) => (
                 <Space direction="vertical" size={0}>
@@ -146,10 +349,12 @@ export default function BookingManagement() {
             render: (_, record) => (
                 <Space direction="vertical" size={0}>
                     <Text>
-                        <CalendarOutlined /> {dayjs(record.checkIn).format("DD/MM/YYYY")}
+                        <CalendarOutlined />{" "}
+                        {dayjs(record.checkIn).format("DD/MM/YYYY")}
                     </Text>
                     <Text type="secondary">
-                        <CalendarOutlined /> {dayjs(record.checkOut).format("DD/MM/YYYY")}
+                        <CalendarOutlined />{" "}
+                        {dayjs(record.checkOut).format("DD/MM/YYYY")}
                     </Text>
                 </Space>
             ),
@@ -180,8 +385,16 @@ export default function BookingManagement() {
                     <Text strong type="success">
                         {amount.toLocaleString()}đ
                     </Text>
-                    <Tag color={record.paymentStatus === "paid" ? "success" : "warning"}>
-                        {record.paymentStatus === "paid" ? "Đã thanh toán" : "Chưa thanh toán"}
+                    <Tag
+                        color={
+                            record.paymentStatus === "paid"
+                                ? "success"
+                                : "warning"
+                        }
+                    >
+                        {record.paymentStatus === "paid"
+                            ? "Đã thanh toán"
+                            : "Chưa thanh toán"}
                     </Tag>
                 </Space>
             ),
@@ -194,7 +407,12 @@ export default function BookingManagement() {
                 value: key,
             })),
             onFilter: (value, record) => record.status === value,
-            render: (_, record) => <Badge status={bookingStatus[record.status].color} text={bookingStatus[record.status].text} />,
+            render: (_, record) => (
+                <Badge
+                    status={bookingStatus[record.status].color}
+                    text={bookingStatus[record.status].text}
+                />
+            ),
         },
         {
             title: "Thao tác",
@@ -207,18 +425,22 @@ export default function BookingManagement() {
                             <Popconfirm
                                 title="Xác nhận đặt phòng"
                                 description={`Xác nhận đặt phòng cho khách hàng ${record.customerName}?`}
-                                icon={<CheckCircleOutlined style={{ color: "#52c41a" }} />}
+                                icon={
+                                    <CheckCircleOutlined
+                                        style={{ color: "#52c41a" }}
+                                    />
+                                }
                                 okText="Xác nhận"
                                 cancelText="Hủy"
-                                onConfirm={() => {
-                                    setBookings((prev) =>
-                                        prev.map((item) => (item.id === record.id ? { ...item, status: "confirmed" } : item))
-                                    );
-                                    message.success("Đã xác nhận đặt phòng thành công");
-                                }}
+                                onConfirm={() =>
+                                    handleConfirmBooking(record.id)
+                                }
                             >
                                 <Tooltip title="Xác nhận">
-                                    <Button type="primary" icon={<CheckCircleOutlined />} />
+                                    <Button
+                                        type="primary"
+                                        icon={<CheckCircleOutlined />}
+                                    />
                                 </Tooltip>
                             </Popconfirm>
 
@@ -229,36 +451,53 @@ export default function BookingManagement() {
                                         <p>{`Bạn có chắc muốn từ chối đặt phòng của ${record.customerName}?`}</p>
                                         <Input.TextArea
                                             placeholder="Nhập lý do từ chối..."
-                                            onChange={(e) => (record.rejectReason = e.target.value)}
+                                            onChange={(e) =>
+                                                (record.rejectReason =
+                                                    e.target.value)
+                                            }
                                             rows={3}
                                         />
                                     </div>
                                 }
-                                icon={<CloseCircleOutlined style={{ color: "#ff4d4f" }} />}
+                                icon={
+                                    <CloseCircleOutlined
+                                        style={{ color: "#ff4d4f" }}
+                                    />
+                                }
                                 okText="Từ chối"
                                 cancelText="Hủy"
                                 okButtonProps={{ danger: true }}
-                                onConfirm={() => {
-                                    setBookings((prev) =>
-                                        prev.map((item) => (item.id === record.id ? { ...item, status: "rejected" } : item))
-                                    );
-                                    message.success("Đã từ chối đặt phòng");
-                                }}
+                                onConfirm={() =>
+                                    handleRejectBooking(
+                                        record.id,
+                                        record.rejectReason
+                                    )
+                                }
                             >
                                 <Tooltip title="Từ chối">
-                                    <Button danger icon={<CloseCircleOutlined />} />
+                                    <Button
+                                        danger
+                                        icon={<CloseCircleOutlined />}
+                                    />
                                 </Tooltip>
                             </Popconfirm>
                         </>
                     )}
                     <Tooltip title="Xem chi tiết">
-                        <Button icon={<EyeOutlined />} onClick={() => handleView(record)} />
+                        <Button
+                            icon={<EyeOutlined />}
+                            onClick={() => handleView(record)}
+                        />
                     </Tooltip>
                     <Tooltip title="Chỉnh sửa">
                         <Button
                             icon={<EditOutlined />}
                             onClick={() => handleEdit(record)}
-                            disabled={["rejected", "cancelled", "checkedOut"].includes(record.status)}
+                            disabled={[
+                                "rejected",
+                                "cancelled",
+                                "checkedOut",
+                            ].includes(record.status)}
                         />
                     </Tooltip>
                     <Popconfirm
@@ -281,19 +520,35 @@ export default function BookingManagement() {
     return (
         <Card>
             <Space direction="vertical" style={{ width: "100%" }} size="large">
-                <Space style={{ justifyContent: "space-between", width: "100%" }}>
+                <Space
+                    style={{ justifyContent: "space-between", width: "100%" }}
+                >
                     <Title level={4} style={{ margin: 0 }}>
                         <HomeOutlined /> Quản lý Đặt phòng
                     </Title>
-                    <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
-                        Thêm đặt phòng
-                    </Button>
+                    <Space>
+                        <Button
+                            icon={<ReloadOutlined />}
+                            onClick={refreshData}
+                            loading={loading}
+                        >
+                            Làm mới
+                        </Button>
+                        <Button
+                            type="primary"
+                            icon={<PlusOutlined />}
+                            onClick={handleAdd}
+                        >
+                            Thêm đặt phòng
+                        </Button>
+                    </Space>
                 </Space>
 
                 <Table
                     columns={columns}
                     dataSource={bookings}
                     rowKey="id"
+                    loading={loading}
                     pagination={{
                         pageSize: 10,
                         showTotal: (total) => `Tổng số ${total} đặt phòng`,
@@ -303,7 +558,12 @@ export default function BookingManagement() {
                 />
             </Space>
 
-            <BookingModal open={isModalOpen} onCancel={() => setIsModalOpen(false)} onSave={handleSave} initialData={editingBooking} />
+            <BookingModal
+                open={isModalOpen}
+                onCancel={() => setIsModalOpen(false)}
+                onSave={handleSave}
+                initialData={editingBooking}
+            />
 
             <BookingDrawer
                 open={isDrawerOpen}
@@ -311,6 +571,8 @@ export default function BookingManagement() {
                 booking={selectedBooking}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
+                onCheckIn={handleCheckIn}
+                onCheckOut={handleCheckOut}
             />
         </Card>
     );

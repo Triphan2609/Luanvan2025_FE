@@ -54,7 +54,8 @@ export default function AccountManagement() {
     const [statusFilter, setStatusFilter] = useState("all");
     const [roleFilter, setRoleFilter] = useState("all");
     const [isModalVisible, setIsModalVisible] = useState(false);
-    const [isChangePasswordVisible, setIsChangePasswordVisible] = useState(false);
+    const [isChangePasswordVisible, setIsChangePasswordVisible] =
+        useState(false);
     const [selectedAccount, setSelectedAccount] = useState(null);
     const [accounts, setAccounts] = useState([]);
     const [roles, setRoles] = useState([]); // Thêm state cho roles
@@ -133,7 +134,11 @@ export default function AccountManagement() {
                     active: "Đang hoạt động",
                     locked: "Đã khóa",
                 };
-                return <Tag color={statusColors[status]}>{statusLabels[status]}</Tag>;
+                return (
+                    <Tag color={statusColors[status]}>
+                        {statusLabels[status]}
+                    </Tag>
+                );
             },
         },
         {
@@ -145,14 +150,17 @@ export default function AccountManagement() {
                 if (!lastLogin) {
                     return <Text type="secondary">Chưa đăng nhập</Text>;
                 }
-                const formattedDate = new Date(lastLogin).toLocaleString("vi-VN", {
-                    year: "numeric",
-                    month: "2-digit",
-                    day: "2-digit",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    second: "2-digit",
-                });
+                const formattedDate = new Date(lastLogin).toLocaleString(
+                    "vi-VN",
+                    {
+                        year: "numeric",
+                        month: "2-digit",
+                        day: "2-digit",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        second: "2-digit",
+                    }
+                );
                 return (
                     <Tooltip title={`Đăng nhập lúc: ${formattedDate}`}>
                         <Text>{formattedDate}</Text>
@@ -167,21 +175,46 @@ export default function AccountManagement() {
             render: (_, record) => (
                 <Space>
                     <Tooltip title="Chỉnh sửa">
-                        <Button type="primary" icon={<EditOutlined />} size="small" onClick={() => handleEdit(record)} />
+                        <Button
+                            type="primary"
+                            icon={<EditOutlined />}
+                            size="small"
+                            onClick={() => handleEdit(record)}
+                        />
                     </Tooltip>
                     <Tooltip title="Đổi mật khẩu">
-                        <Button icon={<KeyOutlined />} size="small" onClick={() => handleChangePassword(record)} />
+                        <Button
+                            icon={<KeyOutlined />}
+                            size="small"
+                            onClick={() => handleChangePassword(record)}
+                        />
                     </Tooltip>
-                    <Tooltip title={record.status === ACCOUNT_STATUS.ACTIVE ? "Khóa" : "Mở khóa"}>
+                    <Tooltip
+                        title={
+                            record.status === ACCOUNT_STATUS.ACTIVE
+                                ? "Khóa"
+                                : "Mở khóa"
+                        }
+                    >
                         <Popconfirm
-                            title={`Bạn có chắc chắn muốn ${record.status === ACCOUNT_STATUS.ACTIVE ? "khóa" : "mở khóa"} tài khoản này?`}
+                            title={`Bạn có chắc chắn muốn ${
+                                record.status === ACCOUNT_STATUS.ACTIVE
+                                    ? "khóa"
+                                    : "mở khóa"
+                            } tài khoản này?`}
                             onConfirm={() => handleToggleStatus(record)}
                             okText="Đồng ý"
                             cancelText="Hủy"
                         >
                             <Button
                                 danger={record.status === ACCOUNT_STATUS.ACTIVE}
-                                icon={record.status === ACCOUNT_STATUS.ACTIVE ? <LockOutlined /> : <UnlockOutlined />}
+                                icon={
+                                    record.status === ACCOUNT_STATUS.ACTIVE ? (
+                                        <LockOutlined />
+                                    ) : (
+                                        <UnlockOutlined />
+                                    )
+                                }
                                 size="small"
                             />
                         </Popconfirm>
@@ -194,7 +227,11 @@ export default function AccountManagement() {
                                 okText="Xóa"
                                 cancelText="Hủy"
                             >
-                                <Button danger icon={<DeleteOutlined />} size="small" />
+                                <Button
+                                    danger
+                                    icon={<DeleteOutlined />}
+                                    size="small"
+                                />
                             </Popconfirm>
                         </Tooltip>
                     )}
@@ -221,11 +258,28 @@ export default function AccountManagement() {
 
     const handleToggleStatus = async (record) => {
         try {
-            const response = await apiClient.patch(`/accounts/${record.id}/status`);
-            setAccounts(accounts.map((acc) => (acc.id === record.id ? { ...acc, status: response.data.status } : acc)));
-            message.success(`Tài khoản đã được ${response.data.status === ACCOUNT_STATUS.ACTIVE ? "mở khóa" : "khóa"}`);
+            const response = await apiClient.patch(
+                `/accounts/${record.id}/status`
+            );
+            setAccounts(
+                accounts.map((acc) =>
+                    acc.id === record.id
+                        ? { ...acc, status: response.data.status }
+                        : acc
+                )
+            );
+            message.success(
+                `Tài khoản đã được ${
+                    response.data.status === ACCOUNT_STATUS.ACTIVE
+                        ? "mở khóa"
+                        : "khóa"
+                }`
+            );
         } catch (error) {
-            message.error(error.response?.data?.message || "Đã xảy ra lỗi khi thay đổi trạng thái!");
+            message.error(
+                error.response?.data?.message ||
+                    "Đã xảy ra lỗi khi thay đổi trạng thái!"
+            );
         }
     };
 
@@ -249,7 +303,8 @@ export default function AccountManagement() {
               acc.role?.name.toLowerCase().includes(normalizedSearchText)
             : true;
 
-        const matchStatus = statusFilter === "all" || acc.status === statusFilter;
+        const matchStatus =
+            statusFilter === "all" || acc.status === statusFilter;
         const matchRole = roleFilter === "all" || acc.role?.id === roleFilter;
 
         return matchSearch && matchStatus && matchRole;
@@ -265,8 +320,17 @@ export default function AccountManagement() {
 
             if (selectedAccount) {
                 // Gửi yêu cầu cập nhật tài khoản
-                const response = await apiClient.put(`/accounts/${selectedAccount.id}`, payload);
-                setAccounts(accounts.map((acc) => (acc.id === selectedAccount.id ? { ...acc, ...response.data } : acc)));
+                const response = await apiClient.put(
+                    `/accounts/${selectedAccount.id}`,
+                    payload
+                );
+                setAccounts(
+                    accounts.map((acc) =>
+                        acc.id === selectedAccount.id
+                            ? { ...acc, ...response.data }
+                            : acc
+                    )
+                );
                 message.success("Cập nhật tài khoản thành công");
             } else {
                 // Gửi yêu cầu thêm tài khoản mới
@@ -306,20 +370,32 @@ export default function AccountManagement() {
             onOk: async () => {
                 setLoading(true);
                 try {
-                    await apiClient.patch(`/accounts/${selectedAccount.id}/role`, {
-                        roleId: selectedAccount.role?.id,
-                    });
+                    await apiClient.patch(
+                        `/accounts/${selectedAccount.id}/role`,
+                        {
+                            roleId: selectedAccount.role?.id,
+                        }
+                    );
                     setAccounts(
                         accounts.map((account) =>
                             account.id === selectedAccount.id
-                                ? { ...account, role: roles.find((role) => role.id === selectedAccount.role?.id) }
+                                ? {
+                                      ...account,
+                                      role: roles.find(
+                                          (role) =>
+                                              role.id ===
+                                              selectedAccount.role?.id
+                                      ),
+                                  }
                                 : account
                         )
                     );
                     message.success("Cập nhật vai trò thành công!");
                     setIsRoleDrawerVisible(false);
                 } catch (error) {
-                    message.error(error.response?.data?.message || "Đã xảy ra lỗi!");
+                    message.error(
+                        error.response?.data?.message || "Đã xảy ra lỗi!"
+                    );
                 } finally {
                     setLoading(false);
                 }
@@ -330,9 +406,17 @@ export default function AccountManagement() {
     return (
         <div style={{ padding: 24 }}>
             <Card>
-                <Space direction="vertical" size="large" style={{ width: "100%" }}>
+                <Space
+                    direction="vertical"
+                    size="large"
+                    style={{ width: "100%" }}
+                >
                     {/* Header */}
-                    <Row gutter={[16, 16]} justify="space-between" align="middle">
+                    <Row
+                        gutter={[16, 16]}
+                        justify="space-between"
+                        align="middle"
+                    >
                         <Col>
                             <Space align="center" size={16}>
                                 <UserOutlined style={{ fontSize: 24 }} />
@@ -340,6 +424,15 @@ export default function AccountManagement() {
                                     Quản lý Tài khoản
                                 </Title>
                             </Space>
+                        </Col>
+                        <Col>
+                            <Button
+                                type="primary"
+                                icon={<PlusOutlined />}
+                                onClick={handleAdd}
+                            >
+                                Thêm tài khoản
+                            </Button>
                         </Col>
                     </Row>
 
@@ -355,17 +448,36 @@ export default function AccountManagement() {
                             />
                         </Col>
                         <Col span={8}>
-                            <Select value={statusFilter} onChange={setStatusFilter} style={{ width: "100%" }}>
-                                <Select.Option value="all">Tất cả trạng thái</Select.Option>
-                                <Select.Option value={ACCOUNT_STATUS.ACTIVE}>Đang hoạt động</Select.Option>
-                                <Select.Option value={ACCOUNT_STATUS.LOCKED}>Đã khóa</Select.Option>
+                            <Select
+                                value={statusFilter}
+                                onChange={setStatusFilter}
+                                style={{ width: "100%" }}
+                            >
+                                <Select.Option value="all">
+                                    Tất cả trạng thái
+                                </Select.Option>
+                                <Select.Option value={ACCOUNT_STATUS.ACTIVE}>
+                                    Đang hoạt động
+                                </Select.Option>
+                                <Select.Option value={ACCOUNT_STATUS.LOCKED}>
+                                    Đã khóa
+                                </Select.Option>
                             </Select>
                         </Col>
                         <Col span={8}>
-                            <Select value={roleFilter} onChange={setRoleFilter} style={{ width: "100%" }}>
-                                <Select.Option value="all">Tất cả vai trò</Select.Option>
+                            <Select
+                                value={roleFilter}
+                                onChange={setRoleFilter}
+                                style={{ width: "100%" }}
+                            >
+                                <Select.Option value="all">
+                                    Tất cả vai trò
+                                </Select.Option>
                                 {roles.map((role) => (
-                                    <Select.Option key={role.id} value={role.id}>
+                                    <Select.Option
+                                        key={role.id}
+                                        value={role.id}
+                                    >
                                         {role.name}
                                     </Select.Option>
                                 ))}
@@ -382,10 +494,14 @@ export default function AccountManagement() {
                         pagination={{ pageSize: 10 }}
                         onChange={(pagination, filters, sorter) => {
                             if (sorter.order) {
-                                const sortedAccounts = [...filteredAccounts].sort((a, b) => {
+                                const sortedAccounts = [
+                                    ...filteredAccounts,
+                                ].sort((a, b) => {
                                     const fieldA = a[sorter.field] || "";
                                     const fieldB = b[sorter.field] || "";
-                                    return sorter.order === "ascend" ? fieldA.localeCompare(fieldA) : fieldB.localeCompare(fieldB);
+                                    return sorter.order === "ascend"
+                                        ? fieldA.localeCompare(fieldB)
+                                        : fieldB.localeCompare(fieldA);
                                 });
                                 setAccounts(sortedAccounts);
                             }
@@ -417,12 +533,22 @@ export default function AccountManagement() {
                 onClose={() => setIsRoleDrawerVisible(false)}
                 open={isRoleDrawerVisible}
                 extra={
-                    <Button type="primary" icon={<SaveOutlined />} onClick={handleSaveRoles}>
+                    <Button
+                        type="primary"
+                        icon={<SaveOutlined />}
+                        onClick={handleSaveRoles}
+                    >
                         Lưu thay đổi
                     </Button>
                 }
             >
-                <Form.Item name="roleId" label="Vai trò" rules={[{ required: true, message: "Vui lòng chọn vai trò!" }]}>
+                <Form.Item
+                    name="roleId"
+                    label="Vai trò"
+                    rules={[
+                        { required: true, message: "Vui lòng chọn vai trò!" },
+                    ]}
+                >
                     <Select
                         placeholder="Chọn vai trò"
                         value={selectedAccount?.role?.id} // Hiển thị vai trò hiện tại

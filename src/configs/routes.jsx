@@ -40,6 +40,9 @@ const Rooms = lazy(() => import("../pages/Manager/Hotel/Rooms/index"));
 const RoomTypes = lazy(() => import("../pages/Manager/Hotel/RoomTypes/index"));
 const RoomStuffs = lazy(() => import("../pages/Manager/Hotel/Stuff/index"));
 const Bookings = lazy(() => import("../pages/Manager/Hotel/Bookings/index"));
+const FrontDeskBooking = lazy(() =>
+    import("../pages/Manager/Hotel/FrontDesk/index")
+);
 const Amenities = lazy(() => import("../pages/Manager/Hotel/Amenities/index"));
 const Floors = lazy(() => import("../pages/Manager/Hotel/Floors/index"));
 const PaymentHotel = lazy(() => import("../pages/Manager/Hotel/Payment/index"));
@@ -146,6 +149,10 @@ const routes = [
             {
                 path: "/hotel/bookings",
                 element: <Bookings />,
+            },
+            {
+                path: "/hotel/front-desk",
+                element: <FrontDeskBooking />,
             },
             {
                 path: "/hotel/amenities",

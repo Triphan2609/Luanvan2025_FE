@@ -1,0 +1,456 @@
+.availability-calendar {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    table-layout: fixed;
+}
+
+.availability-calendar th,
+.availability-calendar td {
+    border: 1px solid #f0f0f0;
+    padding: 14px;
+    min-width: 70px;
+}
+
+.availability-calendar th {
+    background-color: #fafafa;
+    text-align: center;
+    font-weight: 600;
+    color: #333;
+    border-bottom: 2px solid #e8e8e8;
+}
+
+.room-card {
+    height: 100%;
+    transition: all 0.3s;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.room-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+}
+
+.calendar-container {
+    display: flex;
+    flex-wrap: wrap;
+}
+
+.calendar-sidebar {
+    width: 100%;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.calendar-controls {
+    margin-bottom: 20px;
+}
+
+.calendar-controls h3 {
+    margin-bottom: 10px;
+    color: #1890ff;
+    border-bottom: 1px solid #f0f0f0;
+    padding-bottom: 8px;
+}
+
+.calendar-stats {
+    margin-bottom: 20px;
+}
+
+.stat-card {
+    border-radius: 8px;
+    overflow: hidden;
+    transition: all 0.3s;
+    height: 100%;
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.available-stat {
+    border-left: 3px solid #52c41a;
+}
+
+.booked-stat {
+    border-left: 3px solid #f5222d;
+}
+
+.cleaning-stat {
+    border-left: 3px solid #faad14;
+}
+
+.maintenance-stat {
+    border-left: 3px solid #1890ff;
+}
+
+.calendar-legend {
+    margin-bottom: 20px;
+    background-color: #fafafa;
+    padding: 12px;
+    border-radius: 8px;
+}
+
+.legend-item {
+    margin-bottom: 8px;
+}
+
+.calendar-tips {
+    margin-bottom: 20px;
+}
+
+.calendar-main {
+    width: 100%;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.calendar-loading {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 300px;
+}
+
+.calendar-table-container {
+    overflow-x: auto;
+    padding: 8px 0;
+    margin: 0 -12px;
+    width: calc(100% + 24px);
+}
+
+.room-row {
+    transition: background-color 0.3s;
+}
+
+.room-row:hover {
+    background-color: #fafafa;
+}
+
+.room-info-cell {
+    position: sticky;
+    left: 0;
+    background-color: white;
+    width: 180px;
+    z-index: 1;
+    border-right: 2px solid #e8e8e8;
+}
+
+.room-info {
+    display: flex;
+    flex-direction: column;
+    padding: 8px;
+}
+
+.room-code {
+    font-weight: bold;
+    font-size: 1.1em;
+    margin-bottom: 4px;
+}
+
+.room-type {
+    font-size: 0.9em;
+    color: #666;
+    margin-bottom: 8px;
+}
+
+.room-capacity {
+    margin-top: 4px;
+    font-size: 0.9em;
+    color: #595959;
+}
+
+.room-price {
+    margin-top: 4px;
+    font-size: 0.9em;
+    color: #389e0d;
+    font-weight: bold;
+}
+
+.calendar-header {
+    background-color: #fafafa;
+}
+
+.room-column {
+    position: sticky;
+    left: 0;
+    width: 200px;
+    background-color: #fafafa;
+    z-index: 2;
+}
+
+.date-column {
+    width: 70px;
+    text-align: center;
+}
+
+.date-header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.date-day {
+    font-size: 1.4em;
+    font-weight: bold;
+}
+
+.date-month {
+    font-size: 1em;
+    color: #666;
+}
+
+.date-weekday {
+    font-size: 0.9em;
+    color: #999;
+}
+
+.today-column {
+    background-color: #e6f7ff;
+    border-bottom: 2px solid #1890ff;
+}
+
+.weekend-column {
+    background-color: #fafafa;
+}
+
+.calendar-cell {
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.3s;
+    height: 65px;
+    border-width: 2px;
+    position: relative;
+}
+
+.calendar-cell:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.15);
+    z-index: 10;
+}
+
+.today-cell {
+    position: relative;
+}
+
+.today-cell::after {
+    content: "";
+    position: absolute;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background-color: #1890ff;
+    bottom: 3px;
+    left: calc(50% - 2.5px);
+}
+
+.weekend-cell {
+    background-color: #fafafa;
+}
+
+.cell-available {
+    background-color: #b7eb8f;
+    border: 1px solid #52c41a;
+}
+
+.cell-available:hover {
+    background-color: #95de64;
+}
+
+.cell-booked {
+    background-color: #fff1f0;
+    border: 1px solid #ffa39e;
+    position: relative;
+}
+
+.cell-booked:hover {
+    background-color: #ffccc7;
+    cursor: pointer;
+}
+
+.cell-booked:after {
+    content: "";
+    position: absolute;
+    bottom: 2px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 10px;
+    color: #f5222d;
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.cell-booked:hover:after {
+    opacity: 1;
+}
+
+/* CSS cho các trạng thái đặt phòng khác nhau */
+.cell-pending {
+    background-color: #fff7e6;
+    border: 2px solid #ffc53d;
+    position: relative;
+}
+
+.cell-pending:hover {
+    background-color: #ffe7ba;
+}
+
+.cell-pending::before {
+    content: "";
+    position: absolute;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background-color: #faad14;
+    bottom: 5px;
+    right: 5px;
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.5);
+        opacity: 0.7;
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+.cell-confirmed {
+    background-color: #e6f7ff;
+    border: 2px solid #1890ff;
+}
+
+.cell-confirmed:hover {
+    background-color: #bae7ff;
+}
+
+.cell-checked-in {
+    background-color: #f6ffed;
+    border: 2px solid #52c41a;
+}
+
+.cell-checked-in:hover {
+    background-color: #d9f7be;
+}
+
+.cell-maintenance {
+    background-color: #e6f7ff;
+    border: 1px solid #91caff;
+}
+
+.cell-maintenance:hover {
+    background-color: #bae7ff;
+}
+
+.cell-cleaning {
+    background-color: #fff7e6;
+    border: 1px solid #ffd591;
+}
+
+.cell-cleaning:hover {
+    background-color: #ffe7ba;
+}
+
+.room-card {
+    height: 100%;
+    transition: all 0.3s;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.room-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+}
+
+.room-detail-content {
+    padding-bottom: 32px;
+}
+
+.room-detail-content .ant-descriptions-bordered .ant-descriptions-item-label {
+    width: 120px;
+    background-color: #fafafa;
+}
+
+/* Thêm CSS cho các trạng thái đặt phòng mới */
+.cell-checked-out {
+    background-color: #f5f5f5;
+    border: 2px solid #d9d9d9;
+}
+
+.cell-checked-out:hover {
+    background-color: #e8e8e8;
+}
+
+.cell-cancelled {
+    background-color: #fff1f0;
+    border: 2px solid #ff7875;
+}
+
+.cell-cancelled:hover {
+    background-color: #ffa39e;
+}
+
+.cell-rejected {
+    background-color: #fff1f0;
+    border: 2px solid #ff4d4f;
+}
+
+.cell-rejected:hover {
+    background-color: #ffa39e;
+}
+
+/* Làm mờ ngày quá khứ */
+.cell-past-date {
+    opacity: 0.6;
+}
+
+/* Thêm gạch chéo cho ô đã hủy hoặc từ chối */
+.cell-cancelled::before,
+.cell-rejected::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: linear-gradient(
+        to bottom right,
+        transparent calc(50% - 1px),
+        rgba(255, 77, 79, 0.3),
+        transparent calc(50% + 1px)
+    );
+}
+
+/* Tối ưu hóa hiển thị icon trạng thái */
+.calendar-cell svg {
+    transition: transform 0.3s ease;
+}
+
+.calendar-cell:hover svg {
+    transform: scale(1.2);
+}
+
+/* Thêm hiệu ứng cho ô đã check-in */
+.cell-checked-in::after {
+    content: "";
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: #52c41a;
+    bottom: 5px;
+    left: 5px;
+}

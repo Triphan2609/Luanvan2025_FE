@@ -105,6 +105,7 @@ const CustomerForm = ({
                 form.resetFields();
                 form.setFieldsValue({
                     type: CUSTOMER_TYPE.NORMAL,
+                    status: "active",
                 });
             }
             setFormError(null);
@@ -258,6 +259,11 @@ const CustomerForm = ({
                                     required: true,
                                     message: "Vui lòng nhập CCCD/Passport!",
                                 },
+                                {
+                                    pattern: /^[0-9]{9,12}$/,
+                                    message:
+                                        "CCCD/Passport phải có 9-12 chữ số",
+                                },
                             ]}
                         >
                             <Input placeholder="Nhập CCCD/Passport" />
@@ -316,6 +322,11 @@ const CustomerForm = ({
                         </Form.Item>
                     </Col>
                     <Col span={12}>
+                        {/*
+                         * Chi nhánh là bắt buộc trong quản lý khách hàng.
+                         * Khi thêm khách hàng từ phần quản lý khách sạn, branchId sẽ được tự động
+                         * thiết lập từ chi nhánh hiện tại đang sử dụng.
+                         */}
                         <Form.Item name="branchId" label="Chi nhánh">
                             <Select placeholder="Chọn chi nhánh">
                                 {branches.map((branch) => (

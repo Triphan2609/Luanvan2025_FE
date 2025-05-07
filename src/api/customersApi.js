@@ -24,17 +24,34 @@ const API_URL = `/customers`;
  */
 export const getCustomers = async (params = {}) => {
     try {
-        console.log("API Request params:", params);
+        const response = await apiClient.get(API_URL, { params });
 
-        // Specifically log status param for debugging
-        if (params.status) {
-            console.log(`Status filter being sent to API: ${params.status}`);
+        // Kiểm tra cấu trúc dữ liệu phản hồi
+        let customerData;
+
+        if (Array.isArray(response.data)) {
+            // Nếu response.data đã là mảng
+            customerData = response.data;
+        } else if (response.data && Array.isArray(response.data.data)) {
+            // Nếu response.data là object có thuộc tính data là mảng
+            customerData = response.data.data;
+        } else {
+            // Nếu không phải mảng, kiểm tra xem có thể gán vào mảng không
+            console.warn(
+                "API response structure is not as expected:",
+                response.data
+            );
+            customerData = [];
         }
 
-        const response = await apiClient.get(API_URL, { params });
-        console.log("API Response status:", response.status);
-        console.log("API Response total items:", response.data.total);
-        return response.data;
+        return {
+            data: customerData,
+            total: response.data.total || customerData.length || 0,
+            // Trả về các thông tin phân trang khác nếu có
+            page: response.data.page || 1,
+            limit: response.data.limit || customerData.length,
+            totalPages: response.data.totalPages || 1,
+        };
     } catch (error) {
         console.error("Error in getCustomers API:", error);
         throw (
@@ -161,12 +178,9 @@ export const updateBookingStats = async (id, amount) => {
 // Fetch customers by specific status (for debugging)
 export const getCustomersByStatus = async (status) => {
     try {
-        console.log(`Directly testing status filter with: ${status}`);
         const params = { status };
         const response = await apiClient.get(API_URL, { params });
-        console.log(
-            `Status filter test - found ${response.data.total} customers with status: ${status}`
-        );
+
         return response.data;
     } catch (error) {
         console.error("Error in getCustomersByStatus:", error);

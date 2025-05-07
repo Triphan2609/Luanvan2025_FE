@@ -121,6 +121,17 @@ export const getFloors = async () => {
     }
 };
 
+export const getFloorsByBranch = async (branchId) => {
+    try {
+        const response = await apiClient.get(`/floors/branch/${branchId}`);
+        return response.data;
+    } catch (error) {
+        console.error(`Error fetching floors for branch ${branchId}:`, error);
+        message.error("Không thể tải danh sách tầng theo chi nhánh");
+        return [];
+    }
+};
+
 export const updateAllRoomsBranch = async (branchId) => {
     try {
         const response = await apiClient.post(`${API_URL}/update-all-branch`, {
