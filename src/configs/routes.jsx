@@ -49,6 +49,9 @@ const PaymentHotel = lazy(() => import("../pages/Manager/Hotel/Payment/index"));
 const InvoiceHotel = lazy(() =>
     import("../pages/Manager/Hotel/Payment/Invoice/index")
 );
+const HotelPaymentManagement = lazy(() =>
+    import("../pages/Manager/Hotel/PaymentManagement/index")
+);
 
 const CustomerList = lazy(() =>
     import("../pages/Manager/Customer/ListCustomer/index")
@@ -60,6 +63,9 @@ const RewardManagement = lazy(() =>
     import("../pages/Manager/Customer/Rewards/index")
 );
 const Feedback = lazy(() => import("../pages/Manager/Customer/Feedback/index"));
+const PaymentManagement = lazy(() =>
+    import("../pages/Manager/Customer/PaymentManagement/index")
+);
 
 const EmployeeList = lazy(() =>
     import("../pages/Manager/Employee/ListEmployee/index")
@@ -167,8 +173,20 @@ const routes = [
                 element: <PaymentHotel />,
             },
             {
+                path: "/hotel/payment/:bookingId",
+                element: <PaymentHotel />,
+            },
+            {
                 path: "/hotel/payment/invoice/:id",
                 element: <InvoiceHotel />,
+            },
+            {
+                path: "/hotel/invoice/:id",
+                element: <InvoiceHotel />,
+            },
+            {
+                path: "/hotel/payment-management",
+                element: <HotelPaymentManagement />,
             },
 
             {
@@ -186,6 +204,10 @@ const routes = [
             {
                 path: "/customer/feedback",
                 element: <Feedback />,
+            },
+            {
+                path: "/customer/payment-management",
+                element: <PaymentManagement />,
             },
 
             {

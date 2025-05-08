@@ -29,6 +29,7 @@ import {
     CreditCardOutlined,
     ReloadOutlined,
 } from "@ant-design/icons";
+import { useNavigate, useLocation } from "react-router-dom";
 import dayjs from "dayjs";
 import BookingModal from "./Modals/BookingModal";
 import BookingDrawer from "./Drawer/BookingDrawer";
@@ -42,6 +43,7 @@ import {
     getBookingById,
     checkInBooking,
     checkOutBooking,
+    checkOutAndSetAvailable,
 } from "../../../../api/bookingsApi";
 
 const { Title, Text } = Typography;
@@ -90,12 +92,27 @@ const bookingStatus = {
 // ];
 
 export default function BookingManagement() {
+    const navigate = useNavigate();
+    const location = useLocation();
     const [bookings, setBookings] = useState([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingBooking, setEditingBooking] = useState(null);
     const [selectedBooking, setSelectedBooking] = useState(null);
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [filteredBookings, setFilteredBookings] = useState(null);
+
+    // Check for tab=2 query parameter and redirect to FrontDesk page if found
+    useEffect(() => {
+        const searchParams = new URLSearchParams(location.search);
+        const tabParam = searchParams.get("tab");
+
+        if (tabParam === "2") {
+            // Redirect to the FrontDesk page to show the calendar view
+            navigate("/hotel/front-desk?view=calendar");
+            return;
+        }
+    }, [location, navigate]);
 
     // Fetch bookings when component mounts
     useEffect(() => {
@@ -281,7 +298,8 @@ export default function BookingManagement() {
     const handleCheckOut = async (id) => {
         try {
             setLoading(true);
-            const updatedBooking = await checkOutBooking(id);
+            // Sử dụng API mới: checkOutAndSetAvailable thay vì checkOutBooking
+            const updatedBooking = await checkOutAndSetAvailable(id);
 
             // Cập nhật danh sách đặt phòng
             setBookings((prev) =>
@@ -293,7 +311,9 @@ export default function BookingManagement() {
                 setSelectedBooking(updatedBooking);
             }
 
-            message.success("Check-out thành công!");
+            message.success(
+                "Check-out thành công! Phòng đã được đặt trạng thái sẵn sàng để sử dụng ngay."
+            );
 
             // Tải lại dữ liệu để đảm bảo đồng bộ
             await fetchBookings();
@@ -308,96 +328,128 @@ export default function BookingManagement() {
         }
     };
 
+    // Cấu hình cột của bảng
     const columns = [
         {
             title: "Khách hàng",
-            dataIndex: "customerName",
             key: "customer",
-            sorter: (a, b) => a.customerName.localeCompare(b.customerName),
-            render: (name, record) => (
-                <Space direction="vertical" size={0}>
-                    <Text strong>{name}</Text>
-                    <Text type="secondary">
-                        <PhoneOutlined /> {record.phone}
-                    </Text>
-                </Space>
-            ),
+            sorter: (a, b) => {
+                const aName = a.customer?.name || a.customerName || "";
+                const bName = b.customer?.name || b.customerName || "";
+                return aName.localeCompare(bName);
+            },
+            render: (_, record) => {
+                const name =
+                    record.customer?.name ||
+                    record.customerName ||
+                    "Khách vãng lai";
+                const phone = record.customer?.phone || record.phone || "N/A";
+
+                return (
+                    <Space direction="vertical" size={0}>
+                        <Text strong>{name}</Text>
+                        <Text type="secondary">
+                            <PhoneOutlined /> {phone}
+                        </Text>
+                    </Space>
+                );
+            },
         },
         {
             title: "Phòng",
             key: "room",
-            filters: [...new Set(bookings.map((item) => item.roomType))].map(
-                (type) => ({
-                    text: type,
-                    value: type,
-                })
-            ),
-            onFilter: (value, record) => record.roomType === value,
-            render: (_, record) => (
-                <Space direction="vertical" size={0}>
-                    <Text>
-                        <HomeOutlined /> {record.roomNumber}
-                    </Text>
-                    <Text type="secondary">{record.roomType}</Text>
-                </Space>
-            ),
+            filters: [...new Set(bookings.map((b) => b.room?.roomCode))]
+                .filter(Boolean)
+                .map((roomCode) => ({
+                    text: roomCode,
+                    value: roomCode,
+                })),
+            onFilter: (value, record) => record.room?.roomCode === value,
+            render: (_, record) => {
+                const roomCode =
+                    record.room?.roomCode || record.roomNumber || "N/A";
+                const roomType =
+                    record.room?.roomType?.name || record.roomType || "N/A";
+
+                return (
+                    <Space direction="vertical" size={0}>
+                        <Text>
+                            <HomeOutlined /> {roomCode}
+                        </Text>
+                        <Text type="secondary">{roomType}</Text>
+                    </Space>
+                );
+            },
         },
         {
             title: "Check-in/out",
             key: "dates",
-            sorter: (a, b) => dayjs(a.checkIn).unix() - dayjs(b.checkIn).unix(),
-            render: (_, record) => (
-                <Space direction="vertical" size={0}>
-                    <Text>
-                        <CalendarOutlined />{" "}
-                        {dayjs(record.checkIn).format("DD/MM/YYYY")}
-                    </Text>
-                    <Text type="secondary">
-                        <CalendarOutlined />{" "}
-                        {dayjs(record.checkOut).format("DD/MM/YYYY")}
-                    </Text>
-                </Space>
-            ),
+            sorter: (a, b) =>
+                dayjs(a.checkIn || a.checkInDate).unix() -
+                dayjs(b.checkIn || b.checkInDate).unix(),
+            render: (_, record) => {
+                const checkIn = record.checkIn || record.checkInDate;
+                const checkOut = record.checkOut || record.checkOutDate;
+
+                return (
+                    <Space direction="vertical" size={0}>
+                        <Text>
+                            <CalendarOutlined />{" "}
+                            {dayjs(checkIn).format("DD/MM/YYYY")}
+                        </Text>
+                        <Text type="secondary">
+                            <CalendarOutlined />{" "}
+                            {dayjs(checkOut).format("DD/MM/YYYY")}
+                        </Text>
+                    </Space>
+                );
+            },
         },
         {
             title: "Số người",
             key: "guests",
-            render: (_, record) => (
-                <Space direction="vertical" size={0}>
-                    <Tag icon={<UserOutlined />} color="blue">
-                        {record.adults} người lớn
-                    </Tag>
-                    {record.children > 0 && (
-                        <Tag icon={<UserOutlined />} color="cyan">
-                            {record.children} trẻ em
+            render: (_, record) => {
+                const adults = record.adults || 1;
+                const children = record.children || 0;
+                const totalGuests = adults + children;
+
+                return (
+                    <div style={{ textAlign: "center" }}>
+                        <Tag icon={<UserOutlined />} color="blue">
+                            {totalGuests} người
+                            {children > 0
+                                ? ` (${adults} NL, ${children} TE)`
+                                : ""}
                         </Tag>
-                    )}
-                </Space>
-            ),
+                    </div>
+                );
+            },
         },
         {
             title: "Tổng tiền",
             dataIndex: "totalAmount",
             key: "amount",
             sorter: (a, b) => a.totalAmount - b.totalAmount,
-            render: (amount, record) => (
-                <Space direction="vertical" size={0}>
-                    <Text strong type="success">
-                        {amount.toLocaleString()}đ
-                    </Text>
-                    <Tag
-                        color={
-                            record.paymentStatus === "paid"
-                                ? "success"
-                                : "warning"
-                        }
-                    >
-                        {record.paymentStatus === "paid"
-                            ? "Đã thanh toán"
-                            : "Chưa thanh toán"}
-                    </Tag>
-                </Space>
-            ),
+            render: (amount, record) => {
+                const paymentStatus = record.paymentStatus || "unpaid";
+
+                return (
+                    <Space direction="vertical" size={0}>
+                        <Text strong type="success">
+                            {amount?.toLocaleString()}đ
+                        </Text>
+                        <Tag
+                            color={
+                                paymentStatus === "paid" ? "success" : "warning"
+                            }
+                        >
+                            {paymentStatus === "paid"
+                                ? "Đã thanh toán"
+                                : "Chưa thanh toán"}
+                        </Tag>
+                    </Space>
+                );
+            },
         },
         {
             title: "Trạng thái",
@@ -407,111 +459,69 @@ export default function BookingManagement() {
                 value: key,
             })),
             onFilter: (value, record) => record.status === value,
-            render: (_, record) => (
-                <Badge
-                    status={bookingStatus[record.status].color}
-                    text={bookingStatus[record.status].text}
-                />
-            ),
+            render: (_, record) => {
+                const status = record.status || "pending";
+                return (
+                    <Badge
+                        status={bookingStatus[status]?.color || "default"}
+                        text={bookingStatus[status]?.text || "Không xác định"}
+                    />
+                );
+            },
         },
         {
             title: "Thao tác",
             key: "actions",
-            width: 240,
+            width: 180,
             render: (_, record) => (
                 <Space>
-                    {record.status === "pending" && (
-                        <>
-                            <Popconfirm
-                                title="Xác nhận đặt phòng"
-                                description={`Xác nhận đặt phòng cho khách hàng ${record.customerName}?`}
-                                icon={
-                                    <CheckCircleOutlined
-                                        style={{ color: "#52c41a" }}
-                                    />
-                                }
-                                okText="Xác nhận"
-                                cancelText="Hủy"
-                                onConfirm={() =>
-                                    handleConfirmBooking(record.id)
-                                }
-                            >
-                                <Tooltip title="Xác nhận">
-                                    <Button
-                                        type="primary"
-                                        icon={<CheckCircleOutlined />}
-                                    />
-                                </Tooltip>
-                            </Popconfirm>
-
-                            <Popconfirm
-                                title="Từ chối đặt phòng"
-                                description={
-                                    <div>
-                                        <p>{`Bạn có chắc muốn từ chối đặt phòng của ${record.customerName}?`}</p>
-                                        <Input.TextArea
-                                            placeholder="Nhập lý do từ chối..."
-                                            onChange={(e) =>
-                                                (record.rejectReason =
-                                                    e.target.value)
-                                            }
-                                            rows={3}
-                                        />
-                                    </div>
-                                }
-                                icon={
-                                    <CloseCircleOutlined
-                                        style={{ color: "#ff4d4f" }}
-                                    />
-                                }
-                                okText="Từ chối"
-                                cancelText="Hủy"
-                                okButtonProps={{ danger: true }}
-                                onConfirm={() =>
-                                    handleRejectBooking(
-                                        record.id,
-                                        record.rejectReason
-                                    )
-                                }
-                            >
-                                <Tooltip title="Từ chối">
-                                    <Button
-                                        danger
-                                        icon={<CloseCircleOutlined />}
-                                    />
-                                </Tooltip>
-                            </Popconfirm>
-                        </>
-                    )}
                     <Tooltip title="Xem chi tiết">
                         <Button
                             icon={<EyeOutlined />}
                             onClick={() => handleView(record)}
                         />
                     </Tooltip>
-                    <Tooltip title="Chỉnh sửa">
-                        <Button
-                            icon={<EditOutlined />}
-                            onClick={() => handleEdit(record)}
-                            disabled={[
-                                "rejected",
-                                "cancelled",
-                                "checkedOut",
-                            ].includes(record.status)}
-                        />
-                    </Tooltip>
-                    <Popconfirm
-                        title="Xác nhận xóa"
-                        description="Bạn có chắc chắn muốn xóa đặt phòng này?"
-                        okText="Xóa"
-                        cancelText="Hủy"
-                        okButtonProps={{ danger: true }}
-                        onConfirm={() => handleDelete(record.id)}
-                    >
-                        <Tooltip title="Xóa">
-                            <Button danger icon={<DeleteOutlined />} />
+
+                    {/* Hiển thị nút chỉnh sửa khi trạng thái cho phép */}
+                    {!["rejected", "cancelled", "checkedOut"].includes(
+                        record.status
+                    ) && (
+                        <Tooltip title="Chỉnh sửa">
+                            <Button
+                                icon={<EditOutlined />}
+                                onClick={() => handleEdit(record)}
+                            />
                         </Tooltip>
-                    </Popconfirm>
+                    )}
+
+                    {/* Nút thanh toán khi chưa thanh toán */}
+                    {record.paymentStatus !== "paid" && (
+                        <Tooltip title="Thanh toán">
+                            <Button
+                                type="primary"
+                                icon={<CreditCardOutlined />}
+                                onClick={() =>
+                                    (window.location.href = `/hotel/payment/${record.id}`)
+                                }
+                            />
+                        </Tooltip>
+                    )}
+
+                    {/* Xóa chỉ khi cho phép */}
+                    {["pending", "confirmed"].includes(record.status) && (
+                        <Popconfirm
+                            title="Xác nhận xóa"
+                            description="Bạn có chắc chắn muốn xóa đặt phòng này?"
+                            okText="Xóa"
+                            cancelText="Hủy"
+                            okButtonProps={{ danger: true }}
+                            onConfirm={() => handleDelete(record.id)}
+                        >
+                            <Tooltip title="Xóa">
+                                <Button danger icon={<DeleteOutlined />} />
+                            </Tooltip>
+                        </Popconfirm>
+                    )}
                 </Space>
             ),
         },
@@ -544,17 +554,117 @@ export default function BookingManagement() {
                     </Space>
                 </Space>
 
+                {/* Bộ lọc và tìm kiếm */}
+                <Card size="small" style={{ marginBottom: 0 }}>
+                    <Space style={{ width: "100%" }} wrap>
+                        <Input
+                            placeholder="Tìm kiếm theo tên khách hàng"
+                            prefix={<SearchOutlined />}
+                            style={{ width: 240 }}
+                            allowClear
+                            onChange={(e) => {
+                                const searchText = e.target.value.toLowerCase();
+                                const filtered = bookings.filter((booking) => {
+                                    const customerName = (
+                                        booking.customer?.name ||
+                                        booking.customerName ||
+                                        ""
+                                    ).toLowerCase();
+                                    return customerName.includes(searchText);
+                                });
+                                setFilteredBookings(filtered);
+                            }}
+                        />
+                        <RangePicker
+                            placeholder={["Check-in", "Check-out"]}
+                            onChange={(dates) => {
+                                if (!dates || dates.length === 0) {
+                                    setFilteredBookings(bookings);
+                                    return;
+                                }
+
+                                const [start, end] = dates;
+                                const filtered = bookings.filter((booking) => {
+                                    const checkIn = dayjs(
+                                        booking.checkIn || booking.checkInDate
+                                    );
+                                    const checkOut = dayjs(
+                                        booking.checkOut || booking.checkOutDate
+                                    );
+
+                                    return (
+                                        (!start ||
+                                            checkIn.isSameOrAfter(
+                                                start,
+                                                "day"
+                                            )) &&
+                                        (!end ||
+                                            checkOut.isSameOrBefore(end, "day"))
+                                    );
+                                });
+
+                                setFilteredBookings(filtered);
+                            }}
+                        />
+                        <Select
+                            placeholder="Trạng thái"
+                            style={{ width: 150 }}
+                            allowClear
+                            options={Object.entries(bookingStatus).map(
+                                ([key, value]) => ({
+                                    label: value.text,
+                                    value: key,
+                                })
+                            )}
+                            onChange={(value) => {
+                                if (!value) {
+                                    setFilteredBookings(bookings);
+                                    return;
+                                }
+
+                                const filtered = bookings.filter(
+                                    (booking) => booking.status === value
+                                );
+                                setFilteredBookings(filtered);
+                            }}
+                        />
+                        <Select
+                            placeholder="Thanh toán"
+                            style={{ width: 150 }}
+                            allowClear
+                            options={[
+                                { label: "Đã thanh toán", value: "paid" },
+                                { label: "Chưa thanh toán", value: "unpaid" },
+                            ]}
+                            onChange={(value) => {
+                                if (!value) {
+                                    setFilteredBookings(bookings);
+                                    return;
+                                }
+
+                                const filtered = bookings.filter(
+                                    (booking) => booking.paymentStatus === value
+                                );
+                                setFilteredBookings(filtered);
+                            }}
+                        />
+                    </Space>
+                </Card>
+
                 <Table
                     columns={columns}
-                    dataSource={bookings}
+                    dataSource={filteredBookings || bookings}
                     rowKey="id"
                     loading={loading}
                     pagination={{
                         pageSize: 10,
-                        showTotal: (total) => `Tổng số ${total} đặt phòng`,
                         showSizeChanger: true,
-                        showQuickJumper: true,
+                        showTotal: (total, range) =>
+                            `Tổng số ${total} đặt phòng`,
                     }}
+                    bordered
+                    size="middle"
+                    scroll={{ x: "max-content" }}
                 />
             </Space>
 

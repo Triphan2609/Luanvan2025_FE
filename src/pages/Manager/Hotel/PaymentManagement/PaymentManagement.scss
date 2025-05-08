@@ -1,0 +1,150 @@
+.hotel-invoice-management {
+    margin: 24px;
+
+    .invoice-card {
+        margin-bottom: 24px;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+
+        .ant-card-head {
+            background-color: #fafafa;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .ant-card-head-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+    }
+
+    .statistics-section {
+        margin-bottom: 20px;
+
+        .statistic-card {
+            height: 100%;
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+
+            .ant-statistic-title {
+                font-size: 14px;
+                color: rgba(0, 0, 0, 0.65);
+                margin-bottom: 8px;
+            }
+
+            .ant-statistic-content {
+                font-size: 22px;
+                font-weight: 600;
+            }
+        }
+
+        .revenue-card {
+            .ant-statistic-content {
+                color: #3f8600;
+            }
+        }
+    }
+
+    .filter-card {
+        margin-bottom: 20px;
+        border-radius: 4px;
+
+        .ant-card-head {
+            min-height: 48px;
+            padding: 8px 16px;
+            background-color: #f5f5f5;
+        }
+
+        .ant-card-body {
+            padding: 16px;
+        }
+    }
+
+    .table-card {
+        border-radius: 4px;
+
+        .ant-card-body {
+            padding: 16px;
+        }
+
+        .ant-table-thead > tr > th {
+            background-color: #f5f5f5;
+            font-weight: 600;
+            color: rgba(0, 0, 0, 0.85);
+        }
+
+        .ant-table-row:hover {
+            cursor: pointer;
+        }
+
+        .ant-table-pagination {
+            margin: 16px 0 0;
+        }
+    }
+
+    .ant-badge {
+        margin-right: 4px;
+    }
+
+    .ant-btn-text:hover {
+        background-color: rgba(0, 0, 0, 0.05);
+    }
+
+    // Styles for the invoice detail modal
+    .invoice-detail {
+        .ant-descriptions {
+            margin-bottom: 16px;
+
+            .ant-descriptions-title {
+                font-size: 16px;
+                margin-bottom: 12px;
+            }
+
+            .ant-descriptions-item-label {
+                font-weight: 500;
+                color: rgba(0, 0, 0, 0.65);
+                background-color: #fafafa;
+            }
+        }
+
+        .payment-details {
+            .ant-descriptions-item-label {
+                width: 30%;
+            }
+
+            .final-amount {
+                .ant-descriptions-item-label,
+                .ant-descriptions-item-content {
+                    background-color: #f0f7ff;
+                }
+            }
+        }
+
+        .notes-section {
+            padding: 12px;
+            background-color: #fafafa;
+            border-radius: 4px;
+
+            h5 {
+                margin-top: 0;
+                margin-bottom: 8px;
+                color: rgba(0, 0, 0, 0.85);
+            }
+        }
+    }
+
+    .loading-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 300px;
+    }
+
+    .no-data {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 200px;
+        background-color: #fafafa;
+        border-radius: 4px;
+        color: rgba(0, 0, 0, 0.45);
+    }
+}

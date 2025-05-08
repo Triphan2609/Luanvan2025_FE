@@ -26,6 +26,7 @@ import {
     Radio,
     Descriptions,
     List,
+    Form,
 } from "antd";
 import {
     HomeOutlined,
@@ -56,7 +57,10 @@ import {
     BarsOutlined,
     CheckSquareOutlined,
     StopOutlined,
+    CreditCardOutlined,
+    DollarOutlined,
 } from "@ant-design/icons";
+import { useNavigate, useLocation } from "react-router-dom";
 import FrontDeskBookingModal from "./Modals/FrontDeskBookingModal";
 import BookingDetailDrawer from "./Drawer/BookingDetailDrawer";
 import CustomerSelectModal from "./Modals/CustomerSelectModal";
@@ -78,11 +82,13 @@ import {
     getRoomAvailabilityCalendar,
     checkInBooking,
     checkOutBooking,
+    checkOutAndSetAvailable,
     confirmBooking,
     cancelBooking,
     deleteBooking,
 } from "../../../../api/bookingsApi";
 import { getCustomers, createCustomer } from "../../../../api/customersApi";
+import { createPayment, getPaymentMethods } from "../../../../api/paymentsApi";
 import dayjs from "dayjs";
 import * as XLSX from "xlsx";
 import "./fontdesk.css";
@@ -98,6 +104,8 @@ const roomStatuses = {
 };
 
 export default function FrontDeskBooking() {
+    const navigate = useNavigate();
+    const location = useLocation();
     const [rooms, setRooms] = useState([]);
     const [roomTypes, setRoomTypes] = useState([]);
     const [floors, setFloors] = useState([]);
@@ -106,6 +114,7 @@ export default function FrontDeskBooking() {
     const [selectedType, setSelectedType] = useState(null);
     const [selectedStatus, setSelectedStatus] = useState("Available");
     const [selectedBranch, setSelectedBranch] = useState(null);
+    const [selectedBranchName, setSelectedBranchName] = useState("");
     const [searchKeyword, setSearchKeyword] = useState("");
     const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
     const [isDetailDrawerOpen, setIsDetailDrawerOpen] = useState(false);
@@ -146,10 +155,22 @@ export default function FrontDeskBooking() {
     const [roomDetailData, setRoomDetailData] = useState(null);
     const [isFilterDrawerVisible, setIsFilterDrawerVisible] = useState(false);
 
+    // Detect URL parameter view=calendar to switch to calendar view
+    useEffect(() => {
+        const searchParams = new URLSearchParams(location.search);
+        const viewParam = searchParams.get("view");
+
+        if (viewParam === "calendar") {
+            setActiveTab("2");
+            setIsCalendarView(true);
+        }
+    }, [location]);
+
     // Fetch data on component mount
     useEffect(() => {
         fetchBranches();
         fetchCustomers();
+        fetchPaymentMethods();
     }, []);
 
     // Fetch floors and room types when branch is selected
@@ -157,6 +178,8 @@ export default function FrontDeskBooking() {
         if (selectedBranch) {
             fetchFloorsByBranch(selectedBranch);
             fetchRoomTypes();
+            // Also reload customers when branch changes
+            fetchCustomers();
         }
     }, [selectedBranch]);
 
@@ -237,6 +260,7 @@ export default function FrontDeskBooking() {
             // Auto-select the first branch if no branch is selected
             if (hotelBranches.length > 0 && !selectedBranch) {
                 setSelectedBranch(hotelBranches[0].id);
+                setSelectedBranchName(hotelBranches[0].name);
             }
         } catch (error) {
             console.error("Failed to fetch hotel branches:", error);
@@ -284,7 +308,11 @@ export default function FrontDeskBooking() {
     const fetchCustomers = async () => {
         try {
             setLoading(true);
-            const response = await getCustomers();
+            // Filter customers by selected branch if available
+            const params = selectedBranch ? { branchId: selectedBranch } : {};
+            console.log("Fetching customers with params:", params);
+
+            const response = await getCustomers(params);
 
             // Kiểm tra cấu trúc dữ liệu trả về
             if (Array.isArray(response)) {
@@ -438,11 +466,51 @@ export default function FrontDeskBooking() {
                                     ? roomData.room.status
                                     : null;
 
+                            // Xác định trạng thái dọn dẹp đặc biệt
+                            let isCleaningDay = false;
+
+                            // Kiểm tra trạng thái dọn dẹp
+                            if (roomData.room.status === "Cleaning") {
+                                // So sánh chính xác ngày hiện tại với ngày dọn dẹp
+                                const currentDateStr = dayjs(
+                                    dayData.date
+                                ).format("YYYY-MM-DD");
+
+                                // Kiểm tra với cleaningDate từ thông tin phòng
+                                if (roomData.room.cleaningDate) {
+                                    // So sánh chuỗi dạng YYYY-MM-DD để tránh lỗi timezone
+                                    isCleaningDay =
+                                        currentDateStr ===
+                                        roomData.room.cleaningDate;
+
+                                    // Log chi tiết nếu là phòng đang theo dõi
+                                    if (
+                                        ["P102", "P103", "P104"].includes(
+                                            roomData.room.roomCode
+                                        )
+                                    ) {
+                                        console.log(
+                                            `Room ${roomData.room.roomCode}, Date: ${currentDateStr}, ` +
+                                                `cleaningDate: ${roomData.room.cleaningDate}, ` +
+                                                `isCleaningDay: ${isCleaningDay}, ` +
+                                                `status: ${roomData.room.status}`
+                                        );
+                                    }
+                                } else {
+                                    // Nếu không có cleaningDate, mặc định là ngày hiện tại
+                                    isCleaningDay = dayjs(dayData.date).isSame(
+                                        dayjs(),
+                                        "day"
+                                    );
+                                }
+                            }
+
                             return {
                                 ...dayData,
                                 date: formattedDate,
                                 dateStr, // Thêm trường dateStr để dễ dàng debug
                                 roomStatus, // Thêm trạng thái phòng nếu không available và không có booking
+                                isCleaningDay, // Thêm flag để xác định ngày dọn dẹp
                                 // Đảm bảo booking nếu có đầy đủ thông tin
                                 booking: dayData.booking
                                     ? {
@@ -529,6 +597,18 @@ export default function FrontDeskBooking() {
         }
     };
 
+    const fetchPaymentMethods = async () => {
+        try {
+            setLoading(true);
+            const methods = await getPaymentMethods();
+            setPaymentMethods(methods);
+        } catch (error) {
+            console.error("Failed to fetch payment methods:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleRoomClick = (room) => {
         setSelectedRoom(room);
         // Thiết lập khoảng thời gian đặt phòng mặc định (hôm nay đến ngày mai)
@@ -543,7 +623,14 @@ export default function FrontDeskBooking() {
 
             const newBooking = await createBooking(bookingData);
             message.success("Đặt phòng thành công!");
+
+            // Đóng modal đặt phòng
             setIsBookingModalOpen(false);
+
+            // Reset các state liên quan đến form đặt phòng
+            setSelectedRoom(null);
+            setSelectedCustomer(null);
+            setBookingDateRange([dayjs(), dayjs().add(1, "day")]);
 
             // Chỉ refresh dữ liệu phòng nếu đang ở chế độ xem danh sách
             if (!isCalendarView) {
@@ -576,45 +663,59 @@ export default function FrontDeskBooking() {
     const handleAddCustomer = async (customerData) => {
         try {
             setLoading(true);
-            console.log("Thêm khách hàng với dữ liệu:", {
+
+            // Ensure we have the correct branch ID
+            const dataToSubmit = {
                 ...customerData,
                 branchId: customerData.branchId || selectedBranch,
-            });
+            };
 
-            // Đảm bảo branchId từ chi nhánh hiện tại nếu chưa có
-            if (!customerData.branchId && selectedBranch) {
-                customerData.branchId = selectedBranch;
-            }
+            console.log("Submitting customer data:", dataToSubmit);
 
-            const newCustomer = await createCustomer(customerData);
-            console.log("New customer created:", newCustomer);
+            // Call the API to create a new customer
+            const response = await createCustomer(dataToSubmit);
 
-            // Kiểm tra và xử lý kết quả trả về
-            if (newCustomer) {
-                message.success("Thêm khách hàng thành công!");
+            if (response) {
+                message.success("Thêm khách hàng mới thành công!");
+
+                // Close the modal
                 setIsAddCustomerModalOpen(false);
 
-                // Thêm khách hàng mới vào danh sách hiện tại
-                // Đảm bảo customers là mảng
+                // Add the new customer to our local state
+                const newCustomer = response;
                 const updatedCustomers = Array.isArray(customers)
-                    ? [...customers]
-                    : [];
-                updatedCustomers.push(newCustomer);
+                    ? [...customers, newCustomer]
+                    : [newCustomer];
+
                 setCustomers(updatedCustomers);
 
-                // Chọn khách hàng mới tạo
+                // Select the newly created customer
                 setSelectedCustomer(newCustomer);
+
+                // If we're in the booking modal flow, open it with the new customer
+                if (selectedRoom) {
+                    // The booking modal will pick up the new selectedCustomer
+                    console.log("Selected new customer:", newCustomer);
+                }
+
+                // Refresh customers list
+                fetchCustomers();
             } else {
                 message.error(
-                    "Lỗi khi thêm khách hàng: Dữ liệu trả về không hợp lệ"
+                    "Không thể thêm khách hàng: Phản hồi từ máy chủ không hợp lệ"
                 );
             }
         } catch (error) {
-            console.error("Failed to add customer:", error);
-            message.error(
-                "Thêm khách hàng thất bại: " +
-                    (error.message || "Lỗi không xác định")
-            );
+            console.error("Error adding customer:", error);
+
+            let errorMessage = "Lỗi khi thêm khách hàng";
+            if (error.response?.data?.message) {
+                errorMessage = error.response.data.message;
+            } else if (error.message) {
+                errorMessage = error.message;
+            }
+
+            message.error(errorMessage);
         } finally {
             setLoading(false);
         }
@@ -673,108 +774,19 @@ export default function FrontDeskBooking() {
     const handleCheckOut = async (bookingId) => {
         try {
             setLoading(true);
-            // Checkout booking
-            const updatedBooking = await checkOutBooking(bookingId);
-            message.success("Check-out thành công!");
 
-            // Refresh booking details
-            setSelectedBooking(updatedBooking);
+            // Lấy thông tin booking để hiển thị chi tiết
+            const bookingDetails = await getBookingById(bookingId);
 
-            // Tự động chuyển trạng thái phòng sang "Đang dọn"
-            if (
-                updatedBooking &&
-                updatedBooking.room &&
-                updatedBooking.room.id
-            ) {
-                const roomId = updatedBooking.room.id;
+            // Gọi API mới checkout và set status phòng về available luôn (bỏ qua trạng thái dọn)
+            await checkOutAndSetAvailable(bookingId);
 
-                // Tính thời gian kết thúc dọn phòng (mặc định 20 phút)
-                const cleaningEndDate = new Date(
-                    new Date().getTime() + 20 * 60000
-                );
-
-                // Cập nhật trạng thái phòng
-                await updateRoomStatus(roomId, "Cleaning", {
-                    cleaningEndDate: cleaningEndDate.toISOString(),
-                });
-
-                message.info(
-                    "Phòng đã được chuyển sang trạng thái Đang dọn (20 phút)"
-                );
-
-                // Cập nhật lại lịch đặt phòng nếu đang ở chế độ calendar view
-                if (isCalendarView) {
-                    console.log(
-                        "Refreshing calendar after check-out with forceRefresh=true"
-                    );
-                    await fetchAvailabilityCalendar(true);
-                } else {
-                    // Nếu không ở chế độ calendar view, chỉ cần cập nhật danh sách phòng
-                    fetchRooms();
-                }
-            } else {
-                // Nếu không có thông tin phòng, tải lại toàn bộ dữ liệu
-                if (isCalendarView) {
-                    fetchAvailabilityCalendar(true);
-                } else {
-                    fetchRooms();
-                }
-            }
+            // Chuyển hướng đến trang thanh toán
+            navigate(`/hotel/payment/${bookingId}`);
         } catch (error) {
-            console.error("Failed to check out:", error);
+            console.error("Failed to prepare checkout:", error);
             message.error(
-                "Check-out thất bại: " + (error.message || "Lỗi không xác định")
-            );
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    // Thêm hàm để tải thông tin chi tiết đặt phòng
-    const showBookingDetails = async (booking) => {
-        try {
-            setLoading(true);
-            // Nếu booking không có đủ thông tin chi tiết, tải lại từ API
-            if (!booking.room || !booking.customer) {
-                const bookingDetail = await getBookingById(booking.id);
-                setSelectedBooking(bookingDetail);
-            } else {
-                // Nếu đã có đủ thông tin thì dùng trực tiếp
-                setSelectedBooking(booking);
-            }
-            setIsDetailDrawerOpen(true);
-        } catch (error) {
-            console.error("Failed to get booking details:", error);
-            message.error("Không thể tải thông tin chi tiết đặt phòng");
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    // Thêm hàm xử lý xác nhận đặt phòng
-    const handleConfirmBooking = async (bookingId) => {
-        try {
-            setLoading(true);
-            const updatedBooking = await confirmBooking(bookingId);
-            message.success("Đặt phòng đã được xác nhận thành công!");
-
-            // Cập nhật thông tin booking sau khi xác nhận
-            setSelectedBooking(updatedBooking);
-
-            // Cập nhật lại lịch đặt phòng nếu đang ở chế độ calendar view
-            if (isCalendarView) {
-                console.log(
-                    "Refreshing calendar after confirming booking with forceRefresh=true"
-                );
-                await fetchAvailabilityCalendar(true);
-            } else {
-                // Nếu không ở chế độ lịch, tải lại lịch
-                fetchAvailabilityCalendar(true);
-            }
-        } catch (error) {
-            console.error("Failed to confirm booking:", error);
-            message.error(
-                "Xác nhận đặt phòng thất bại: " +
+                "Không thể chuẩn bị thông tin thanh toán: " +
                     (error.message || "Lỗi không xác định")
             );
         } finally {
@@ -798,9 +810,6 @@ export default function FrontDeskBooking() {
                     "Refreshing calendar after cancelling booking with forceRefresh=true"
                 );
                 await fetchAvailabilityCalendar(true);
-            } else {
-                // Nếu không ở chế độ lịch, tải lại lịch
-                fetchAvailabilityCalendar(true);
             }
         } catch (error) {
             console.error("Failed to cancel booking:", error);
@@ -1028,12 +1037,25 @@ export default function FrontDeskBooking() {
         }
     };
 
+    // Define a handler for branch selection
+    const handleBranchChange = (branchId) => {
+        setSelectedBranch(branchId);
+
+        // Find the branch name
+        const selectedBranchObj = branches.find(
+            (branch) => branch.id === branchId
+        );
+        if (selectedBranchObj) {
+            setSelectedBranchName(selectedBranchObj.name);
+        }
+    };
+
     const renderFilters = () => (
         <Space direction="vertical" style={{ width: "100%" }}>
             <Space wrap>
                 <Select
                     value={selectedBranch}
-                    onChange={setSelectedBranch}
+                    onChange={handleBranchChange}
                     placeholder="Chọn chi nhánh"
                     style={{ width: 180 }}
                     options={branches.map((branch) => ({
@@ -1095,34 +1117,6 @@ export default function FrontDeskBooking() {
                 <Button icon={<ReloadOutlined />} onClick={handleResetFilters}>
                     Đặt lại
                 </Button>
-            </Space>
-
-            <Space>
-                <Statistic
-                    title="Tổng số phòng"
-                    value={stats.total}
-                    valueStyle={{ fontSize: "16px" }}
-                />
-                <Statistic
-                    title="Còn trống"
-                    value={stats.available}
-                    valueStyle={{ color: "#52c41a", fontSize: "16px" }}
-                />
-                <Statistic
-                    title="Đã đặt"
-                    value={stats.booked}
-                    valueStyle={{ color: "#f5222d", fontSize: "16px" }}
-                />
-                <Statistic
-                    title="Đang dọn"
-                    value={stats.cleaning}
-                    valueStyle={{ color: "#faad14", fontSize: "16px" }}
-                />
-                <Statistic
-                    title="Bảo trì"
-                    value={stats.maintenance}
-                    valueStyle={{ color: "#1890ff", fontSize: "16px" }}
-                />
             </Space>
         </Space>
     );
@@ -1574,49 +1568,49 @@ export default function FrontDeskBooking() {
                                 <div className="calendar-legend">
                                     <div className="legend-item">
                                         <Badge
-                                            color="#b7eb8f"
+                                            color="#389e0d"
                                             text="Có thể đặt"
                                         />
                                     </div>
                                     <div className="legend-item">
                                         <Badge
-                                            color="#fff7e6"
+                                            color="#faad14"
                                             text="Chờ xác nhận"
                                         />
                                     </div>
                                     <div className="legend-item">
                                         <Badge
-                                            color="#e6f7ff"
+                                            color="#1890ff"
                                             text="Đã xác nhận"
                                         />
                                     </div>
                                     <div className="legend-item">
                                         <Badge
-                                            color="#f6ffed"
+                                            color="#52c41a"
                                             text="Đã check-in"
                                         />
                                     </div>
                                     <div className="legend-item">
                                         <Badge
-                                            color="#f5f5f5"
+                                            color="#8c8c8c"
                                             text="Đã check-out"
                                         />
                                     </div>
                                     <div className="legend-item">
                                         <Badge
-                                            color="#fff1f0"
+                                            color="#f5222d"
                                             text="Đã hủy/Từ chối"
                                         />
                                     </div>
                                     <div className="legend-item">
                                         <Badge
-                                            color="#e6f7ff"
+                                            color="#1890ff"
                                             text="Đang bảo trì"
                                         />
                                     </div>
                                     <div className="legend-item">
                                         <Badge
-                                            color="#fff7e6"
+                                            color="#faad14"
                                             text="Đang dọn"
                                         />
                                     </div>
@@ -1681,12 +1675,6 @@ export default function FrontDeskBooking() {
                                                 <p>
                                                     • Một phòng có thể được đặt
                                                     cho nhiều ngày khác nhau.
-                                                </p>
-                                                <p>
-                                                    • Chỉ có ngày đã đặt (màu
-                                                    vàng/xanh dương) mới bị
-                                                    khoá, các ngày khác vẫn có
-                                                    thể đặt.
                                                 </p>
                                             </>
                                         }
@@ -1838,8 +1826,7 @@ export default function FrontDeskBooking() {
                                                                 </div>
                                                                 <div className="room-price">
                                                                     <BankOutlined />{" "}
-                                                                    {roomData.room.price?.toLocaleString() ||
-                                                                        "0"}
+                                                                    {roomData.room.price?.toLocaleString()}
                                                                     đ/đêm
                                                                 </div>
                                                             </div>
@@ -2048,13 +2035,43 @@ export default function FrontDeskBooking() {
                                                                 }
                                                                 // Nếu phòng đang được dọn dẹp
                                                                 else if (
-                                                                    roomData
+                                                                    (roomData
                                                                         .room
                                                                         .status ===
                                                                         "Cleaning" ||
-                                                                    dayData.roomStatus ===
-                                                                        "Cleaning"
+                                                                        dayData.roomStatus ===
+                                                                            "Cleaning") &&
+                                                                    dayData.isCleaningDay
                                                                 ) {
+                                                                    // Log chi tiết khi render cell cho các phòng đang theo dõi
+                                                                    if (
+                                                                        [
+                                                                            "P102",
+                                                                            "P103",
+                                                                            "P104",
+                                                                        ].includes(
+                                                                            roomData
+                                                                                .room
+                                                                                .roomCode
+                                                                        )
+                                                                    ) {
+                                                                        console.log(
+                                                                            `Rendering cleaning cell for ${
+                                                                                roomData
+                                                                                    .room
+                                                                                    .roomCode
+                                                                            } on ${dayjs(
+                                                                                dayData.date
+                                                                            ).format(
+                                                                                "YYYY-MM-DD"
+                                                                            )}, cleaningDate=${
+                                                                                roomData
+                                                                                    .room
+                                                                                    .cleaningDate
+                                                                            }`
+                                                                        );
+                                                                    }
+
                                                                     statusClass =
                                                                         "cell-cleaning";
                                                                     statusIcon =
@@ -2202,6 +2219,74 @@ export default function FrontDeskBooking() {
         );
     };
 
+    // Hàm xử lý khi đóng modal đặt phòng
+    const handleCloseBookingModal = () => {
+        // Đóng modal
+        setIsBookingModalOpen(false);
+
+        // Reset các state liên quan đến form đặt phòng
+        setSelectedRoom(null);
+        setSelectedCustomer(null);
+        setBookingDateRange([dayjs(), dayjs().add(1, "day")]);
+    };
+
+    // Thêm hàm xử lý xác nhận đặt phòng
+    const handleConfirmBooking = async (bookingId) => {
+        try {
+            setLoading(true);
+            const updatedBooking = await confirmBooking(bookingId);
+            message.success("Đặt phòng đã được xác nhận thành công!");
+
+            // Cập nhật thông tin booking sau khi xác nhận
+            setSelectedBooking(updatedBooking);
+
+            // Đảm bảo drawer vẫn mở sau khi xác nhận đặt phòng
+            setIsDetailDrawerOpen(true);
+
+            // Cập nhật lại lịch đặt phòng nếu đang ở chế độ calendar view
+            if (isCalendarView) {
+                console.log(
+                    "Refreshing calendar after confirming booking with forceRefresh=true"
+                );
+                await fetchAvailabilityCalendar(true);
+            }
+        } catch (error) {
+            console.error("Failed to confirm booking:", error);
+            message.error(
+                "Xác nhận đặt phòng thất bại: " +
+                    (error.message || "Lỗi không xác định")
+            );
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Thêm hàm để tải thông tin chi tiết đặt phòng
+    const showBookingDetails = async (booking) => {
+        try {
+            setLoading(true);
+            console.log("Opening booking details for:", booking);
+
+            // Nếu booking không có đủ thông tin chi tiết, tải lại từ API
+            if (!booking.room || !booking.customer) {
+                console.log("Loading full booking details from API");
+                const bookingDetail = await getBookingById(booking.id);
+                setSelectedBooking(bookingDetail);
+            } else {
+                // Nếu đã có đủ thông tin thì dùng trực tiếp
+                setSelectedBooking(booking);
+            }
+
+            // Mở drawer hiển thị chi tiết
+            setIsDetailDrawerOpen(true);
+        } catch (error) {
+            console.error("Failed to get booking details:", error);
+            message.error("Không thể tải thông tin chi tiết đặt phòng");
+        } finally {
+            setLoading(false);
+        }
+    };
+
     return (
         <Card
             title={
@@ -2257,7 +2342,7 @@ export default function FrontDeskBooking() {
 
             <FrontDeskBookingModal
                 open={isBookingModalOpen}
-                onCancel={() => setIsBookingModalOpen(false)}
+                onCancel={handleCloseBookingModal}
                 onOpenCustomerSelect={() => setIsCustomerSelectModalOpen(true)}
                 onSubmit={handleBookingSubmit}
                 room={selectedRoom}
@@ -2286,6 +2371,7 @@ export default function FrontDeskBooking() {
                     setIsCustomerSelectModalOpen(false);
                     setIsAddCustomerModalOpen(true);
                 }}
+                branchName={selectedBranchName}
             />
 
             <AddCustomerModal
@@ -2460,6 +2546,8 @@ export default function FrontDeskBooking() {
             </Drawer>
 
             {/* CSS for the availability calendar */}
+
+            {/* REMOVE Payment Modal from here */}
         </Card>
     );
 }

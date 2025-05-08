@@ -149,39 +149,79 @@ const items = [
         label: "Quản lý Khách sạn",
         children: [
             {
+                type: "group",
                 key: "rooms",
-                icon: <HomeOutlined />,
-                label: <Link to="/hotel/rooms">Quản lý phòng</Link>,
+                label: "Phòng",
+                children: [
+                    {
+                        key: "floors",
+                        icon: <OrderedListOutlined />,
+                        label: <Link to="/hotel/floors">Quản lý tầng</Link>,
+                    },
+                    {
+                        key: "rooms",
+                        icon: <HomeOutlined />,
+                        label: <Link to="/hotel/rooms">Quản lý phòng</Link>,
+                    },
+                    {
+                        key: "room-types",
+                        icon: <AppstoreOutlined />,
+                        label: (
+                            <Link to="/hotel/room-types">
+                                Quản lý loại phòng
+                            </Link>
+                        ),
+                    },
+                    {
+                        key: "amenities",
+                        icon: <TagOutlined />,
+                        label: (
+                            <Link to="/hotel/amenities">Quản lý tiện nghi</Link>
+                        ),
+                    },
+                    {
+                        key: "stuff",
+                        icon: <OrderedListOutlined />,
+                        label: (
+                            <Link to="/hotel/room-stuffs">
+                                Quản lý vật dụng
+                            </Link>
+                        ),
+                    },
+                ],
             },
             {
-                key: "room-types",
-                icon: <AppstoreOutlined />,
-                label: <Link to="/hotel/room-types">Quản lý loại phòng</Link>,
-            },
-            {
-                key: "floors",
-                icon: <OrderedListOutlined />,
-                label: <Link to="/hotel/floors">Quản lý tầng</Link>,
-            },
-            {
-                key: "amenities",
-                icon: <TagOutlined />,
-                label: <Link to="/hotel/amenities">Quản lý tiện nghi</Link>,
-            },
-            {
+                type: "group",
                 key: "bookings",
-                icon: <ScheduleOutlined />,
-                label: <Link to="/hotel/bookings">Quản lý đặt phòng</Link>,
-            },
-            {
-                key: "front-desk",
-                icon: <AuditOutlined />,
-                label: <Link to="/hotel/front-desk">Đặt phòng - Lễ tân</Link>,
-            },
-            {
-                key: "stuff",
-                icon: <OrderedListOutlined />,
-                label: <Link to="/hotel/room-stuffs">Quản lý vật dụng</Link>,
+                label: "Đặt phòng",
+                children: [
+                    {
+                        key: "front-desk",
+                        icon: <AuditOutlined />,
+                        label: (
+                            <Link to="/hotel/front-desk">
+                                Đặt phòng - Lễ tân
+                            </Link>
+                        ),
+                    },
+                    {
+                        key: "bookings",
+                        icon: <ScheduleOutlined />,
+                        label: (
+                            <Link to="/hotel/bookings">Quản lý đặt phòng</Link>
+                        ),
+                    },
+
+                    {
+                        key: "hotel-payment-management",
+                        icon: <DollarOutlined />,
+                        label: (
+                            <Link to="/hotel/payment-management">
+                                Quản lý hóa đơn
+                            </Link>
+                        ),
+                    },
+                ],
             },
         ],
     },
@@ -212,6 +252,15 @@ const items = [
                 key: "rewards",
                 icon: <GiftOutlined />,
                 label: <Link to="/customer/rewards">Quản lý ưu đãi quà</Link>,
+            },
+            {
+                key: "payment-management",
+                icon: <DollarOutlined />,
+                label: (
+                    <Link to="/customer/payment-management">
+                        Quản lý thanh toán
+                    </Link>
+                ),
             },
             {
                 key: "feedback",

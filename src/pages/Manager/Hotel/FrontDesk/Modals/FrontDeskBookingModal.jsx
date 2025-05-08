@@ -71,9 +71,13 @@ export default function FrontDeskBookingModal({
     // Reset form when modal opens
     useEffect(() => {
         if (open && room) {
+            // Reset form fields
             form.resetFields();
+
+            // Reset component state
             setCustomerType(selectedCustomer ? "registered" : "walkIn");
             setSaveCustomerInfo(true);
+            setSourceValue("walkIn");
 
             // Set default values
             form.setFieldsValue({
@@ -85,6 +89,14 @@ export default function FrontDeskBookingModal({
                 paymentStatus: "unpaid",
                 source: "walkIn",
                 saveCustomer: true,
+                // Reset customer fields if no customer is selected
+                customerName: selectedCustomer?.name || "",
+                customerPhone: selectedCustomer?.phone || "",
+                customerIdCard: selectedCustomer?.idNumber || "",
+                totalAmount:
+                    booking && booking.length === 2 && room.price
+                        ? booking[1].diff(booking[0], "day") * room.price
+                        : room.price,
             });
 
             // Calculate nights and total amount

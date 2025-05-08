@@ -8,6 +8,7 @@ import {
     Tag,
     Typography,
     Tooltip,
+    Alert,
 } from "antd";
 import {
     UserOutlined,
@@ -16,6 +17,7 @@ import {
     PlusOutlined,
     MailOutlined,
     CreditCardOutlined,
+    BankOutlined,
 } from "@ant-design/icons";
 import dayjs from "dayjs";
 
@@ -27,6 +29,7 @@ export default function CustomerSelectModal({
     customers,
     onSelect,
     onAddNew,
+    branchName,
 }) {
     const [searchText, setSearchText] = useState("");
     const [filteredCustomers, setFilteredCustomers] = useState([]);
@@ -183,7 +186,12 @@ export default function CustomerSelectModal({
 
     return (
         <Modal
-            title="Chọn khách hàng"
+            title={
+                <Space>
+                    <UserOutlined />
+                    <span>Chọn khách hàng</span>
+                </Space>
+            }
             open={open}
             onCancel={onCancel}
             width={900}
@@ -201,6 +209,23 @@ export default function CustomerSelectModal({
                 </Button>,
             ]}
         >
+            {branchName && (
+                <Alert
+                    message={
+                        <Space>
+                            <BankOutlined />
+                            <span>
+                                Đang hiển thị khách hàng thuộc chi nhánh:{" "}
+                                <strong>{branchName}</strong>
+                            </span>
+                        </Space>
+                    }
+                    type="info"
+                    showIcon={false}
+                    style={{ marginBottom: 16 }}
+                />
+            )}
+
             <Space style={{ width: "100%", marginBottom: 16 }}>
                 <Input
                     placeholder="Tìm kiếm theo tên, số điện thoại, email, CMND/CCCD"

@@ -385,28 +385,6 @@ export default function BookingDetailDrawer({
                 </Row>
             </Card>
 
-            <Divider orientation="left">Thông tin thanh toán</Divider>
-
-            <Descriptions bordered column={1}>
-                <Descriptions.Item label="Tổng tiền phòng">
-                    <Text strong>{booking.totalAmount?.toLocaleString()}đ</Text>
-                </Descriptions.Item>
-
-                <Descriptions.Item label="Phương thức thanh toán">
-                    <Space>
-                        <CreditCardOutlined />
-                        {booking.paymentMethod || "Tiền mặt"}
-                    </Space>
-                </Descriptions.Item>
-
-                <Descriptions.Item label="Trạng thái thanh toán">
-                    <Badge
-                        status={paymentStatus[booking.paymentStatus]?.color}
-                        text={paymentStatus[booking.paymentStatus]?.text}
-                    />
-                </Descriptions.Item>
-            </Descriptions>
-
             {booking.specialRequests && (
                 <>
                     <Divider orientation="left">Yêu cầu đặc biệt</Divider>
