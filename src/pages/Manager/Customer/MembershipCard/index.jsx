@@ -123,7 +123,6 @@ export default function MembershipCard() {
             const response = await getMembershipCards(params);
 
             if (response && response.data) {
-                console.log("Cards data from API:", response.data);
                 setCards(response.data);
                 setPagination((prev) => ({
                     ...prev,
@@ -254,7 +253,7 @@ export default function MembershipCard() {
         setSelectedCard(null);
 
         // Debug giá trị customerList
-        console.log("Available customers for new card:", availableCustomers);
+
         if (availableCustomers.length === 0) {
             message.warning("Không có khách hàng nào có thể cấp thẻ");
             return;
@@ -314,7 +313,7 @@ export default function MembershipCard() {
             setLoading(true);
 
             // Debug giá trị được gửi lên
-            console.log("Card form submit values:", values);
+
             console.log(
                 "customerId:",
                 values.customerId,
@@ -450,7 +449,6 @@ export default function MembershipCard() {
             dataIndex: "customerName",
             key: "customerName",
             render: (text, record) => {
-                console.log("Rendering customer:", record);
                 return (
                     <Space>
                         <Avatar

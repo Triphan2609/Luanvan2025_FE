@@ -1,0 +1,83 @@
+.table-layout-container {
+    margin-bottom: 24px;
+}
+
+.table-layout-filters {
+    background-color: #f9f9f9;
+    padding: 16px;
+    border-radius: 4px;
+    margin-bottom: 16px;
+}
+
+.filter-label {
+    font-weight: bold;
+    margin-bottom: 8px;
+    color: #595959;
+}
+
+.table-layout-buttons {
+    display: flex;
+    justify-content: flex-end;
+    align-items: flex-end;
+}
+
+.status-legend {
+    display: flex;
+    margin-bottom: 16px;
+    background-color: #f9f9f9;
+    padding: 8px 16px;
+    border-radius: 4px;
+}
+
+.table-layout-grid {
+    padding: 8px;
+}
+
+/* Table Card Styling */
+.table-layout-card {
+    border-width: 2px !important;
+    transition: all 0.3s;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.09);
+}
+
+.table-layout-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.table-layout-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.table-number {
+    font-size: 16px;
+    padding: 4px 0;
+}
+
+.table-layout-info {
+    color: #595959;
+    margin-bottom: 8px;
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.table-layout-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .table-layout-buttons {
+        justify-content: flex-start;
+        margin-top: 16px;
+    }
+
+    .table-layout-card {
+        margin-bottom: 8px;
+    }
+}

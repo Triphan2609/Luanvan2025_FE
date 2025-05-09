@@ -18,6 +18,7 @@ import {
     Badge,
     Descriptions,
     Spin,
+    Tag,
 } from "antd";
 import {
     SearchOutlined,
@@ -30,6 +31,8 @@ import {
     FilterOutlined,
     BankOutlined,
     DownloadOutlined,
+    ClockCircleOutlined,
+    CalendarOutlined,
 } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
 import dayjs from "dayjs";
@@ -47,6 +50,36 @@ import "./PaymentManagement.scss";
 const { RangePicker } = DatePicker;
 const { Option } = Select;
 const { Title, Text, Paragraph } = Typography;
+
+// Format date và time detail
+const formatDateTime = (dateTime) => {
+    if (!dateTime) return "N/A";
+    return dayjs(dateTime).format("DD/MM/YYYY HH:mm:ss");
+};
+
+// Format date cho hiển thị ngắn gọn
+const formatDate = (date) => {
+    if (!date) return "N/A";
+    return dayjs(date).format("DD/MM/YYYY");
+};
+
+// Format time
+const formatTime = (time) => {
+    if (!time) return "N/A";
+    return dayjs(time).format("HH:mm:ss");
+};
+
+// Tính số ngày lưu trú
+const calculateStayDuration = (checkInDate, checkOutDate) => {
+    if (!checkInDate || !checkOutDate) return 0;
+
+    const startDate = dayjs(checkInDate);
+    const endDate = dayjs(checkOutDate);
+
+    // Tính số ngày chênh lệch, làm tròn lên
+    const days = Math.ceil(endDate.diff(startDate, "day", true));
+    return days > 0 ? days : 1; // Tối thiểu 1 ngày
+};
 
 const HotelPaymentManagement = () => {
     const navigate = useNavigate();
@@ -430,7 +463,15 @@ const HotelPaymentManagement = () => {
             title: "Ngày phát hành",
             dataIndex: "issueDate",
             key: "issueDate",
-            render: (date) => dayjs(date).format("DD/MM/YYYY"),
+            render: (date) => (
+                <Space direction="vertical" size={0}>
+                    <Text>{formatDate(date)}</Text>
+                    <Text type="secondary" style={{ fontSize: "12px" }}>
+                        <ClockCircleOutlined style={{ marginRight: 4 }} />
+                        {formatTime(date)}
+                    </Text>
+                </Space>
+            ),
         },
         {
             title: "Thành tiền",
@@ -441,6 +482,17 @@ const HotelPaymentManagement = () => {
                 <Text strong style={{ color: "#1890ff" }}>
                     {formatCurrency(amount)}
                 </Text>
+            ),
+        },
+        {
+            title: "Thời gian tạo",
+            dataIndex: "createdAt",
+            key: "createdAt",
+            responsive: ["lg"],
+            render: (date) => (
+                <Tooltip title={formatDateTime(date)}>
+                    <span>{formatDate(date)}</span>
+                </Tooltip>
             ),
         },
         {
@@ -520,36 +572,26 @@ const HotelPaymentManagement = () => {
                     }
                     className="filter-card"
                 >
-                    <Row gutter={[16, 16]} className="filter-section">
-                        <Col xs={24} md={8}>
-                            <Input
-                                placeholder="Tìm kiếm theo mã hóa đơn, khách hàng, phòng..."
-                                prefix={<SearchOutlined />}
-                                value={filters.searchText}
-                                onChange={(e) =>
-                                    handleFilterChange(
-                                        "searchText",
-                                        e.target.value
-                                    )
+                    <div className="filter-section">
+                        <Space wrap>
+                            <RangePicker
+                                value={filters.dateRange}
+                                onChange={(dates) =>
+                                    handleFilterChange("dateRange", dates)
                                 }
-                                allowClear
+                                format="DD/MM/YYYY"
+                                placeholder={["Từ ngày", "Đến ngày"]}
+                                style={{ width: 280 }}
+                                showTime={{ format: "HH:mm" }}
                             />
-                        </Col>
-                        <Col xs={24} md={8}>
                             <Select
-                                placeholder="Chọn chi nhánh"
-                                style={{ width: "100%" }}
+                                placeholder="Chi nhánh"
+                                style={{ width: 180 }}
                                 value={filters.branchId}
                                 onChange={(value) =>
                                     handleFilterChange("branchId", value)
                                 }
                                 allowClear
-                                showSearch
-                                filterOption={(input, option) =>
-                                    option.children
-                                        .toLowerCase()
-                                        .indexOf(input.toLowerCase()) >= 0
-                                }
                             >
                                 {branches.map((branch) => (
                                     <Option key={branch.id} value={branch.id}>
@@ -557,26 +599,27 @@ const HotelPaymentManagement = () => {
                                     </Option>
                                 ))}
                             </Select>
-                        </Col>
-                        <Col xs={24} md={8}>
-                            <RangePicker
-                                value={filters.dateRange}
-                                onChange={(dates) =>
-                                    handleFilterChange("dateRange", dates)
+                            <Input
+                                placeholder="Tìm kiếm theo mã hóa đơn, khách hàng, phòng"
+                                value={filters.searchText}
+                                onChange={(e) =>
+                                    handleFilterChange(
+                                        "searchText",
+                                        e.target.value
+                                    )
                                 }
-                                placeholder={["Từ ngày", "Đến ngày"]}
-                                style={{ width: "100%" }}
+                                prefix={<SearchOutlined />}
+                                allowClear
+                                style={{ width: 280 }}
                             />
-                        </Col>
-                    </Row>
-                    <Row justify="end" style={{ marginTop: 16 }}>
-                        <Button
-                            icon={<ReloadOutlined />}
-                            onClick={handleResetFilters}
-                        >
-                            Đặt lại bộ lọc
-                        </Button>
-                    </Row>
+                            <Button
+                                icon={<ReloadOutlined />}
+                                onClick={handleResetFilters}
+                            >
+                                Đặt lại bộ lọc
+                            </Button>
+                        </Space>
+                    </div>
                 </Card>
 
                 {/* Invoices Table */}
@@ -591,9 +634,12 @@ const HotelPaymentManagement = () => {
                             pageSize: pagination.pageSize,
                             total: pagination.total,
                             showSizeChanger: true,
-                            showTotal: (total) => `Tổng số ${total} hóa đơn`,
+                            showTotal: (total, range) =>
+                                `${range[0]}-${range[1]} trong ${total} hóa đơn`,
                         }}
                         onChange={handleTableChange}
+                        className="invoice-table"
+                        scroll={{ x: "max-content" }}
                     />
                 </Card>
             </Card>
@@ -633,7 +679,7 @@ const HotelPaymentManagement = () => {
                 }
                 open={viewModalVisible}
                 onCancel={() => setViewModalVisible(false)}
-                width={700}
+                width={800}
                 footer={[
                     <Button
                         key="download"
@@ -683,9 +729,20 @@ const HotelPaymentManagement = () => {
                                 {selectedInvoice?.invoiceNumber}
                             </Descriptions.Item>
                             <Descriptions.Item label="Ngày phát hành">
-                                {dayjs(selectedInvoice?.issueDate).format(
-                                    "DD/MM/YYYY"
-                                )}
+                                <Space direction="vertical" size={0}>
+                                    <Text>
+                                        {formatDate(selectedInvoice?.issueDate)}
+                                    </Text>
+                                    <Text
+                                        type="secondary"
+                                        style={{ fontSize: "12px" }}
+                                    >
+                                        <ClockCircleOutlined
+                                            style={{ marginRight: 4 }}
+                                        />
+                                        {formatTime(selectedInvoice?.issueDate)}
+                                    </Text>
+                                </Space>
                             </Descriptions.Item>
                             <Descriptions.Item label="Khách hàng">
                                 {selectedInvoice?.booking?.customer?.name ||
@@ -704,14 +761,69 @@ const HotelPaymentManagement = () => {
                                     ?.name || "N/A"}
                             </Descriptions.Item>
                             <Descriptions.Item label="Nhận phòng" span={1}>
-                                {dayjs(
-                                    selectedInvoice?.booking?.checkInDate
-                                ).format("DD/MM/YYYY")}
+                                <Space direction="vertical" size={0}>
+                                    <Text>
+                                        {formatDate(
+                                            selectedInvoice?.booking
+                                                ?.checkInDate
+                                        )}
+                                    </Text>
+                                    <Text
+                                        type="secondary"
+                                        style={{ fontSize: "12px" }}
+                                    >
+                                        <CalendarOutlined
+                                            style={{ marginRight: 4 }}
+                                        />
+                                        {formatTime(
+                                            selectedInvoice?.booking
+                                                ?.checkInTime ||
+                                                selectedInvoice?.booking
+                                                    ?.checkInDate
+                                        )}
+                                    </Text>
+                                </Space>
                             </Descriptions.Item>
                             <Descriptions.Item label="Trả phòng" span={1}>
-                                {dayjs(
-                                    selectedInvoice?.booking?.checkOutDate
-                                ).format("DD/MM/YYYY")}
+                                <Space direction="vertical" size={0}>
+                                    <Text>
+                                        {formatDate(
+                                            selectedInvoice?.booking
+                                                ?.checkOutDate
+                                        )}
+                                    </Text>
+                                    <Text
+                                        type="secondary"
+                                        style={{ fontSize: "12px" }}
+                                    >
+                                        <CalendarOutlined
+                                            style={{ marginRight: 4 }}
+                                        />
+                                        {formatTime(
+                                            selectedInvoice?.booking
+                                                ?.checkOutTime ||
+                                                selectedInvoice?.booking
+                                                    ?.checkOutDate
+                                        )}
+                                    </Text>
+                                </Space>
+                            </Descriptions.Item>
+                            <Descriptions.Item
+                                label="Thời gian lưu trú"
+                                span={1}
+                            >
+                                <Tag color="blue">
+                                    {calculateStayDuration(
+                                        selectedInvoice?.booking?.checkInDate,
+                                        selectedInvoice?.booking?.checkOutDate
+                                    )}{" "}
+                                    ngày
+                                </Tag>
+                            </Descriptions.Item>
+                            <Descriptions.Item label="Chi nhánh" span={1}>
+                                {selectedInvoice?.booking?.branch?.name ||
+                                    selectedInvoice?.branch?.name ||
+                                    "N/A"}
                             </Descriptions.Item>
                         </Descriptions>
 
@@ -723,6 +835,18 @@ const HotelPaymentManagement = () => {
                             column={1}
                             className="payment-details"
                         >
+                            <Descriptions.Item label="Giá phòng/đêm">
+                                {formatCurrency(
+                                    selectedInvoice?.booking?.room?.price || 0
+                                )}
+                            </Descriptions.Item>
+                            <Descriptions.Item label="Số đêm lưu trú">
+                                {calculateStayDuration(
+                                    selectedInvoice?.booking?.checkInDate,
+                                    selectedInvoice?.booking?.checkOutDate
+                                )}{" "}
+                                đêm
+                            </Descriptions.Item>
                             <Descriptions.Item label="Tổng tiền phòng">
                                 {formatCurrency(
                                     selectedInvoice?.totalAmount || 0
@@ -731,6 +855,14 @@ const HotelPaymentManagement = () => {
                             <Descriptions.Item label="Giảm giá">
                                 {formatCurrency(
                                     selectedInvoice?.discountAmount || 0
+                                )}
+                                {selectedInvoice?.booking?.discount > 0 && (
+                                    <Text
+                                        type="secondary"
+                                        style={{ marginLeft: 8 }}
+                                    >
+                                        ({selectedInvoice?.booking?.discount}%)
+                                    </Text>
                                 )}
                             </Descriptions.Item>
                             <Descriptions.Item
@@ -762,6 +894,22 @@ const HotelPaymentManagement = () => {
                                 </div>
                             </>
                         )}
+
+                        <Divider />
+
+                        <Descriptions
+                            title="Thông tin hệ thống"
+                            bordered
+                            column={2}
+                            size="small"
+                        >
+                            <Descriptions.Item label="Thời gian tạo">
+                                {formatDateTime(selectedInvoice?.createdAt)}
+                            </Descriptions.Item>
+                            <Descriptions.Item label="Lần cập nhật cuối">
+                                {formatDateTime(selectedInvoice?.updatedAt)}
+                            </Descriptions.Item>
+                        </Descriptions>
                     </div>
                 ) : (
                     <div className="no-data">

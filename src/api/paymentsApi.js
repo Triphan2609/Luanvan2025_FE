@@ -68,7 +68,21 @@ export const getPaymentMethodById = async (id) => {
 // Tạo thanh toán mới
 export const createPayment = async (paymentData) => {
     try {
-        const response = await apiClient.post("/payments", paymentData);
+        // Đảm bảo dữ liệu thanh toán có các trường cần thiết theo cấu trúc backend mới
+        const formattedPaymentData = {
+            ...paymentData,
+            target: paymentData.target || "hotel", // Mặc định là thanh toán khách sạn
+        };
+
+        // Kiểm tra nếu không có branchId mà có thông tin chi nhánh từ booking
+        if (!formattedPaymentData.branchId && paymentData.bookingBranchId) {
+            formattedPaymentData.branchId = paymentData.bookingBranchId;
+        }
+
+        const response = await apiClient.post(
+            "/payments",
+            formattedPaymentData
+        );
         return response.data;
     } catch (error) {
         console.error("Error creating payment:", error);

@@ -310,7 +310,6 @@ export default function FrontDeskBooking() {
             setLoading(true);
             // Filter customers by selected branch if available
             const params = selectedBranch ? { branchId: selectedBranch } : {};
-            console.log("Fetching customers with params:", params);
 
             const response = await getCustomers(params);
 
@@ -318,14 +317,9 @@ export default function FrontDeskBooking() {
             if (Array.isArray(response)) {
                 // Nếu response đã là mảng
                 setCustomers(response);
-                console.log("Fetched customers array:", response.length);
             } else if (response && Array.isArray(response.data)) {
                 // Nếu response là object có thuộc tính data là mảng
                 setCustomers(response.data);
-                console.log(
-                    "Fetched customers from response.data:",
-                    response.data.length
-                );
             } else {
                 // Trường hợp không xác định được cấu trúc dữ liệu
                 console.error("Invalid customers data structure:", response);
@@ -367,7 +361,6 @@ export default function FrontDeskBooking() {
                 params.search = searchKeyword;
             }
 
-            console.log("Fetching rooms with params:", params);
             const data = await getRooms(params);
             console.log(`Received ${data.length} rooms from API`);
 
@@ -391,10 +384,6 @@ export default function FrontDeskBooking() {
                 };
             });
 
-            console.log(
-                "Processed rooms with formatted amenities:",
-                processedRooms.slice(0, 2)
-            );
             setRooms(processedRooms);
 
             // Fetch room stats with the same filters
@@ -411,7 +400,6 @@ export default function FrontDeskBooking() {
     const fetchAvailabilityCalendar = async (forceRefresh = false) => {
         try {
             setLoading(true);
-            console.log("Fetching availability calendar...");
 
             // Kiểm tra nếu chưa chọn chi nhánh
             if (!selectedBranch) {
@@ -428,12 +416,8 @@ export default function FrontDeskBooking() {
                 forceRefresh: forceRefresh, // Thêm flag để backend biết đây là yêu cầu làm mới toàn bộ dữ liệu
             };
 
-            console.log("Fetching availability with params:", params);
-
             // Gọi API lấy dữ liệu
             const calendarData = await getRoomAvailabilityCalendar(params);
-
-            console.log("Calendar response:", calendarData);
 
             // Xử lý dữ liệu trả về
             if (Array.isArray(calendarData)) {
@@ -489,12 +473,6 @@ export default function FrontDeskBooking() {
                                             roomData.room.roomCode
                                         )
                                     ) {
-                                        console.log(
-                                            `Room ${roomData.room.roomCode}, Date: ${currentDateStr}, ` +
-                                                `cleaningDate: ${roomData.room.cleaningDate}, ` +
-                                                `isCleaningDay: ${isCleaningDay}, ` +
-                                                `status: ${roomData.room.status}`
-                                        );
                                     }
                                 } else {
                                     // Nếu không có cleaningDate, mặc định là ngày hiện tại
@@ -541,12 +519,6 @@ export default function FrontDeskBooking() {
 
                 setAvailabilityCalendar(formattedCalendarData);
 
-                console.log(
-                    "Calendar data processed:",
-                    formattedCalendarData.length,
-                    "rooms"
-                );
-
                 // Kiểm tra dữ liệu phòng P101 sau khi xử lý
                 const p101Data = formattedCalendarData.find(
                     (room) => room.room.roomCode === "P101"
@@ -575,7 +547,6 @@ export default function FrontDeskBooking() {
 
     const fetchAmenities = async () => {
         try {
-            console.log("Fetching amenities...");
             const data = await getAmenities();
 
             if (!data || !Array.isArray(data)) {
@@ -585,7 +556,6 @@ export default function FrontDeskBooking() {
                 return;
             }
 
-            console.log("Fetched amenities successfully:", data);
             setAmenities(data);
         } catch (error) {
             console.error("Error fetching amenities:", error);
@@ -619,7 +589,6 @@ export default function FrontDeskBooking() {
     const handleBookingSubmit = async (bookingData) => {
         try {
             setLoading(true);
-            console.log("Submitting booking data:", bookingData);
 
             const newBooking = await createBooking(bookingData);
             message.success("Đặt phòng thành công!");
@@ -644,7 +613,6 @@ export default function FrontDeskBooking() {
 
             // Nếu đang ở chế độ lịch, luôn tải lại toàn bộ lịch với forceRefresh=true
             if (isCalendarView) {
-                console.log("Refreshing calendar with forceRefresh=true");
                 await fetchAvailabilityCalendar(true);
             }
         } catch (error) {
@@ -670,8 +638,6 @@ export default function FrontDeskBooking() {
                 branchId: customerData.branchId || selectedBranch,
             };
 
-            console.log("Submitting customer data:", dataToSubmit);
-
             // Call the API to create a new customer
             const response = await createCustomer(dataToSubmit);
 
@@ -695,7 +661,6 @@ export default function FrontDeskBooking() {
                 // If we're in the booking modal flow, open it with the new customer
                 if (selectedRoom) {
                     // The booking modal will pick up the new selectedCustomer
-                    console.log("Selected new customer:", newCustomer);
                 }
 
                 // Refresh customers list
@@ -860,8 +825,6 @@ export default function FrontDeskBooking() {
     // Hàm xem chi tiết phòng
     const handleViewRoomDetail = async (room) => {
         try {
-            console.log("Viewing room details for:", room);
-
             // Kiểm tra và đảm bảo amenities là mảng
             let initialRoom = { ...room };
             if (!initialRoom.amenities) {
@@ -913,9 +876,6 @@ export default function FrontDeskBooking() {
 
     // Render các tiện nghi của phòng dựa trên dữ liệu thực tế
     const renderRoomAmenities = (roomAmenities = []) => {
-        console.log("Room amenities data:", roomAmenities);
-        console.log("Available amenities:", amenities);
-
         // Nếu không có dữ liệu tiện nghi
         if (!roomAmenities || roomAmenities.length === 0) {
             return <Empty description="Không có tiện nghi nào" />;
@@ -929,8 +889,6 @@ export default function FrontDeskBooking() {
             amenityValues = roomAmenities.split(",").map((item) => item.trim());
         }
 
-        console.log("Processed amenity values:", amenityValues);
-
         // Lọc các tiện nghi từ danh sách amenities theo giá trị trong amenityValues
         const roomAmenityObjects = amenities.filter((amenity) => {
             const amenityInRoom = amenityValues.includes(amenity.value);
@@ -939,8 +897,6 @@ export default function FrontDeskBooking() {
             );
             return amenityInRoom;
         });
-
-        console.log("Found matching amenities:", roomAmenityObjects);
 
         // Nếu không tìm thấy tiện nghi nào phù hợp, có thể là vấn đề về định dạng dữ liệu
         if (roomAmenityObjects.length === 0) {
@@ -2265,11 +2221,9 @@ export default function FrontDeskBooking() {
     const showBookingDetails = async (booking) => {
         try {
             setLoading(true);
-            console.log("Opening booking details for:", booking);
 
             // Nếu booking không có đủ thông tin chi tiết, tải lại từ API
             if (!booking.room || !booking.customer) {
-                console.log("Loading full booking details from API");
                 const bookingDetail = await getBookingById(booking.id);
                 setSelectedBooking(bookingDetail);
             } else {

@@ -142,8 +142,6 @@ export const getSalaryTypes = async () => {
 // Lấy danh sách bảng lương
 export const getPayrolls = async (params = {}) => {
     try {
-        console.log("API Request - getPayrolls with params:", params);
-
         // Ensure numeric parameters are properly converted
         if (params.branch_id) {
             params.branch_id = Number(params.branch_id);
@@ -162,7 +160,6 @@ export const getPayrolls = async (params = {}) => {
         });
 
         // Log response để debug
-        console.log("API Response - getPayrolls:", response);
 
         // Kiểm tra dữ liệu trả về
         if (Array.isArray(response.data)) {
@@ -249,7 +246,6 @@ export const createPayroll = async (payrollData) => {
         ) {
             // Đặt giá trị mặc định nếu không có
             payrollData.night_shift_multiplier = 1.3;
-            console.log("Added default night shift multiplier: 1.3");
         }
 
         // Validate night shift multiplier is a number
@@ -257,7 +253,6 @@ export const createPayroll = async (payrollData) => {
             const multiplier = Number(payrollData.night_shift_multiplier);
             if (!isNaN(multiplier)) {
                 payrollData.night_shift_multiplier = multiplier;
-                console.log(`Validated night shift multiplier: ${multiplier}`);
             }
         }
 
@@ -440,8 +435,6 @@ export const getPayrollStats = async (
             params.branch_id = Number(branchId);
         }
 
-        console.log("Getting payroll stats with params:", params);
-
         const response = await apiClient.get("/payrolls/stats", {
             params,
         });
@@ -580,17 +573,11 @@ export const testNightShiftCalc = (baseSalary, hours, multiplier = 1.3) => {
         ),
     };
 
-    console.log("=== Kết quả tính lương ca đêm ===");
     console.log(
         `Lương cơ bản: ${(result.formattedBaseSalary = new Intl.NumberFormat(
             "vi-VN"
         ).format(validSalary))} VND`
     );
-    console.log(`Số giờ ca đêm: ${validHours} giờ`);
-    console.log(`Hệ số ca đêm: ${validMultiplier}`);
-    console.log(`Lương theo giờ: ${result.formattedHourlyRate} VND/giờ`);
-    console.log(`Lương ca đêm: ${result.formattedNightShiftPay} VND`);
-    console.log("================================");
 
     return result;
 };

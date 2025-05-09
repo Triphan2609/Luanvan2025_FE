@@ -17,6 +17,7 @@ import {
     Tooltip,
     Form,
     Input,
+    Select,
 } from "antd";
 import {
     DollarOutlined,
@@ -48,6 +49,7 @@ import {
     getPaymentDataByType,
     sendInvoiceByEmail,
 } from "../../../../api/paymentsApi";
+import { getHotelBranches } from "../../../../api/branchesApi";
 
 const formatCurrency = (value) => {
     return new Intl.NumberFormat("vi-VN", {
@@ -79,21 +81,20 @@ export default function Payment() {
     const [showEmailModal, setShowEmailModal] = useState(false);
     const [emailForm] = Form.useForm();
     const [sendingEmail, setSendingEmail] = useState(false);
+    const [branches, setBranches] = useState([]);
+    const [selectedBranchId, setSelectedBranchId] = useState(null);
 
-    // Update selectedBankId when bankAccounts changes
     useEffect(() => {
         if (bankAccounts.length > 0) {
             setSelectedBankId(bankAccounts[0].id);
         }
     }, [bankAccounts]);
 
-    // Fetch booking data and payment methods when component mounts
     useEffect(() => {
         const fetchData = async () => {
             try {
                 setLoading(true);
 
-                // Fetch booking details
                 if (!bookingId) {
                     throw new Error("Không tìm thấy mã đặt phòng");
                 }
@@ -101,11 +102,9 @@ export default function Payment() {
                 const bookingData = await getBookingById(bookingId);
                 setBooking(bookingData);
 
-                // Fetch payment methods
                 try {
                     const methods = await getPaymentMethods();
 
-                    // Luôn sử dụng 3 phương thức mặc định
                     const defaultMethods = [
                         { id: 1, name: "Tiền mặt", type: "cash" },
                         { id: 2, name: "Chuyển khoản", type: "bank_transfer" },
@@ -114,12 +113,10 @@ export default function Payment() {
 
                     setPaymentMethods(defaultMethods);
 
-                    // Set default payment method (cash)
                     const defaultMethod = defaultMethods[0];
                     setMethodId(defaultMethod.id);
                     setPaymentMethod(defaultMethod.type);
 
-                    // If we're selecting bank_transfer by default, load the bank account data
                     if (defaultMethod.type === "bank_transfer") {
                         const paymentData = await getPaymentDataByType(
                             "bank_transfer"
@@ -128,7 +125,6 @@ export default function Payment() {
                     }
                 } catch (error) {
                     console.error("Error fetching payment methods:", error);
-                    // Use default payment methods on error
                     const defaultMethods = [
                         { id: 1, name: "Tiền mặt", type: "cash" },
                         { id: 2, name: "Chuyển khoản", type: "bank_transfer" },
@@ -139,7 +135,6 @@ export default function Payment() {
                     setPaymentMethod(defaultMethods[0].type);
                 }
 
-                // Fetch previous payments
                 const payments = await getPaymentsByBookingId(bookingId);
                 setPreviousPayments(payments || []);
 
@@ -154,14 +149,34 @@ export default function Payment() {
         fetchData();
     }, [bookingId]);
 
-    // Calculate total amount
+    useEffect(() => {
+        const fetchBranches = async () => {
+            try {
+                const branchList = await getHotelBranches();
+                setBranches(branchList);
+
+                if (booking && booking.branch && booking.branch.id) {
+                    setSelectedBranchId(booking.branch.id);
+                } else if (branchList.length > 0) {
+                    setSelectedBranchId(branchList[0].id);
+                }
+            } catch (error) {
+                console.error("Error fetching branches:", error);
+                message.error("Không thể tải danh sách chi nhánh");
+            }
+        };
+
+        if (booking) {
+            fetchBranches();
+        }
+    }, [booking]);
+
     const calculateTotal = () => {
         if (!booking) {
             console.log("No booking data, returning 0");
             return 0;
         }
 
-        // Calculate room price: price per night * number of nights
         const checkIn = dayjs(booking.checkIn || booking.checkInDate);
         const checkOut = dayjs(booking.checkOut || booking.checkOutDate);
         const nights = checkOut.diff(checkIn, "day");
@@ -177,7 +192,6 @@ export default function Payment() {
             total
         );
 
-        // Add additional services if any
         if (booking.services && Array.isArray(booking.services)) {
             let servicesTotal = 0;
             booking.services.forEach((service) => {
@@ -187,7 +201,6 @@ export default function Payment() {
             total += servicesTotal;
         }
 
-        // Apply discount if any
         if (booking.discount) {
             const discountAmount = total * (booking.discount / 100);
             console.log("Discount:", booking.discount, "% =", discountAmount);
@@ -196,7 +209,6 @@ export default function Payment() {
 
         console.log("Total before previous payments:", total);
 
-        // Subtract previous payments
         const previousPaymentsTotal = previousPayments.reduce(
             (sum, payment) => {
                 return sum + (payment.amount || 0);
@@ -211,21 +223,17 @@ export default function Payment() {
         return finalTotal;
     };
 
-    // Calculate remaining balance
     const total = calculateTotal();
     console.log("Calculated total payment amount:", total);
 
-    // Calculate change amount (only applicable for cash payments)
     const change = receivedAmount - total;
 
-    // Calculate total deposit amount from previous payments
     const calculateTotalDeposit = () => {
         if (!previousPayments || !Array.isArray(previousPayments)) {
             return 0;
         }
 
         return previousPayments.reduce((total, payment) => {
-            // Only include deposits in the calculation
             if (payment.type === "DEPOSIT") {
                 return total + (payment.amount || 0);
             }
@@ -242,7 +250,6 @@ export default function Payment() {
         setMethodId(e.target.value);
         setPaymentMethod(methodType);
 
-        // Fetch bank accounts when bank_transfer is selected
         if (methodType === "bank_transfer") {
             try {
                 const paymentData = await getPaymentDataByType(methodType);
@@ -263,8 +270,12 @@ export default function Payment() {
             return;
         }
 
+        if (!selectedBranchId) {
+            message.error("Vui lòng chọn chi nhánh thanh toán");
+            return;
+        }
+
         if (paymentMethod === "cash" && receivedAmount < total) {
-            // For cash payments, make sure we receive enough money
             message.error(
                 "Số tiền khách đưa không đủ để thanh toán tổng số tiền cần thanh toán"
             );
@@ -275,12 +286,13 @@ export default function Payment() {
             console.log("Processing payment...");
             setProcessingPayment(true);
 
-            // Perform payment
             const paymentData = {
                 bookingId: booking.id,
                 methodId: methodId,
                 amount: total,
                 notes: notes,
+                target: "hotel",
+                branchId: selectedBranchId,
             };
 
             if (paymentMethod === "cash") {
@@ -291,7 +303,6 @@ export default function Payment() {
             const paymentResult = await createPayment(paymentData);
             console.log("Payment created successfully:", paymentResult);
 
-            // Save payment info to localStorage for the invoice page
             const paymentInfo = {
                 method: paymentMethod,
                 receivedAmount: receivedAmount,
@@ -302,7 +313,6 @@ export default function Payment() {
                 date: new Date().toISOString(),
             };
 
-            // Format booking data for the invoice
             const formattedBooking = {
                 id: booking.id,
                 customerName: booking.customer?.name || "Khách hàng",
@@ -329,7 +339,6 @@ export default function Payment() {
                         ),
                         quantity: 1,
                     },
-                    // Include other services if available
                     ...(booking.services || []).map((service) => ({
                         name: service.name,
                         price: service.price,
@@ -339,7 +348,6 @@ export default function Payment() {
                 totalAmount: booking.totalAmount,
                 discount: booking.discount || 0,
                 paymentStatus: "paid",
-                // Add branch information
                 branch: {
                     id: booking.branch?.id,
                     name: booking.branch?.name || "KHÁCH SẠN ABC",
@@ -352,7 +360,6 @@ export default function Payment() {
                 },
             };
 
-            // Store in localStorage for invoice page
             localStorage.setItem(
                 `payment_${booking.id}`,
                 JSON.stringify({
@@ -362,15 +369,12 @@ export default function Payment() {
                 })
             );
 
-            // Update booking payment status and set room to available if checked out
-            console.log("Updating booking payment status to 'paid'");
             await updatePaymentStatusAndSetAvailable(booking.id, "paid");
             console.log(
                 "Payment status updated successfully and room set to available if applicable"
             );
 
             message.success("Thanh toán thành công!");
-            // Display the confirmation modal
             setShowPrintModal(true);
             setProcessingPayment(false);
         } catch (error) {
@@ -388,10 +392,8 @@ export default function Payment() {
         try {
             setLoading(true);
 
-            // Generate the invoice
             const result = await generateAndSendInvoice(booking.id);
 
-            // Format the payment data for the invoice
             const paymentInfo = {
                 method: paymentMethod,
                 receivedAmount: receivedAmount,
@@ -401,7 +403,6 @@ export default function Payment() {
                 date: new Date().toISOString(),
             };
 
-            // Format booking data for the invoice
             const formattedBooking = {
                 id: booking.id,
                 customerName: booking.customer?.name || "Khách hàng",
@@ -428,14 +429,12 @@ export default function Payment() {
                         ),
                         quantity: 1,
                     },
-                    // Include other services if available
                     ...(booking.services || []).map((service) => ({
                         name: service.name,
                         price: service.price,
                         quantity: service.quantity || 1,
                     })),
                 ],
-                // Add branch information
                 branch: {
                     id: booking.branch?.id,
                     name: booking.branch?.name || "KHÁCH SẠN ABC",
@@ -448,7 +447,6 @@ export default function Payment() {
                 },
             };
 
-            // Store in localStorage for invoice page
             localStorage.setItem(
                 `payment_${booking.id}`,
                 JSON.stringify({
@@ -461,7 +459,6 @@ export default function Payment() {
             message.success("Hóa đơn đã được tạo và gửi cho khách hàng!");
             setShowPrintModal(false);
 
-            // Navigate to the invoice page
             navigate(`/hotel/invoice/${booking.id}`);
         } catch (error) {
             console.error("Error generating invoice:", error);
@@ -481,20 +478,16 @@ export default function Payment() {
                 return;
             }
 
-            // Tạo hóa đơn trước nếu chưa tồn tại
             let invoiceCreated = false;
             try {
-                // Kiểm tra xem hóa đơn đã được tạo chưa
                 await generateAndSendInvoice(booking.id);
                 invoiceCreated = true;
             } catch (error) {
                 console.log("Hóa đơn có thể đã được tạo trước đó:", error);
             }
 
-            // Gửi hóa đơn qua email
             const result = await sendInvoiceByEmail(booking.id, email);
 
-            // Hiển thị thông báo thành công với thông tin chi tiết hơn
             message.success(
                 <div>
                     <p>Hóa đơn đã được gửi thành công đến {email}</p>
@@ -528,7 +521,6 @@ export default function Payment() {
         },
     ];
 
-    // Render services table columns
     const serviceColumns = [
         {
             title: "Dịch vụ",
@@ -561,13 +553,11 @@ export default function Payment() {
         },
     ];
 
-    // Format services data for table
     const getServicesData = () => {
         if (!booking) return [];
 
         const services = [];
 
-        // Add room as a service
         if (booking.room) {
             const checkIn = dayjs(booking.checkIn || booking.checkInDate);
             const checkOut = dayjs(booking.checkOut || booking.checkOutDate);
@@ -584,7 +574,6 @@ export default function Payment() {
             });
         }
 
-        // Add additional services
         if (booking.services && Array.isArray(booking.services)) {
             booking.services.forEach((service, index) => {
                 services.push({
@@ -599,7 +588,6 @@ export default function Payment() {
         return services;
     };
 
-    // Replace hardcoded bank transfer UI with dynamic content
     const renderBankTransferSection = () => {
         if (bankAccounts.length === 0) {
             return (
@@ -612,7 +600,6 @@ export default function Payment() {
             );
         }
 
-        // Use the selected bank account for display
         const bankAccount =
             bankAccounts.find((acc) => acc.id === selectedBankId) ||
             bankAccounts[0];
@@ -621,7 +608,6 @@ export default function Payment() {
             <div style={{ marginTop: 16 }}>
                 <h4>Thông tin chuyển khoản:</h4>
 
-                {/* Bank account selection if there are multiple accounts */}
                 {bankAccounts.length > 1 && (
                     <div style={{ marginBottom: 16 }}>
                         <div style={{ marginBottom: 8 }}>
@@ -847,7 +833,27 @@ export default function Payment() {
         );
     };
 
-    // If loading, show loading spinner
+    const renderBranchSelection = () => {
+        return (
+            <div style={{ marginBottom: 16 }}>
+                <div style={{ marginBottom: 8, fontWeight: "bold" }}>
+                    Chi nhánh thanh toán:
+                </div>
+                <Select
+                    placeholder="Chọn chi nhánh"
+                    style={{ width: "100%" }}
+                    value={selectedBranchId}
+                    onChange={(value) => setSelectedBranchId(value)}
+                    disabled={processingPayment}
+                    options={branches.map((branch) => ({
+                        label: branch.name,
+                        value: branch.id,
+                    }))}
+                />
+            </div>
+        );
+    };
+
     if (loading && !booking) {
         return (
             <div
@@ -864,7 +870,6 @@ export default function Payment() {
         );
     }
 
-    // If error, show error message
     if (error) {
         return (
             <div className="payment-container">
@@ -886,7 +891,6 @@ export default function Payment() {
         );
     }
 
-    // If booking not found
     if (!booking) {
         return (
             <div className="payment-container">
@@ -985,6 +989,8 @@ export default function Payment() {
                             formatter={(value) => formatCurrency(value)}
                             className="payment-total"
                         />
+
+                        {renderBranchSelection()}
 
                         <div className="payment-methods">
                             <h4>Phương thức thanh toán</h4>
@@ -1266,7 +1272,6 @@ export default function Payment() {
                                             marginBottom: "15px",
                                         }}
                                     >
-                                        {/* VNPay logo at the center of QR code */}
                                         <div
                                             style={{
                                                 position: "absolute",
@@ -1292,7 +1297,6 @@ export default function Payment() {
                                             />
                                         </div>
 
-                                        {/* QR code pattern - simplified representation */}
                                         <div
                                             style={{
                                                 width: "100%",
@@ -1306,7 +1310,6 @@ export default function Payment() {
                                                 padding: "10px",
                                             }}
                                         >
-                                            {/* QR code corners */}
                                             <div
                                                 style={{
                                                     position: "absolute",
@@ -1428,7 +1431,6 @@ export default function Payment() {
                     </Space>
                 </Card>
 
-                {/* Confirm Payment Modal */}
                 <Modal
                     title={
                         <Space>
@@ -1505,12 +1507,10 @@ export default function Payment() {
                     </Descriptions>
                 </Modal>
 
-                {/* Print Invoice Modal */}
                 <Modal
                     title={null}
                     open={showPrintModal}
                     onOk={() => {
-                        // Navigate directly to the invoice page
                         navigate(`/hotel/invoice/${booking.id}`);
                     }}
                     onCancel={() => {
@@ -1595,7 +1595,6 @@ export default function Payment() {
                                 block
                                 onClick={() => {
                                     setShowPrintModal(false);
-                                    // Navigate to the bookings page with tab=2 query parameter to show calendar view
                                     navigate(`/hotel/bookings?tab=2`);
                                 }}
                                 className="action-button"
@@ -1606,7 +1605,6 @@ export default function Payment() {
                     </div>
                 </Modal>
 
-                {/* Email Invoice Modal */}
                 <Modal
                     title={
                         <Space>

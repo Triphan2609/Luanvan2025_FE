@@ -11,6 +11,12 @@ const Service = lazy(() => import("../pages/Info/Service/index"));
 const Area = lazy(() => import("../pages/Info/Area/index"));
 
 const Table = lazy(() => import("../pages/Manager/Restaurant/Table/index"));
+const TableByArea = lazy(() =>
+    import("../pages/Manager/Restaurant/Table/TableByArea")
+);
+const RestaurantAreas = lazy(() =>
+    import("../pages/Manager/Restaurant/Areas/index")
+);
 const PaymentRestaurant = lazy(() =>
     import("../pages/Manager/Restaurant/Payment/index")
 );
@@ -125,6 +131,8 @@ const routes = [
             { path: "/info/areas", element: <Area /> },
 
             { path: "/restaurant/tables", element: <Table /> },
+            { path: "/restaurant/table-by-area", element: <TableByArea /> },
+            { path: "/restaurant/areas", element: <RestaurantAreas /> },
             { path: "/restaurant/payment", element: <PaymentRestaurant /> },
             {
                 path: "/restaurant/payment/invoice/:id",

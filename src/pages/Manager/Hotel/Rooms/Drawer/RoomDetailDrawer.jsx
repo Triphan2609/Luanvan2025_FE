@@ -82,13 +82,12 @@ export default function RoomDetailDrawer({
     useEffect(() => {
         if (open && room?.id) {
             setCurrentRoom(room);
-            console.log("RoomDetailDrawer opened with room:", room);
+
             // Mọi khi open drawer, luôn gọi API để lấy danh sách vật dụng mới nhất
             fetchRoomItems();
 
             // Thêm một setTimeout để đảm bảo API được gọi lại sau khi component đã render
             const timer = setTimeout(() => {
-                console.log("Delayed API call for room items:", room.id);
                 forceRefreshRoomItems();
             }, 300);
 
@@ -161,7 +160,6 @@ export default function RoomDetailDrawer({
                 setApiErrors((prev) => ({ ...prev, items: true }));
                 setRoomItems([]);
             } else {
-                console.log("Raw room items received:", items);
                 // Process items to ensure valid category structure and default values
                 const processedItems = items.map((item) => ({
                     ...item,
@@ -175,7 +173,6 @@ export default function RoomDetailDrawer({
                     },
                 }));
 
-                console.log("Processed room items:", processedItems);
                 setRoomItems(processedItems);
                 setApiErrors((prev) => ({ ...prev, items: false }));
             }
@@ -350,7 +347,6 @@ export default function RoomDetailDrawer({
                     setApiErrors((prev) => ({ ...prev, items: true }));
                     setRoomItems([]);
                 } else {
-                    console.log("Force refreshed room items:", items);
                     // Process items
                     const processedItems = items.map((item) => ({
                         ...item,
@@ -402,8 +398,7 @@ export default function RoomDetailDrawer({
         categories.length > 0 ? categories : categoriesFromItems;
 
     // Log để debug
-    console.log("Available categories:", displayCategories);
-    console.log("Selected category:", selectedCategory);
+
     console.log(
         "Room items:",
         roomItems.map(
@@ -439,8 +434,6 @@ export default function RoomDetailDrawer({
         }
         itemsByCategory[categoryKey].items.push(item);
     });
-
-    console.log("Items grouped by category:", itemsByCategory);
 
     return (
         <Drawer

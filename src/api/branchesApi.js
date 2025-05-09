@@ -40,6 +40,29 @@ export const getHotelBranches = async () => {
     }
 };
 
+// Add new function to get restaurant branches only
+export const getRestaurantBranches = async () => {
+    try {
+        const response = await apiClient.get(API_URL);
+
+        // Filter branches that have branchType.key_name as 'restaurant' or 'both'
+        const restaurantBranches = (response.data || []).filter(
+            (branch) =>
+                branch.branchType &&
+                (branch.branchType.key_name === "restaurant" ||
+                    branch.branchType.key_name === "both")
+        );
+
+        return restaurantBranches;
+    } catch (error) {
+        console.error("Error fetching restaurant branches:", error);
+        message.error(
+            "Không thể tải danh sách chi nhánh nhà hàng. Vui lòng thử lại sau."
+        );
+        return [];
+    }
+};
+
 export const getBranchById = async (id) => {
     try {
         const response = await apiClient.get(`${API_URL}/${id}`);

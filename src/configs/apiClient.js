@@ -1,7 +1,10 @@
 import axios from "axios";
 
+// Lấy base URL từ môi trường hoặc dùng mặc định
+const API_BASE_URL = "http://localhost:8000";
+
 const apiClient = axios.create({
-    baseURL: "http://localhost:8000/api",
+    baseURL: `${API_BASE_URL}/api`,
     headers: {
         "Content-Type": "application/json",
     },
@@ -158,5 +161,13 @@ apiClient.interceptors.response.use(
         return Promise.reject(error);
     }
 );
+
+// Cấu hình URL toàn cục cho các tài nguyên tĩnh
+export const staticUrl = (path) => {
+    if (path && path.startsWith("/")) {
+        return `${API_BASE_URL}${path}`;
+    }
+    return path;
+};
 
 export default apiClient;

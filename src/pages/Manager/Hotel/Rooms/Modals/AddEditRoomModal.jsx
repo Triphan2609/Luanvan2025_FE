@@ -176,9 +176,9 @@ export default function AddEditRoomModal({
     const fetchBranches = async () => {
         try {
             setLoading(true);
-            console.log("Fetching hotel branches...");
+           
             const data = await getHotelBranches();
-            console.log("Hotel branches response:", data);
+           
             const hotelBranches = Array.isArray(data) ? data : [];
             setBranches(hotelBranches);
             setLoading(false);
@@ -209,7 +209,7 @@ export default function AddEditRoomModal({
         try {
             console.log(`Fetching categories for branch ID: ${branchId}`);
             const data = await getItemCategories(branchId);
-            console.log("Fetched categories:", data);
+           
 
             if (!data || !Array.isArray(data)) {
                 console.error("Invalid categories response:", data);
@@ -221,7 +221,7 @@ export default function AddEditRoomModal({
                     id: cat.id,
                     name: cat.name || "Không xác định",
                 }));
-                console.log("Formatted categories:", formattedCategories);
+               
                 setCategories(formattedCategories);
                 setApiErrors((prev) => ({ ...prev, categories: false }));
             }
@@ -289,7 +289,7 @@ export default function AddEditRoomModal({
                 };
             });
 
-            console.log("Processed items with categories:", processedItems);
+           
             setBranchItems(processedItems);
         } catch (error) {
             console.error("Error fetching branch items:", error);
@@ -357,7 +357,7 @@ export default function AddEditRoomModal({
 
             // Extract item IDs
             const itemIds = processedItems.map((item) => item.id);
-            console.log("Selected item IDs:", itemIds);
+           
             setSelectedItems(itemIds);
             setRoomItemsLoaded(true);
         } catch (error) {
@@ -376,8 +376,8 @@ export default function AddEditRoomModal({
                     itemIds: selectedItems,
                 };
 
-                console.log("Form submitting with values:", values);
-                console.log("Selected items:", selectedItems);
+               
+               
 
                 // Thêm trường floor từ thông tin tầng
                 if (values.floorId) {
@@ -392,7 +392,7 @@ export default function AddEditRoomModal({
                     }
                 }
 
-                console.log("Final form data to submit:", formData);
+               
                 onSubmit(formData);
                 form.resetFields();
                 onClose();
@@ -902,9 +902,9 @@ export default function AddEditRoomModal({
                 )}
             </Form>
 
-            {initialData && console.log("Current initialData:", initialData)}
+            {initialData &&
             {selectedItems.length > 0 &&
-                console.log("Selected items:", selectedItems)}
+               
         </Modal>
     );
 }

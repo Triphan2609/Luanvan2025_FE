@@ -20,6 +20,8 @@ import {
     GiftOutlined,
     TagOutlined,
     AuditOutlined,
+    AreaChartOutlined,
+    LayoutOutlined,
 } from "@ant-design/icons";
 import { TbGps } from "react-icons/tb";
 import { IoRestaurantOutline } from "react-icons/io5";
@@ -67,79 +69,95 @@ const items = [
         label: "Quản lý Nhà hàng",
         children: [
             {
-                key: "tables",
-                icon: <MdOutlineTableRestaurant />,
-                label: <Link to="/restaurant/tables">Quản lý bàn</Link>,
-            },
-            {
-                key: "reservations",
-                icon: <ScheduleOutlined />,
-                label: (
-                    <Link to="/restaurant/reservations">Quản lý đặt bàn</Link>
-                ),
-            },
-            {
-                key: "menu",
-                icon: <OrderedListOutlined />,
-                label: "Quản lý Thực đơn",
+                type: "group",
+                label: "Quản lý bàn & khu vực",
                 children: [
                     {
-                        type: "group",
-                        label: "Món ăn & Dịch vụ",
-                        children: [
-                            {
-                                key: "foods",
-                                icon: <IoRestaurantOutline />,
-                                label: (
-                                    <Link to="/restaurant/foods">
-                                        Danh sách món ăn
-                                    </Link>
-                                ),
-                            },
-                            {
-                                key: "foods-services",
-                                icon: <MdOutlineTableRestaurant />,
-                                label: (
-                                    <Link to="/restaurant/table-services">
-                                        Dịch vụ bàn
-                                    </Link>
-                                ),
-                            },
-                        ],
+                        key: "tables",
+                        icon: <MdOutlineTableRestaurant />,
+                        label: <Link to="/restaurant/tables">Quản lý bàn</Link>,
                     },
                     {
-                        type: "group",
-                        label: "Thực đơn",
-                        children: [
-                            {
-                                key: "menu-main",
-                                icon: <AppstoreOutlined />,
-                                label: (
-                                    <Link to="/restaurant/menus-main">
-                                        Thực đơn chính
-                                    </Link>
-                                ),
-                            },
-                            {
-                                key: "menu-seasonal",
-                                icon: <StarOutlined />,
-                                label: (
-                                    <Link to="/restaurant/menus-seasonal">
-                                        Thực đơn theo mùa
-                                    </Link>
-                                ),
-                            },
-                        ],
+                        key: "tables-by-area",
+                        icon: <AreaChartOutlined />,
+                        label: (
+                            <Link to="/restaurant/table-by-area">
+                                Bàn theo khu vực
+                            </Link>
+                        ),
+                    },
+                    {
+                        key: "restaurant-areas",
+                        icon: <LayoutOutlined />,
+                        label: (
+                            <Link to="/restaurant/areas">Khu vực nhà hàng</Link>
+                        ),
+                    },
+                    {
+                        key: "reservations",
+                        icon: <ScheduleOutlined />,
+                        label: (
+                            <Link to="/restaurant/reservations">
+                                Quản lý đặt bàn
+                            </Link>
+                        ),
                     },
                 ],
             },
-
             {
-                key: "promotions",
-                icon: <StarOutlined />,
-                label: (
-                    <Link to="/restaurant/promotions">Quản lý khuyến mãi</Link>
-                ),
+                type: "group",
+                label: "Thực đơn & Dịch vụ",
+                children: [
+                    {
+                        key: "foods",
+                        icon: <IoRestaurantOutline />,
+                        label: (
+                            <Link to="/restaurant/foods">Danh sách món ăn</Link>
+                        ),
+                    },
+                    {
+                        key: "foods-services",
+                        icon: <OrderedListOutlined />,
+                        label: (
+                            <Link to="/restaurant/table-services">
+                                Dịch vụ bàn
+                            </Link>
+                        ),
+                    },
+                    {
+                        key: "menu-main",
+                        icon: <AppstoreOutlined />,
+                        label: (
+                            <Link to="/restaurant/menus-main">
+                                Thực đơn chính
+                            </Link>
+                        ),
+                    },
+                    {
+                        key: "menu-seasonal",
+                        icon: <StarOutlined />,
+                        label: (
+                            <Link to="/restaurant/menus-seasonal">
+                                Thực đơn theo mùa
+                            </Link>
+                        ),
+                    },
+                ],
+            },
+            {
+                type: "group",
+                label: "Marketing & Khuyến mãi",
+                children: [
+                    {
+                        key: "promotions",
+                        icon: <StarOutlined />,
+                        label: (
+                            <Link to="/restaurant/promotions">
+                                Quản lý khuyến mãi
+                            </Link>
+                        ),
+                    },
+                ],
             },
         ],
     },

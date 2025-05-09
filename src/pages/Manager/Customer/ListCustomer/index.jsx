@@ -129,9 +129,7 @@ export default function CustomerList() {
                 limit: 1000, // Get a larger set for client-side filtering
             };
 
-            console.log("Fetching all customers for client-side filtering");
             const response = await getCustomers(params);
-            console.log("Fetched customers:", response);
 
             setCustomers(response.data);
             setPagination((prev) => ({
@@ -223,9 +221,7 @@ export default function CustomerList() {
     }, [filteredCustomers]);
 
     // Update form values when filters change
-    useEffect(() => {
-        console.log("Current filters:", filters);
-    }, [searchText, filters]);
+    useEffect(() => {}, [searchText, filters]);
 
     // Debounced search function
     const debouncedSearch = useCallback(
@@ -717,9 +713,8 @@ export default function CustomerList() {
                     )
                 );
             } else {
-                console.log("Đang gửi dữ liệu khách hàng mới:", values);
                 const newCustomer = await createCustomer(values);
-                console.log("Kết quả tạo khách hàng:", newCustomer);
+
                 message.success("Thêm khách hàng mới thành công");
 
                 // Add new customer to local state
@@ -754,8 +749,6 @@ export default function CustomerList() {
     // Handle import modal
     const handleImport = async (data) => {
         try {
-            console.log("Dữ liệu import:", data);
-
             // Chuyển đổi dữ liệu từ Excel sang định dạng API
             const customersToImport = data.map((item) => ({
                 name: item["Họ và tên"],

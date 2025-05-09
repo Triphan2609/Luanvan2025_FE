@@ -50,7 +50,6 @@ const CustomerForm = ({
                     setLoading(true);
                     const data = await getCustomerById(editingCustomer.id);
                     setCustomerData(data);
-                    console.log("Loaded customer data for editing:", data);
                 } catch (error) {
                     console.error("Error loading customer data:", error);
                     setFormError(
@@ -83,7 +82,7 @@ const CustomerForm = ({
                         ? dayjs(customerData.birthday)
                         : null,
                 };
-                console.log("Setting form data for editing:", formData);
+
                 form.setFieldsValue(formData);
             } else if (editingCustomer) {
                 // Fallback to using the editingCustomer directly
@@ -98,7 +97,7 @@ const CustomerForm = ({
                         ? dayjs(editingCustomer.birthday)
                         : null,
                 };
-                console.log("Using fallback data for editing:", formData);
+
                 form.setFieldsValue(formData);
             } else {
                 // New customer - reset form
@@ -140,7 +139,6 @@ const CustomerForm = ({
                 }
             });
 
-            console.log("Form data to submit:", submitData);
             await onSubmit(submitData);
             form.resetFields();
         } catch (error) {

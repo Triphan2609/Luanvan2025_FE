@@ -396,8 +396,6 @@ export default function PayrollPage() {
                 filters.search = formValues.search;
             }
 
-            console.log("Fetching payrolls with filters:", filters);
-
             const data = await getPayrolls(filters);
             setPayrolls(data);
         } catch (error) {
@@ -595,7 +593,6 @@ export default function PayrollPage() {
                     }
 
                     setCurrentBranch(completeData);
-                    console.log("Branch data for payroll:", completeData);
                 } catch (branchError) {
                     console.error(
                         "Error fetching branch details:",
@@ -606,7 +603,6 @@ export default function PayrollPage() {
                     const fallbackBranch =
                         data?.branch || data?.employee?.branch;
                     setCurrentBranch(fallbackBranch);
-                    console.log("Using fallback branch info:", fallbackBranch);
                 }
             } else {
                 setCurrentBranch(null);
