@@ -35,7 +35,7 @@ const BREADCRUMB_MAP = {
     promotions: { label: "Quản lý khuyến mãi" },
     payment: { label: "Thanh toán" },
     invoice: { label: "Hóa đơn" },
-    "menus-main": { label: "Thực đơn chính" },
+    "menus-main": { label: "Quản lý thực đơn" },
     hotel: { label: "Quản lý khách sạn" },
     rooms: { label: "Quản lý phòng" },
     "room-types": { label: "Quản lý loại phòng" },

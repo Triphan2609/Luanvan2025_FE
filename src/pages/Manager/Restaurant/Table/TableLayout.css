@@ -38,6 +38,14 @@
     border-width: 2px !important;
     transition: all 0.3s;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.09);
+    min-width: 220px;
+    max-width: 220px;
+    width: 220px;
+    min-height: 270px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: stretch;
 }
 
 .table-layout-card:hover {
@@ -50,11 +58,32 @@
     justify-content: space-between;
     align-items: center;
     margin-bottom: 12px;
+    min-height: 32px;
+    gap: 8px;
+    max-width: 100%;
+    overflow: hidden;
 }
 
 .table-number {
     font-size: 16px;
     padding: 4px 0;
+    flex-shrink: 0;
+}
+
+.table-layout-header .ant-tag {
+    margin-left: 0 !important;
+    white-space: nowrap;
+    font-size: 12px;
+    padding: 0 6px;
+    height: 22px;
+    max-width: 90px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1.2;
+    word-break: break-word;
 }
 
 .table-layout-info {
@@ -66,8 +95,24 @@
 
 .table-layout-actions {
     display: flex;
-    justify-content: space-between;
+    flex-wrap: wrap;
+    justify-content: center;
     align-items: center;
+    gap: 8px;
+    margin-top: 4px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.table-layout-header--vertical {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    margin-bottom: 12px;
+    min-height: 32px;
+    gap: 4px;
+    max-width: 100%;
+    overflow: hidden;
 }
 
 /* Responsive adjustments */

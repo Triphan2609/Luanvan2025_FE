@@ -67,58 +67,81 @@ const getTableStatusStyle = (status) => {
     }
 };
 
+// Hàm ánh xạ trạng thái bàn
+const statusMap = {
+    available: { color: "#52c41a", text: "Trống" },
+    occupied: { color: "#f5222d", text: "Đang sử dụng" },
+    reserved: { color: "#faad14", text: "Đã đặt trước" },
+    maintenance: { color: "#1890ff", text: "Bảo trì" },
+};
+
 // Component hiển thị bàn
 const TableItem = ({ table, onEditTable }) => {
-    const statusStyle = getTableStatusStyle(table.status);
-
+    const status = statusMap[table.status] || {};
+    const cardContent = (
+        <Card
+            size="small"
+            style={{
+                width: 120,
+                height: 100,
+                margin: "8px",
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+                flexDirection: "column",
+                cursor: "pointer",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.09)",
+                background: status.color,
+                color: "#fff",
+                borderColor: status.color,
+                transition: "all 0.3s",
+            }}
+            hoverable
+            onClick={() => onEditTable(table)}
+        >
+            <TableOutlined style={{ fontSize: 24, marginBottom: 4 }} />
+            <div style={{ fontWeight: "bold", fontSize: 16 }}>
+                {table.tableNumber}
+            </div>
+            <div style={{ fontSize: 12 }}>{table.capacity} người</div>
+            <div style={{ fontSize: 12, marginTop: 2 }}>
+                <span>{status.text}</span>
+            </div>
+        </Card>
+    );
     return (
         <Tooltip
             title={
                 <>
-                    <div>Bàn: {table.tableNumber}</div>
-                    <div>Số chỗ: {table.capacity}</div>
                     <div>
-                        Trạng thái:{" "}
-                        {table.status === "available"
-                            ? "Trống"
-                            : table.status === "occupied"
-                            ? "Đang sử dụng"
-                            : table.status === "reserved"
-                            ? "Đã đặt trước"
-                            : "Bảo trì"}
+                        <b>Bàn:</b> {table.tableNumber}
                     </div>
-                    {table.isVIP && <div>VIP: Có</div>}
+                    <div>
+                        <b>Sức chứa:</b> {table.capacity} người
+                    </div>
+                    <div>
+                        <b>Trạng thái:</b>{" "}
+                        <span style={{ color: status.color }}>
+                            {status.text}
+                        </span>
+                    </div>
+                    {table.isVIP && (
+                        <div>
+                            <b>VIP:</b> Có
+                        </div>
+                    )}
                 </>
             }
-            color={statusStyle.background}
+            color={status.color}
             placement="top"
         >
-            <Badge.Ribbon text={table.isVIP ? "VIP" : ""} color="purple">
-                <Card
-                    size="small"
-                    style={{
-                        width: 120,
-                        height: 100,
-                        margin: "8px",
-                        display: "flex",
-                        justifyContent: "center",
-                        alignItems: "center",
-                        flexDirection: "column",
-                        cursor: "pointer",
-                        boxShadow: "0 2px 8px rgba(0,0,0,0.09)",
-                        transition: "all 0.3s",
-                        ...statusStyle,
-                    }}
-                    hoverable
-                    onClick={() => onEditTable(table)}
-                >
-                    <TableOutlined style={{ fontSize: 24 }} />
-                    <div style={{ marginTop: 8, fontWeight: "bold" }}>
-                        {table.tableNumber}
-                    </div>
-                    <div style={{ fontSize: 12 }}>{table.capacity} người</div>
-                </Card>
-            </Badge.Ribbon>
+            {table.isVIP ? (
+                <Badge.Ribbon text="VIP" color="purple" style={{ zIndex: 1 }}>
+                    {cardContent}
+                </Badge.Ribbon>
+            ) : (
+                cardContent
+            )}
         </Tooltip>
     );
 };

@@ -1,0 +1,151 @@
+body,
+.restaurant-payment-bg {
+    background: #9c9da0 !important;
+}
+
+.payment-card {
+    max-width: 700px;
+    margin: 32px auto;
+    box-shadow: 0 2px 8px #f0f1f2;
+    border-radius: 12px;
+    padding: 24px;
+    background: #fff;
+}
+
+.payment-card .ant-descriptions {
+    margin-bottom: 16px;
+}
+
+.payment-card .ant-table {
+    margin-bottom: 16px;
+}
+
+.payment-card .ant-radio-group {
+    margin-bottom: 16px;
+}
+
+.payment-card .ant-input-number {
+    width: 200px;
+}
+
+.payment-card .ant-btn-primary {
+    background: #1677ff;
+    border-color: #1677ff;
+}
+
+.payment-card .ant-btn-primary:disabled {
+    background: #d9d9d9;
+    border-color: #d9d9d9;
+}
+
+.payment-card .ant-btn {
+    min-width: 120px;
+    font-weight: 600;
+}
+
+.payment-card .ant-select {
+    min-width: 180px;
+}
+
+.payment-card .ant-input-textarea {
+    min-height: 60px;
+}
+
+@media (max-width: 768px) {
+    .payment-card {
+        padding: 12px;
+        max-width: 100%;
+    }
+    .payment-card .ant-descriptions {
+        font-size: 13px;
+    }
+    .payment-card .ant-btn {
+        min-width: 90px;
+        font-size: 13px;
+    }
+    .payment-card .ant-input-number {
+        width: 120px;
+    }
+}
+
+.restaurant-payment-bg {
+    background: #9c9da0 !important;
+}
+
+.payment-header {
+    margin-bottom: 24px;
+    h2 {
+        font-size: 2rem;
+        color: #1677ff;
+        margin-bottom: 0;
+        font-weight: 700;
+    }
+}
+
+.payment-info {
+    margin-bottom: 16px;
+}
+
+.payment-table {
+    margin-bottom: 16px;
+}
+
+.payment-total {
+    font-size: 1.5rem;
+    color: #16a34a;
+    font-weight: bold;
+    margin-bottom: 16px;
+    .total-amount {
+        color: #d97706;
+    }
+}
+
+.payment-methods {
+    margin-bottom: 24px;
+    .ant-btn {
+        min-width: 140px;
+        font-size: 1.1rem;
+        margin-right: 12px;
+    }
+}
+
+.payment-actions {
+    margin-top: 24px;
+    display: flex;
+    gap: 16px;
+}
+
+.bank-transfer-section {
+    margin-bottom: 24px;
+    h4 {
+        color: #1677ff;
+        font-weight: 600;
+        margin-bottom: 12px;
+    }
+}
+
+.bank-account-card {
+    border: 1px solid #e8e8e8;
+    padding: 20px;
+    border-radius: 8px;
+    background-color: #f9f9f9;
+    margin-bottom: 16px;
+    .bank-logo {
+        width: 50px;
+        height: 50px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background-color: #1890ff;
+        border-radius: 50%;
+        margin-right: 15px;
+    }
+    .bank-info {
+        font-weight: bold;
+        font-size: 16px;
+    }
+    .bank-branch {
+        color: #888;
+        font-size: 12px;
+    }
+}

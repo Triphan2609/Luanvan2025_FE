@@ -28,6 +28,8 @@ import { getBookingById } from "../../../../../api/bookingsApi";
 import {
     getPaymentsByBookingId,
     sendInvoiceByEmail,
+    getHotelInvoiceByBookingId,
+    sendHotelInvoiceByEmail,
 } from "../../../../../api/paymentsApi";
 import "./print.css";
 
@@ -61,34 +63,17 @@ export default function Invoice() {
             }
 
             // If no data in localStorage, fetch from API
-            const booking = await getBookingById(id);
-            const payments = await getPaymentsByBookingId(id);
-
-            if (!booking) {
-                setError("Không tìm thấy thông tin đặt phòng");
+            const hotelInvoice = await getHotelInvoiceByBookingId(id);
+            if (!hotelInvoice) {
+                setError("Không tìm thấy hóa đơn cho booking này");
                 setLoading(false);
                 return;
             }
-
-            // Format the data
-            const latestPayment =
-                payments && payments.length > 0
-                    ? payments[payments.length - 1]
-                    : null;
-
-            const paymentMethod = latestPayment?.method?.type || "cash";
-
-            const paymentInfo = {
-                method: paymentMethod,
-                amount: latestPayment?.amount || 0,
-                date: latestPayment?.createdAt || new Date().toISOString(),
-                notes: latestPayment?.notes || "",
-            };
-
-            // Create services list from booking
+            // Lấy thông tin booking từ hotelInvoice
+            const booking = hotelInvoice.booking;
+            // Lấy payments nếu cần (có thể lấy từ hotelInvoice.payments nếu backend trả về)
+            // Format lại dữ liệu như cũ
             const services = [];
-
-            // Add room as a service
             if (booking.room) {
                 const checkInDate = new Date(
                     booking.checkIn || booking.checkInDate
@@ -96,10 +81,10 @@ export default function Invoice() {
                 const checkOutDate = new Date(
                     booking.checkOut || booking.checkOutDate
                 );
-                const days = Math.ceil(
+                let days = Math.ceil(
                     (checkOutDate - checkInDate) / (1000 * 60 * 60 * 24)
                 );
-
+                if (days <= 0) days = 1;
                 services.push({
                     name: `${booking.room.roomCode} - ${
                         booking.room.roomType?.name || "Phòng"
@@ -109,8 +94,6 @@ export default function Invoice() {
                     quantity: 1,
                 });
             }
-
-            // Add additional services
             if (booking.services && Array.isArray(booking.services)) {
                 booking.services.forEach((service) => {
                     services.push({
@@ -120,8 +103,6 @@ export default function Invoice() {
                     });
                 });
             }
-
-            // Format booking data
             const bookingData = {
                 id: booking.id,
                 customerName: booking.customer?.name || "Khách hàng",
@@ -147,18 +128,18 @@ export default function Invoice() {
                     website: booking.branch?.website || "www.abchotel.com",
                 },
             };
-
+            const paymentInfo = {
+                method: hotelInvoice.method?.type || "cash",
+                amount:
+                    hotelInvoice.finalAmount || hotelInvoice.totalAmount || 0,
+                date: hotelInvoice.issueDate || new Date().toISOString(),
+                notes: hotelInvoice.notes || "",
+            };
             const formattedData = {
                 booking: bookingData,
                 paymentInfo: paymentInfo,
+                hotelInvoice: hotelInvoice,
             };
-
-            // Save formatted data to localStorage for future use
-            localStorage.setItem(
-                `payment_${id}`,
-                JSON.stringify(formattedData)
-            );
-
             setData(formattedData);
             setLoading(false);
         } catch (error) {
@@ -266,7 +247,13 @@ export default function Invoice() {
                 key: "email-sending",
             });
 
-            await sendInvoiceByEmail(id, email);
+            // Gọi API gửi hóa đơn qua email với hotelInvoiceId
+            if (!data?.hotelInvoice?.id) {
+                message.error("Không tìm thấy mã hóa đơn để gửi email");
+                setSendingEmail(false);
+                return;
+            }
+            await sendHotelInvoiceByEmail(data.hotelInvoice.id, email);
             message.success({
                 content: `Đã gửi hóa đơn thành công đến: ${email}`,
                 key: "email-sending",
@@ -292,7 +279,7 @@ export default function Invoice() {
                 icon={<RollbackOutlined />}
                 onClick={() => navigate("/hotel/bookings")}
             >
-                Quay lại danh sách
+                Quay lại quản lý đặt phòng
             </Button>
             <Button
                 type="primary"
@@ -348,7 +335,7 @@ export default function Invoice() {
                         onClick={() => navigate("/hotel/bookings")}
                         icon={<RollbackOutlined />}
                     >
-                        Quay lại danh sách đặt phòng
+                        Quay lại quản lý đặt phòng
                     </Button>,
                 ]}
             />
@@ -367,7 +354,7 @@ export default function Invoice() {
                         onClick={() => navigate("/hotel/bookings")}
                         icon={<RollbackOutlined />}
                     >
-                        Quay lại danh sách đặt phòng
+                        Quay lại quản lý đặt phòng
                     </Button>
                 }
             />

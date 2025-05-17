@@ -1,292 +1,654 @@
-// PaymentRestaurant.jsx
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
     Card,
-    Steps,
-    Space,
-    Typography,
+    Descriptions,
+    Table,
     Radio,
     InputNumber,
     Button,
     message,
-    Modal,
-    Statistic,
-    Divider,
-    Table,
-    Tag,
-    Descriptions,
+    Space,
+    Tooltip,
+    Alert,
     Input,
+    Spin,
+    Select,
 } from "antd";
 import {
-    DollarOutlined,
-    CreditCardOutlined,
     MoneyCollectOutlined,
+    CreditCardOutlined,
     BankOutlined,
+    QrcodeOutlined,
     CheckCircleOutlined,
     RollbackOutlined,
+    CopyOutlined,
 } from "@ant-design/icons";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import dayjs from "dayjs";
+import { restaurantOrderApi } from "../../../../api/restaurantOrderApi";
+import {
+    getPaymentMethods,
+    getPaymentDataByType,
+    createRestaurantInvoice,
+    createPayment,
+    updatePaymentStatus,
+    updateRestaurantInvoiceStatus,
+} from "../../../../api/paymentsApi";
+import { getRestaurantBranches } from "../../../../api/branchesApi";
+import "./Payment.scss";
+import { useDispatch } from "react-redux";
+import { clearCart, setProcessingOrder } from "../../../../store/orderSlice";
 
-const { Title, Text } = Typography;
+const paymentMethodIcons = {
+    cash: <MoneyCollectOutlined style={{ fontSize: "20px" }} />,
+    bank_transfer: <BankOutlined style={{ fontSize: "20px" }} />,
+    zalo_pay: <QrcodeOutlined style={{ fontSize: "20px", color: "#00b3ff" }} />,
+    card: <CreditCardOutlined style={{ fontSize: "20px" }} />,
+};
 
 const formatCurrency = (value) => {
+    const number = Number(value);
+    if (isNaN(number) || value === null || value === undefined) return "0 ₫";
     return new Intl.NumberFormat("vi-VN", {
         style: "currency",
         currency: "VND",
         minimumFractionDigits: 0,
         maximumFractionDigits: 0,
-    }).format(value);
+    }).format(number);
 };
 
-export default function PaymentRestaurant() {
+export default function RestaurantPayment() {
     const navigate = useNavigate();
-    const [currentStep, setCurrentStep] = useState(0);
-    const [paymentMethod, setPaymentMethod] = useState("cash");
+    const { orderId } = useParams();
+    const [order, setOrder] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [paymentMethods, setPaymentMethods] = useState([]);
+    const [methodId, setMethodId] = useState(null);
+    const [paymentMethod, setPaymentMethod] = useState(null);
     const [receivedAmount, setReceivedAmount] = useState(0);
-    const [isModalVisible, setIsModalVisible] = useState(false);
-    const [note, setNote] = useState("");
+    const [notes, setNotes] = useState("");
+    const [processingPayment, setProcessingPayment] = useState(false);
+    const [branches, setBranches] = useState([]);
+    const [selectedBranchId, setSelectedBranchId] = useState(null);
+    const [branchName, setBranchName] = useState("");
+    const [bankAccounts, setBankAccounts] = useState([]);
+    const [selectedBankId, setSelectedBankId] = useState("");
+    const [restaurantInvoiceId, setRestaurantInvoiceId] = useState(null);
+    const dispatch = useDispatch();
 
-    // Dữ liệu mẫu đơn hàng
-    const orderData = {
-        id: "table01",
-        name: "Bàn 1",
-        orders: [
-            { id: 1, name: "Phở bò", quantity: 2, price: 45000, type: "food", status: "done" },
-            { id: 2, name: "Trà đá", quantity: 2, price: 5000, type: "drink", status: "done" },
-            { id: 3, name: "Khăn giấy", quantity: 1, price: 3000, type: "service", status: "done" },
-        ],
-        timeIn: "10:30",
-        timeOut: "11:45",
-        customerCount: 2,
+    useEffect(() => {
+        const fetchOrderAndInvoice = async () => {
+            try {
+                setLoading(true);
+                const data = await restaurantOrderApi.getById(orderId);
+                setOrder(data);
+                if (data.restaurantInvoiceId) {
+                    setRestaurantInvoiceId(data.restaurantInvoiceId);
+                } else {
+                    const totalAmount = data.items.reduce(
+                        (sum, item) => sum + item.price * item.quantity,
+                        0
+                    );
+                    const invoicePayload = {
+                        invoiceNumber: `INV-${data.id}-${Date.now()}`,
+                        totalAmount,
+                        finalAmount: totalAmount,
+                        issueDate: new Date(),
+                        restaurantOrderId: data.id,
+                        branchId: data.branchId,
+                    };
+                    const invoice = await createRestaurantInvoice(
+                        invoicePayload
+                    );
+                    setRestaurantInvoiceId(invoice.id);
+                }
+                if (data.branchId) setSelectedBranchId(data.branchId);
+            } catch (error) {
+                message.error("Không thể lấy thông tin order hoặc hóa đơn");
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchOrderAndInvoice();
+    }, [orderId]);
+
+    useEffect(() => {
+        const fetchPaymentMethods = async () => {
+            try {
+                const methods = await getPaymentMethods();
+                if (Array.isArray(methods) && methods.length > 0) {
+                    setPaymentMethods(methods);
+                    setMethodId(methods[0].id);
+                    setPaymentMethod(methods[0].type);
+                } else {
+                    const defaultMethods = [
+                        { id: 1, name: "Tiền mặt", type: "cash" },
+                        { id: 2, name: "Chuyển khoản", type: "bank_transfer" },
+                        { id: 3, name: "ZaloPay", type: "zalo_pay" },
+                        { id: 4, name: "Thẻ", type: "card" },
+                    ];
+                    setPaymentMethods(defaultMethods);
+                    setMethodId(defaultMethods[0].id);
+                    setPaymentMethod(defaultMethods[0].type);
+                }
+            } catch (error) {
+                message.warning(
+                    "Không lấy được phương thức thanh toán từ backend, dùng mặc định!"
+                );
+                const defaultMethods = [
+                    { id: 1, name: "Tiền mặt", type: "cash" },
+                    { id: 2, name: "Chuyển khoản", type: "bank_transfer" },
+                    { id: 3, name: "ZaloPay", type: "zalo_pay" },
+                    { id: 4, name: "Thẻ", type: "card" },
+                ];
+                setPaymentMethods(defaultMethods);
+                setMethodId(defaultMethods[0].id);
+                setPaymentMethod(defaultMethods[0].type);
+            }
+        };
+        fetchPaymentMethods();
+    }, []);
+
+    useEffect(() => {
+        const fetchBranches = async () => {
+            try {
+                const branchList = await getRestaurantBranches();
+                setBranches(branchList);
+                if (order && order.branchId) {
+                    const found = branchList.find(
+                        (b) => b.id === order.branchId
+                    );
+                    setBranchName(found ? found.name : "");
+                }
+            } catch (error) {
+                message.error("Không thể tải danh sách chi nhánh");
+            }
+        };
+        fetchBranches();
+    }, [order]);
+
+    useEffect(() => {
+        if (paymentMethod === "bank_transfer") {
+            getPaymentDataByType("bank_transfer").then((data) => {
+                setBankAccounts(data.accounts || []);
+                if (data.accounts && data.accounts.length > 0) {
+                    setSelectedBankId(data.accounts[0].id);
+                }
+            });
+        }
+    }, [paymentMethod]);
+
+    const total =
+        order?.items?.reduce(
+            (sum, item) => sum + item.price * item.quantity,
+            0
+        ) || 0;
+    const change = receivedAmount - total;
+
+    const handlePaymentMethodChange = (e) => {
+        const selected = paymentMethods.find((m) => m.id === e.target.value);
+        setMethodId(selected.id);
+        setPaymentMethod(selected.type);
     };
 
-    const columns = [
-        {
-            title: "STT",
-            key: "index",
-            width: 50,
-            render: (_, __, index) => index + 1,
-        },
-        {
-            title: "Tên món/dịch vụ",
-            dataIndex: "name",
-            key: "name",
-        },
-        {
-            title: "Loại",
-            dataIndex: "type",
-            key: "type",
-            render: (text) => (
-                <Tag color={text === "food" ? "green" : text === "drink" ? "blue" : "purple"}>
-                    {text === "food" ? "Món ăn" : text === "drink" ? "Đồ uống" : "Dịch vụ"}
-                </Tag>
-            ),
-        },
-        {
-            title: "Số lượng",
-            dataIndex: "quantity",
-            key: "quantity",
-            width: 100,
-            align: "right",
-        },
-        {
-            title: "Đơn giá",
-            dataIndex: "price",
-            key: "price",
-            width: 120,
-            align: "right",
-            render: (price) => formatCurrency(price),
-        },
-        {
-            title: "Thành tiền",
-            key: "total",
-            width: 120,
-            align: "right",
-            render: (_, record) => (
-                <Text strong style={{ color: "#1890ff" }}>
-                    {formatCurrency(record.price * record.quantity)}
-                </Text>
-            ),
-        },
-    ];
-
-    // Tính tổng tiền
-    const total = orderData.orders.reduce((sum, item) => sum + item.price * item.quantity, 0);
-
-    // Xử lý thanh toán
-    const handlePayment = () => {
-        if (paymentMethod === "cash" && receivedAmount < total) {
-            message.error("Số tiền nhận vào phải lớn hơn hoặc bằng tổng tiền!");
+    const handlePayment = async () => {
+        if (!order || !order.branchId) {
+            message.error("Không xác định được chi nhánh thanh toán");
             return;
         }
-        setIsModalVisible(true);
+        if (!restaurantInvoiceId) {
+            message.error("Không tìm thấy hóa đơn nhà hàng để thanh toán");
+            return;
+        }
+        if (paymentMethod === "cash" && receivedAmount < total) {
+            message.error("Số tiền khách đưa không đủ để thanh toán");
+            return;
+        }
+        if (paymentMethod === "bank_transfer" && !selectedBankId) {
+            message.error("Vui lòng chọn tài khoản ngân hàng để thanh toán");
+            return;
+        }
+        setProcessingPayment(true);
+        try {
+            const payment = await createPayment({
+                amount: total,
+                methodId,
+                notes:
+                    paymentMethod === "bank_transfer"
+                        ? `Chuyển khoản qua tài khoản ${selectedBankId}`
+                        : notes,
+                receivedAmount,
+                branchId: order.branchId,
+                restaurantInvoiceId,
+            });
+            if (payment && payment.id) {
+                try {
+                    await updatePaymentStatus(payment.id, "confirmed");
+                    await updateRestaurantInvoiceStatus(
+                        restaurantInvoiceId,
+                        "paid"
+                    );
+                } catch (e) {
+                    console.error("Error updating payment/invoice status:", e);
+                }
+            }
+            for (const item of order.items) {
+                if (item.status !== "completed") {
+                    try {
+                        await restaurantOrderApi.updateOrderItemStatus(
+                            order.id,
+                            item.id,
+                            "completed"
+                        );
+                    } catch (e) {
+                        console.error("Error updating order item status:", e);
+                    }
+                }
+            }
+            if (order.tableId) {
+                dispatch(clearCart({ tableId: order.tableId }));
+                dispatch(
+                    setProcessingOrder({ tableId: order.tableId, items: [] })
+                );
+            }
+            message.success("Thanh toán thành công!");
+            navigate(`/restaurant/invoice/${restaurantInvoiceId}`);
+        } catch (error) {
+            message.error("Có lỗi khi thanh toán: " + (error.message || ""));
+        } finally {
+            setProcessingPayment(false);
+        }
     };
 
-    // Xác nhận thanh toán
-    const handleConfirmPayment = () => {
-        const paymentInfo = {
-            method: paymentMethod,
-            receivedAmount,
-            change: receivedAmount - total,
-            timestamp: dayjs().format("YYYY-MM-DD HH:mm:ss"),
-            note,
-        };
-
-        // Lưu thông tin vào localStorage
-        localStorage.setItem(
-            `restaurant_payment_${orderData.id}`,
-            JSON.stringify({
-                orderData,
-                paymentInfo,
-            })
-        );
-
-        message.success("Thanh toán thành công!");
-        // Chuyển đến trang hóa đơn
-        navigate(`/restaurant/payment/invoice/${orderData.id}`);
-    };
-
-    const steps = [
-        {
-            title: "Xác nhận",
-            icon: <CheckCircleOutlined />,
-        },
-        {
-            title: "Thanh toán",
-            icon: <MoneyCollectOutlined />,
-        },
-    ];
+    if (loading) return <Spin tip="Đang tải..." />;
+    if (!order) return <Alert message="Không tìm thấy order" type="error" />;
 
     return (
-        <div style={{ padding: 24, background: "#f0f2f5", minHeight: "100vh" }}>
-            <Space direction="vertical" style={{ width: "100%" }} size="large">
-                <Steps current={currentStep} items={steps} />
-
-                <Card title="Thông tin thanh toán">
-                    <Space direction="vertical" style={{ width: "100%" }} size="large">
-                        {/* Thông tin bàn */}
-                        <div style={{ background: "#f5f5f5", padding: 16, borderRadius: 8 }}>
-                            <Title level={5}>THÔNG TIN BÀN</Title>
-                            <Space wrap>
-                                <Text strong>Bàn số:</Text>
-                                <Text>{orderData.name}</Text>
-                                <Divider type="vertical" />
-                                <Text strong>Số khách:</Text>
-                                <Text>{orderData.customerCount} người</Text>
-                                <Divider type="vertical" />
-                                <Text strong>Giờ vào:</Text>
-                                <Text>{orderData.timeIn}</Text>
-                                <Divider type="vertical" />
-                                <Text strong>Giờ ra:</Text>
-                                <Text>{orderData.timeOut}</Text>
+        <Card
+            title="Thanh toán đơn hàng nhà hàng"
+            style={{ maxWidth: 700, margin: "0 auto" }}
+        >
+            <Descriptions bordered column={1} size="small">
+                <Descriptions.Item label="Ngày giờ">
+                    {dayjs(order.orderTime || order.createdAt).format(
+                        "HH:mm DD/MM/YYYY"
+                    )}
+                </Descriptions.Item>
+                <Descriptions.Item label="Bàn">
+                    {order.tableNumber || order.table?.tableNumber}
+                </Descriptions.Item>
+                <Descriptions.Item label="Chi nhánh">
+                    {branchName || order.branchId}
+                </Descriptions.Item>
+            </Descriptions>
+            <Table
+                dataSource={order.items}
+                columns={[
+                    { title: "Món ăn", dataIndex: "name", key: "name" },
+                    {
+                        title: "Số lượng",
+                        dataIndex: "quantity",
+                        key: "quantity",
+                    },
+                    {
+                        title: "Đơn giá",
+                        dataIndex: "price",
+                        key: "price",
+                        render: (v) => formatCurrency(v),
+                    },
+                    {
+                        title: "Thành tiền",
+                        key: "total",
+                        render: (_, r) => formatCurrency(r.price * r.quantity),
+                    },
+                ]}
+                pagination={false}
+                rowKey="id"
+                style={{ marginTop: 16, marginBottom: 16 }}
+            />
+            <div
+                style={{
+                    textAlign: "right",
+                    fontWeight: "bold",
+                    fontSize: 18,
+                    marginBottom: 16,
+                }}
+            >
+                Tổng tiền: {formatCurrency(total)}
+            </div>
+            <div style={{ marginBottom: 16 }}>
+                <Radio.Group
+                    value={methodId}
+                    onChange={handlePaymentMethodChange}
+                >
+                    {paymentMethods.map((method) => (
+                        <Radio.Button key={method.id} value={method.id}>
+                            <Space>
+                                {paymentMethodIcons[method.type]}
+                                {method.name}
                             </Space>
-                        </div>
-
-                        {/* Chi tiết đơn hàng */}
-                        <Table dataSource={orderData.orders} columns={columns} pagination={false} bordered />
-
-                        {/* Phần thanh toán */}
-                        <Card>
-                            <Space direction="vertical" style={{ width: "100%" }}>
-                                <Statistic
-                                    title="Tổng tiền"
-                                    value={total}
-                                    formatter={(value) => formatCurrency(value)}
-                                    valueStyle={{ color: "#cf1322" }}
-                                />
-
-                                <Divider />
-
-                                <div>
-                                    <Title level={5}>PHƯƠNG THỨC THANH TOÁN</Title>
+                        </Radio.Button>
+                    ))}
+                </Radio.Group>
+            </div>
+            {paymentMethod === "cash" && (
+                <div style={{ marginBottom: 16 }}>
+                    <span>Tiền khách đưa: </span>
+                    <InputNumber
+                        min={0}
+                        value={receivedAmount}
+                        onChange={setReceivedAmount}
+                        formatter={(v) => formatCurrency(v)}
+                        parser={(v) => v.replace(/[^\d]/g, "")}
+                        style={{ width: 200, marginLeft: 8 }}
+                    />
+                    <span style={{ marginLeft: 16 }}>
+                        Tiền thừa:{" "}
+                        <b style={{ color: change < 0 ? "red" : "green" }}>
+                            {formatCurrency(change)}
+                        </b>
+                    </span>
+                </div>
+            )}
+            {paymentMethod === "bank_transfer" && (
+                <div style={{ marginBottom: 24 }}>
+                    {bankAccounts.length === 0 ? (
+                        <Alert
+                            message="Không có tài khoản ngân hàng"
+                            description="Không tìm thấy thông tin tài khoản ngân hàng hoạt động trong hệ thống."
+                            type="warning"
+                            showIcon
+                        />
+                    ) : (
+                        <div style={{ marginTop: 16 }}>
+                            <h4>Thông tin chuyển khoản:</h4>
+                            {bankAccounts.length > 1 && (
+                                <div style={{ marginBottom: 16 }}>
+                                    <div style={{ marginBottom: 8 }}>
+                                        Chọn tài khoản ngân hàng:
+                                    </div>
                                     <Radio.Group
-                                        value={paymentMethod}
-                                        onChange={(e) => setPaymentMethod(e.target.value)}
-                                        buttonStyle="solid"
+                                        value={selectedBankId}
+                                        onChange={(e) =>
+                                            setSelectedBankId(e.target.value)
+                                        }
+                                        style={{
+                                            display: "flex",
+                                            flexDirection: "column",
+                                            gap: "8px",
+                                        }}
                                     >
-                                        <Space direction="vertical">
-                                            <Radio.Button value="cash">
-                                                <MoneyCollectOutlined /> Tiền mặt
-                                            </Radio.Button>
-                                            <Radio.Button value="card">
-                                                <CreditCardOutlined /> Thẻ
-                                            </Radio.Button>
-                                            <Radio.Button value="bank">
-                                                <BankOutlined /> Chuyển khoản
-                                            </Radio.Button>
-                                        </Space>
+                                        {bankAccounts.map((account) => (
+                                            <Radio
+                                                key={account.id}
+                                                value={account.id}
+                                            >
+                                                <Space>
+                                                    <span
+                                                        style={{
+                                                            fontWeight: "bold",
+                                                        }}
+                                                    >
+                                                        {account.bankName}
+                                                    </span>
+                                                    <span
+                                                        style={{
+                                                            color: "#888",
+                                                        }}
+                                                    >
+                                                        ({account.accountNumber}
+                                                        )
+                                                    </span>
+                                                </Space>
+                                            </Radio>
+                                        ))}
                                     </Radio.Group>
                                 </div>
-
-                                {paymentMethod === "cash" && (
-                                    <>
-                                        <Divider />
-                                        <Space direction="vertical" style={{ width: "100%" }}>
-                                            <Title level={5}>TIỀN KHÁCH ĐƯA</Title>
-                                            <InputNumber
-                                                style={{ width: "100%" }}
-                                                value={receivedAmount}
-                                                onChange={setReceivedAmount}
-                                                formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ".")}
-                                                parser={(value) => value.replace(/\./g, "")}
-                                                min={0}
-                                            />
-                                            {receivedAmount > 0 && (
-                                                <Statistic
-                                                    title="Tiền thừa"
-                                                    value={receivedAmount - total}
-                                                    formatter={(value) => formatCurrency(value)}
-                                                    valueStyle={{
-                                                        color: receivedAmount - total >= 0 ? "#3f8600" : "#cf1322",
-                                                    }}
-                                                />
-                                            )}
-                                        </Space>
-                                    </>
-                                )}
-
-                                <Divider />
-
-                                <Space>
-                                    <Button icon={<RollbackOutlined />} onClick={() => window.history.back()}>
-                                        Quay lại
-                                    </Button>
-                                    <Button type="primary" icon={<CheckCircleOutlined />} onClick={handlePayment}>
-                                        Xác nhận thanh toán
-                                    </Button>
-                                </Space>
-                            </Space>
-                        </Card>
-                    </Space>
-                </Card>
-
-                {/* Modal xác nhận thanh toán */}
-                <Modal
-                    title="Xác nhận thanh toán"
-                    open={isModalVisible}
-                    onOk={handleConfirmPayment}
-                    onCancel={() => setIsModalVisible(false)}
-                    okText="Xác nhận"
-                    cancelText="Hủy"
-                >
-                    <Space direction="vertical" style={{ width: "100%" }}>
-                        <Descriptions column={1}>
-                            <Descriptions.Item label="Tổng tiền">{formatCurrency(total)}</Descriptions.Item>
-                            <Descriptions.Item label="Phương thức">
-                                {paymentMethod === "cash" ? "Tiền mặt" : paymentMethod === "card" ? "Thẻ" : "Chuyển khoản"}
-                            </Descriptions.Item>
-                            {paymentMethod === "cash" && (
-                                <>
-                                    <Descriptions.Item label="Tiền nhận">{formatCurrency(receivedAmount)}</Descriptions.Item>
-                                    <Descriptions.Item label="Tiền thừa">{formatCurrency(receivedAmount - total)}</Descriptions.Item>
-                                </>
                             )}
-                        </Descriptions>
-                        <Input.TextArea placeholder="Ghi chú (nếu có)" value={note} onChange={(e) => setNote(e.target.value)} rows={4} />
-                    </Space>
-                </Modal>
+                            {(() => {
+                                const bankAccount =
+                                    bankAccounts.find(
+                                        (acc) => acc.id === selectedBankId
+                                    ) || bankAccounts[0];
+                                return (
+                                    <div
+                                        style={{
+                                            border: "1px solid #e8e8e8",
+                                            padding: "20px",
+                                            borderRadius: "8px",
+                                            backgroundColor: "#f9f9f9",
+                                        }}
+                                    >
+                                        <div
+                                            style={{
+                                                display: "flex",
+                                                alignItems: "center",
+                                                marginBottom: "15px",
+                                            }}
+                                        >
+                                            <div
+                                                style={{
+                                                    width: "50px",
+                                                    height: "50px",
+                                                    display: "flex",
+                                                    justifyContent: "center",
+                                                    alignItems: "center",
+                                                    backgroundColor: "#1890ff",
+                                                    borderRadius: "50%",
+                                                    marginRight: "15px",
+                                                }}
+                                            >
+                                                {bankAccount.logoUrl ? (
+                                                    <img
+                                                        src={
+                                                            bankAccount.logoUrl
+                                                        }
+                                                        alt={
+                                                            bankAccount.bankName
+                                                        }
+                                                        style={{
+                                                            width: "30px",
+                                                            height: "30px",
+                                                        }}
+                                                    />
+                                                ) : (
+                                                    <BankOutlined
+                                                        style={{
+                                                            fontSize: "24px",
+                                                            color: "white",
+                                                        }}
+                                                    />
+                                                )}
+                                            </div>
+                                            <div>
+                                                <div
+                                                    style={{
+                                                        fontWeight: "bold",
+                                                        fontSize: "16px",
+                                                    }}
+                                                >
+                                                    {bankAccount.bankName}
+                                                </div>
+                                                <div
+                                                    style={{
+                                                        color: "#888",
+                                                        fontSize: "12px",
+                                                    }}
+                                                >
+                                                    {bankAccount.branch || ""}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <Descriptions
+                                            bordered
+                                            column={1}
+                                            size="small"
+                                            style={{ marginBottom: "15px" }}
+                                        >
+                                            <Descriptions.Item
+                                                label={
+                                                    <span
+                                                        style={{
+                                                            fontWeight: "500",
+                                                        }}
+                                                    >
+                                                        Ngân hàng
+                                                    </span>
+                                                }
+                                                labelStyle={{ width: "150px" }}
+                                            >
+                                                <b>{bankAccount.bankName}</b>
+                                            </Descriptions.Item>
+                                            <Descriptions.Item
+                                                label={
+                                                    <span
+                                                        style={{
+                                                            fontWeight: "500",
+                                                        }}
+                                                    >
+                                                        Số tài khoản
+                                                    </span>
+                                                }
+                                                labelStyle={{ width: "150px" }}
+                                            >
+                                                <Space>
+                                                    <b>
+                                                        {
+                                                            bankAccount.accountNumber
+                                                        }
+                                                    </b>
+                                                    <Button
+                                                        type="text"
+                                                        icon={<CopyOutlined />}
+                                                        onClick={() => {
+                                                            navigator.clipboard.writeText(
+                                                                bankAccount.accountNumber
+                                                            );
+                                                            message.success(
+                                                                "Đã sao chép số tài khoản"
+                                                            );
+                                                        }}
+                                                    />
+                                                </Space>
+                                            </Descriptions.Item>
+                                            <Descriptions.Item
+                                                label={
+                                                    <span
+                                                        style={{
+                                                            fontWeight: "500",
+                                                        }}
+                                                    >
+                                                        Tên tài khoản
+                                                    </span>
+                                                }
+                                                labelStyle={{ width: "150px" }}
+                                            >
+                                                <Space>
+                                                    <b>
+                                                        {
+                                                            bankAccount.accountName
+                                                        }
+                                                    </b>
+                                                    <Button
+                                                        type="text"
+                                                        icon={<CopyOutlined />}
+                                                        onClick={() => {
+                                                            navigator.clipboard.writeText(
+                                                                bankAccount.accountName
+                                                            );
+                                                            message.success(
+                                                                "Đã sao chép tên tài khoản"
+                                                            );
+                                                        }}
+                                                    />
+                                                </Space>
+                                            </Descriptions.Item>
+                                            {bankAccount.swiftCode && (
+                                                <Descriptions.Item
+                                                    label={
+                                                        <span
+                                                            style={{
+                                                                fontWeight:
+                                                                    "500",
+                                                            }}
+                                                        >
+                                                            Mã SWIFT
+                                                        </span>
+                                                    }
+                                                    labelStyle={{
+                                                        width: "150px",
+                                                    }}
+                                                >
+                                                    <Space>
+                                                        <b>
+                                                            {
+                                                                bankAccount.swiftCode
+                                                            }
+                                                        </b>
+                                                        <Button
+                                                            type="text"
+                                                            icon={
+                                                                <CopyOutlined />
+                                                            }
+                                                            onClick={() => {
+                                                                navigator.clipboard.writeText(
+                                                                    bankAccount.swiftCode
+                                                                );
+                                                                message.success(
+                                                                    "Đã sao chép mã SWIFT"
+                                                                );
+                                                            }}
+                                                        />
+                                                    </Space>
+                                                </Descriptions.Item>
+                                            )}
+                                        </Descriptions>
+                                        {bankAccount.description && (
+                                            <Alert
+                                                message="Lưu ý"
+                                                description={
+                                                    bankAccount.description
+                                                }
+                                                type="info"
+                                                showIcon
+                                            />
+                                        )}
+                                    </div>
+                                );
+                            })()}
+                        </div>
+                    )}
+                </div>
+            )}
+            <div style={{ marginBottom: 16 }}>
+                <span>Ghi chú: </span>
+                <Input.TextArea
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    rows={2}
+                />
+            </div>
+            <Space>
+                <Button
+                    icon={<RollbackOutlined />}
+                    onClick={() => navigate(-1)}
+                >
+                    Quay lại
+                </Button>
+                <Tooltip
+                    title={total <= 0 ? "Không có số tiền cần thanh toán" : ""}
+                >
+                    <Button
+                        type="primary"
+                        icon={<CheckCircleOutlined />}
+                        onClick={handlePayment}
+                        disabled={total <= 0}
+                        loading={processingPayment}
+                    >
+                        Xác nhận thanh toán
+                    </Button>
+                </Tooltip>
             </Space>
-        </div>
+        </Card>
     );
 }

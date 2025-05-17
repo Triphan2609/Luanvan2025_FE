@@ -1,9 +1,24 @@
 import React, { useState, useEffect } from "react";
-import { Drawer, Button, Table, Space, Popconfirm, Form, Input, message } from "antd";
+import {
+    Drawer,
+    Button,
+    Table,
+    Space,
+    Popconfirm,
+    Form,
+    Input,
+    message,
+} from "antd";
 import { PlusOutlined, EditOutlined, DeleteOutlined } from "@ant-design/icons";
-import { getBranchTypes } from "../../../../api/branchTypesApi";
+import { getBranchTypes } from "../../../../../api/branchTypesApi";
 
-export default function BranchTypeDrawer({ open, onClose, branchTypes: initialBranchTypes, onSaveBranchType, onDeleteBranchType }) {
+export default function BranchTypeDrawer({
+    open,
+    onClose,
+    branchTypes: initialBranchTypes,
+    onSaveBranchType,
+    onDeleteBranchType,
+}) {
     const [branchTypes, setBranchTypes] = useState(initialBranchTypes);
     const [editingBranchType, setEditingBranchType] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -76,12 +91,20 @@ export default function BranchTypeDrawer({ open, onClose, branchTypes: initialBr
     };
 
     return (
-        <Drawer title="Quản lý loại chi nhánh" placement="right" width={600} onClose={onClose} open={open}>
+        <Drawer
+            title="Quản lý loại chi nhánh"
+            placement="right"
+            width={600}
+            onClose={onClose}
+            open={open}
+        >
             <Button
                 type="primary"
                 icon={<PlusOutlined />}
                 style={{ marginBottom: 16 }}
-                onClick={() => setEditingBranchType({ id: null, name: "", key_name: "" })} // Đặt key_name là chuỗi rỗng
+                onClick={() =>
+                    setEditingBranchType({ id: null, name: "", key_name: "" })
+                } // Đặt key_name là chuỗi rỗng
             >
                 Thêm loại chi nhánh
             </Button>
@@ -103,7 +126,10 @@ export default function BranchTypeDrawer({ open, onClose, branchTypes: initialBr
                         key: "actions",
                         render: (_, record) => (
                             <Space>
-                                <Button icon={<EditOutlined />} onClick={() => setEditingBranchType(record)}>
+                                <Button
+                                    icon={<EditOutlined />}
+                                    onClick={() => setEditingBranchType(record)}
+                                >
                                     Sửa
                                 </Button>
                                 <Popconfirm
@@ -112,7 +138,11 @@ export default function BranchTypeDrawer({ open, onClose, branchTypes: initialBr
                                     cancelText="Hủy"
                                     onConfirm={() => handleDelete(record.id)}
                                 >
-                                    <Button icon={<DeleteOutlined />} danger loading={deleting}>
+                                    <Button
+                                        icon={<DeleteOutlined />}
+                                        danger
+                                        loading={deleting}
+                                    >
                                         Xóa
                                     </Button>
                                 </Popconfirm>
@@ -127,21 +157,36 @@ export default function BranchTypeDrawer({ open, onClose, branchTypes: initialBr
             {editingBranchType && (
                 <Form
                     layout="vertical"
-                    style={{ marginTop: 16, padding: "16px", background: "#f9f9f9", borderRadius: "8px" }}
+                    style={{
+                        marginTop: 16,
+                        padding: "16px",
+                        background: "#f9f9f9",
+                        borderRadius: "8px",
+                    }}
                     initialValues={editingBranchType}
                     onFinish={handleSave}
                 >
                     <Form.Item
                         name="name"
                         label="Tên loại chi nhánh"
-                        rules={[{ required: true, message: "Vui lòng nhập tên loại chi nhánh!" }]}
+                        rules={[
+                            {
+                                required: true,
+                                message: "Vui lòng nhập tên loại chi nhánh!",
+                            },
+                        ]}
                     >
                         <Input placeholder="Nhập tên loại chi nhánh" />
                     </Form.Item>
                     <Form.Item
                         name="key_name"
                         label="Mã loại chi nhánh"
-                        rules={[{ required: !editingBranchType?.id, message: "Vui lòng nhập mã loại chi nhánh!" }]}
+                        rules={[
+                            {
+                                required: !editingBranchType?.id,
+                                message: "Vui lòng nhập mã loại chi nhánh!",
+                            },
+                        ]}
                     >
                         <Input
                             placeholder="Nhập mã loại chi nhánh"
@@ -149,8 +194,14 @@ export default function BranchTypeDrawer({ open, onClose, branchTypes: initialBr
                         />
                     </Form.Item>
                     <Space>
-                        <Button onClick={() => setEditingBranchType(null)}>Hủy</Button>
-                        <Button type="primary" htmlType="submit" loading={saving}>
+                        <Button onClick={() => setEditingBranchType(null)}>
+                            Hủy
+                        </Button>
+                        <Button
+                            type="primary"
+                            htmlType="submit"
+                            loading={saving}
+                        >
                             {editingBranchType.id ? "Cập nhật" : "Thêm mới"}
                         </Button>
                     </Space>

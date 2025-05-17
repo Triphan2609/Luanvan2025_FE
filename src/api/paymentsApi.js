@@ -4,7 +4,7 @@ import apiClient from "../configs/apiClient";
 export const PaymentMethodType = {
     CASH: "cash",
     BANK_TRANSFER: "bank_transfer",
-    VNPAY: "vnpay",
+    ZALO_PAY: "zalo_pay",
 };
 
 // Lấy danh sách các phương thức thanh toán
@@ -65,20 +65,74 @@ export const getPaymentMethodById = async (id) => {
     }
 };
 
-// Tạo thanh toán mới
+// Lấy hotelInvoice theo bookingId
+export async function getHotelInvoiceByBookingId(bookingId) {
+    console.log(
+        "[LOG][paymentsApi.js] Gọi API getHotelInvoiceByBookingId với bookingId:",
+        bookingId
+    );
+    const res = await apiClient.get(
+        `/payments/hotel-invoices?bookingId=${bookingId}`
+    );
+    console.log(
+        "[LOG][paymentsApi.js] Kết quả trả về từ API hotel-invoices:",
+        res.data
+    );
+    if (Array.isArray(res.data) && res.data.length > 0) {
+        return res.data[0];
+    }
+    return null;
+}
+
+// Tạo hotelInvoice từ booking nếu chưa có
+export const createHotelInvoice = async (invoiceData) => {
+    console.log(
+        "[LOG][paymentsApi.js] Gọi API createHotelInvoice với dữ liệu:",
+        invoiceData
+    );
+    try {
+        const response = await apiClient.post(
+            "/payments/hotel-invoices",
+            invoiceData
+        );
+        console.log(
+            "[LOG][paymentsApi.js] Kết quả trả về từ API createHotelInvoice:",
+            response.data
+        );
+        return response.data;
+    } catch (error) {
+        console.error(
+            "[LOG][paymentsApi.js] Lỗi khi gọi API createHotelInvoice:",
+            error
+        );
+        throw error;
+    }
+};
+
+// Tạo thanh toán mới (dùng hotelInvoiceId)
 export const createPayment = async (paymentData) => {
     try {
-        // Đảm bảo dữ liệu thanh toán có các trường cần thiết theo cấu trúc backend mới
-        const formattedPaymentData = {
-            ...paymentData,
-            target: paymentData.target || "hotel", // Mặc định là thanh toán khách sạn
-        };
-
-        // Kiểm tra nếu không có branchId mà có thông tin chi nhánh từ booking
-        if (!formattedPaymentData.branchId && paymentData.bookingBranchId) {
-            formattedPaymentData.branchId = paymentData.bookingBranchId;
+        // Chỉ giữ lại các trường hợp lệ cho backend mới
+        const formattedPaymentData = { ...paymentData };
+        delete formattedPaymentData.bookingId;
+        delete formattedPaymentData.target;
+        // Đảm bảo có hotelInvoiceId hoặc restaurantInvoiceId
+        if (
+            !formattedPaymentData.hotelInvoiceId &&
+            !formattedPaymentData.restaurantInvoiceId
+        ) {
+            throw new Error(
+                "hotelInvoiceId or restaurantInvoiceId is required for payment"
+            );
         }
-
+        if (
+            formattedPaymentData.hotelInvoiceId &&
+            formattedPaymentData.restaurantInvoiceId
+        ) {
+            throw new Error(
+                "Cannot provide both hotelInvoiceId and restaurantInvoiceId"
+            );
+        }
         const response = await apiClient.post(
             "/payments",
             formattedPaymentData
@@ -86,6 +140,33 @@ export const createPayment = async (paymentData) => {
         return response.data;
     } catch (error) {
         console.error("Error creating payment:", error);
+        throw error;
+    }
+};
+
+// Lấy payments theo hotelInvoiceId
+export const getPaymentsByHotelInvoiceId = async (hotelInvoiceId) => {
+    try {
+        const response = await apiClient.get(
+            `/payments?hotelInvoiceId=${hotelInvoiceId}`
+        );
+        return response.data;
+    } catch (error) {
+        console.error("Error fetching payments for hotel invoice:", error);
+        throw error;
+    }
+};
+
+// Gửi hóa đơn qua email (hotel)
+export const sendHotelInvoiceByEmail = async (hotelInvoiceId, email) => {
+    try {
+        const response = await apiClient.post(
+            `/payments/hotel-invoices/${hotelInvoiceId}/send-email`,
+            { email }
+        );
+        return response.data;
+    } catch (error) {
+        console.error("Error sending hotel invoice by email:", error);
         throw error;
     }
 };
@@ -364,6 +445,97 @@ export const getInvoiceByBookingId = async (bookingId) => {
         return response.data;
     } catch (error) {
         console.error("Error fetching invoice details:", error);
+        throw error;
+    }
+};
+
+// Update payment status
+export const updatePaymentStatus = async (id, status) => {
+    try {
+        const response = await apiClient.patch(`/payments/${id}/status`, {
+            status,
+        });
+        return response.data;
+    } catch (error) {
+        console.error("Error updating payment status:", error);
+        throw error;
+    }
+};
+
+// Restaurant Payment APIs
+export const getRestaurantInvoiceById = async (invoiceId) => {
+    try {
+        const response = await apiClient.get(
+            `/payments/restaurant-invoices/${invoiceId}`
+        );
+        return response.data;
+    } catch (error) {
+        console.error("Error getting restaurant invoice:", error);
+        throw error;
+    }
+};
+
+export const createRestaurantInvoice = async (data) => {
+    try {
+        const response = await apiClient.post(
+            "/payments/restaurant-invoices",
+            data
+        );
+        return response.data;
+    } catch (error) {
+        console.error("Error creating restaurant invoice:", error);
+        throw error;
+    }
+};
+
+export const getPaymentsByRestaurantInvoiceId = async (invoiceId) => {
+    try {
+        const response = await apiClient.get(
+            `/payments/restaurant-invoice/${invoiceId}`
+        );
+        return response.data;
+    } catch (error) {
+        console.error("Error getting payments:", error);
+        throw error;
+    }
+};
+
+// Restaurant Invoice Management APIs
+export const getAllRestaurantInvoices = async (params = {}) => {
+    try {
+        const response = await apiClient.get("/payments/restaurant-invoices", {
+            params,
+        });
+        return response.data;
+    } catch (error) {
+        console.error("Error fetching restaurant invoices:", error);
+        throw error;
+    }
+};
+
+export const updateRestaurantInvoiceStatus = async (invoiceId, status) => {
+    try {
+        const response = await apiClient.patch(
+            `/payments/restaurant-invoices/${invoiceId}/status`,
+            { status }
+        );
+        return response.data;
+    } catch (error) {
+        console.error("Error updating restaurant invoice status:", error);
+        throw error;
+    }
+};
+
+// Gửi hóa đơn nhà hàng qua email
+export const sendRestaurantInvoiceByEmail = async (invoiceId, email) => {
+    try {
+        const response = await apiClient.post(
+            `/payments/restaurant-invoices/${invoiceId}/send-email`,
+            { email }
+        );
+        return response.data;
+    } catch (error) {
+        console.error("Error sending restaurant invoice by email:", error);
         throw error;
     }
 };

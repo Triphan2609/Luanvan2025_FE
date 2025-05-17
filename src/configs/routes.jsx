@@ -6,29 +6,23 @@ const AppLayout = lazy(() => import("../components/layout/AppLayout"));
 const Dashboard = lazy(() => import("../pages/Dashboard/index"));
 const ProfilePage = lazy(() => import("../pages/Profile/index"));
 const NotFoundPage = lazy(() => import("../pages/Notfound/index"));
-const Branches = lazy(() => import("../pages/Info/Branches/index"));
-const Service = lazy(() => import("../pages/Info/Service/index"));
-const Area = lazy(() => import("../pages/Info/Area/index"));
+const Branches = lazy(() => import("../pages/Manager/Info/Branches/index"));
 
 const Table = lazy(() => import("../pages/Manager/Restaurant/Table/index"));
 const TableByArea = lazy(() =>
     import("../pages/Manager/Restaurant/Table/TableByArea")
 );
+const RestaurantService = lazy(() =>
+    import("../pages/Manager/Restaurant/Service/index")
+);
 const RestaurantAreas = lazy(() =>
     import("../pages/Manager/Restaurant/Areas/index")
 );
-const PaymentRestaurant = lazy(() =>
-    import("../pages/Manager/Restaurant/Payment/index")
-);
-const InvoiceRestaurant = lazy(() =>
-    import("../pages/Manager/Restaurant/Payment/Invoice/index")
-);
+
 const FoodList = lazy(() =>
     import("../pages/Manager/Restaurant/ListFood/index")
 );
-const ServiceRestaurant = lazy(() =>
-    import("../pages/Manager/Restaurant/Service/index")
-);
+
 const Reservation = lazy(() =>
     import("../pages/Manager/Restaurant/Reservation/index")
 );
@@ -37,9 +31,6 @@ const Promotion = lazy(() =>
 );
 const MenuMain = lazy(() =>
     import("../pages/Manager/Restaurant/Menu/MenuMain/index")
-);
-const MenuSeasonal = lazy(() =>
-    import("../pages/Manager/Restaurant/Menu/MenuSeasonal/index")
 );
 
 const Rooms = lazy(() => import("../pages/Manager/Hotel/Rooms/index"));
@@ -105,6 +96,30 @@ const FinancialReport = lazy(() => import("../pages/Report/FinancialReport"));
 const AccountManagement = lazy(() => import("../pages/System/Accounts/index"));
 const Permissions = lazy(() => import("../pages/System/Permissions"));
 
+const IngredientList = lazy(() =>
+    import("../pages/Manager/Restaurant/Ingredients/index")
+);
+
+const OrderPage = lazy(() =>
+    import("../pages/Manager/Restaurant/Order/OrderPage")
+);
+
+const KitchenOrderPage = lazy(() =>
+    import("../pages/Manager/Restaurant/Order/KitchenOrderPage")
+);
+
+const RestaurantPayment = lazy(() =>
+    import("../pages/Manager/Restaurant/Payment/index")
+);
+
+const RestaurantInvoice = lazy(() =>
+    import("../pages/Manager/Restaurant/Payment/Invoice")
+);
+
+const RestaurantPaymentManagement = lazy(() =>
+    import("../pages/Manager/Restaurant/PaymentManagement/index")
+);
+
 const routes = [
     {
         path: "/login",
@@ -127,26 +142,48 @@ const routes = [
             { path: "/profile", element: <ProfilePage /> },
 
             { path: "/info/branches", element: <Branches /> },
-            { path: "/info/services", element: <Service /> },
-            { path: "/info/areas", element: <Area /> },
 
             { path: "/restaurant/tables", element: <Table /> },
+
             { path: "/restaurant/table-by-area", element: <TableByArea /> },
+            { path: "/restaurant/services", element: <RestaurantService /> },
             { path: "/restaurant/areas", element: <RestaurantAreas /> },
-            { path: "/restaurant/payment", element: <PaymentRestaurant /> },
-            {
-                path: "/restaurant/payment/invoice/:id",
-                element: <InvoiceRestaurant />,
-            },
+
             { path: "/restaurant/foods", element: <FoodList /> },
-            {
-                path: "/restaurant/table-services",
-                element: <ServiceRestaurant />,
-            },
+
             { path: "/restaurant/reservations", element: <Reservation /> },
             { path: "/restaurant/promotions", element: <Promotion /> },
             { path: "/restaurant/menus-main", element: <MenuMain /> },
-            { path: "/restaurant/menus-seasonal", element: <MenuSeasonal /> },
+
+            {
+                path: "/restaurant/ingredients",
+                element: <IngredientList />,
+            },
+
+            {
+                path: "/restaurant/order",
+                element: <OrderPage />,
+            },
+
+            {
+                path: "/restaurant/payment/:orderId",
+                element: <RestaurantPayment />,
+            },
+
+            {
+                path: "/restaurant/invoice/:id",
+                element: <RestaurantInvoice />,
+            },
+
+            {
+                path: "/restaurant/kitchen",
+                element: <KitchenOrderPage />,
+            },
+
+            {
+                path: "/restaurant/payment-management",
+                element: <RestaurantPaymentManagement />,
+            },
 
             {
                 path: "/hotel/rooms",

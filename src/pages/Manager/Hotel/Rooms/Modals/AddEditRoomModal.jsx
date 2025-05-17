@@ -176,9 +176,9 @@ export default function AddEditRoomModal({
     const fetchBranches = async () => {
         try {
             setLoading(true);
-           
+
             const data = await getHotelBranches();
-           
+
             const hotelBranches = Array.isArray(data) ? data : [];
             setBranches(hotelBranches);
             setLoading(false);
@@ -209,7 +209,6 @@ export default function AddEditRoomModal({
         try {
             console.log(`Fetching categories for branch ID: ${branchId}`);
             const data = await getItemCategories(branchId);
-           
 
             if (!data || !Array.isArray(data)) {
                 console.error("Invalid categories response:", data);
@@ -221,7 +220,7 @@ export default function AddEditRoomModal({
                     id: cat.id,
                     name: cat.name || "Không xác định",
                 }));
-               
+
                 setCategories(formattedCategories);
                 setApiErrors((prev) => ({ ...prev, categories: false }));
             }
@@ -289,7 +288,6 @@ export default function AddEditRoomModal({
                 };
             });
 
-           
             setBranchItems(processedItems);
         } catch (error) {
             console.error("Error fetching branch items:", error);
@@ -357,7 +355,7 @@ export default function AddEditRoomModal({
 
             // Extract item IDs
             const itemIds = processedItems.map((item) => item.id);
-           
+
             setSelectedItems(itemIds);
             setRoomItemsLoaded(true);
         } catch (error) {
@@ -376,9 +374,6 @@ export default function AddEditRoomModal({
                     itemIds: selectedItems,
                 };
 
-               
-               
-
                 // Thêm trường floor từ thông tin tầng
                 if (values.floorId) {
                     const selectedFloor = floors.find(
@@ -392,7 +387,6 @@ export default function AddEditRoomModal({
                     }
                 }
 
-               
                 onSubmit(formData);
                 form.resetFields();
                 onClose();
@@ -901,10 +895,6 @@ export default function AddEditRoomModal({
                     </Row>
                 )}
             </Form>
-
-            {initialData &&
-            {selectedItems.length > 0 &&
-               
         </Modal>
     );
 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
     Table,
     Button,
@@ -6,252 +6,302 @@ import {
     Modal,
     Form,
     Input,
-    Select,
     Switch,
-    Popconfirm,
     message,
+    Popconfirm,
     Card,
-    Typography,
+    Input as AntInput,
+    Select,
+    Tooltip,
     Tag,
+    Typography,
+    Row,
+    Col,
 } from "antd";
 import {
     PlusOutlined,
     EditOutlined,
     DeleteOutlined,
-    CheckCircleOutlined,
-    CloseCircleOutlined,
+    SearchOutlined,
+    ReloadOutlined,
+    InfoCircleOutlined,
 } from "@ant-design/icons";
 import { areasRestaurantApi } from "../../../../api/areasRestaurantApi";
-import {
-    getRestaurantBranches,
-    getBranches,
-} from "../../../../api/branchesApi";
+import { getRestaurantBranches } from "../../../../api/branchesApi";
 
-const { Title } = Typography;
 const { Option } = Select;
-const { TextArea } = Input;
+const { Text } = Typography;
 
-const RestaurantAreas = () => {
+const Areas = () => {
     const [areas, setAreas] = useState([]);
     const [loading, setLoading] = useState(false);
-    const [isModalVisible, setIsModalVisible] = useState(false);
-    const [isEditing, setIsEditing] = useState(false);
-    const [currentArea, setCurrentArea] = useState(null);
+    const [modalVisible, setModalVisible] = useState(false);
+    const [editingArea, setEditingArea] = useState(null);
     const [form] = Form.useForm();
     const [branches, setBranches] = useState([]);
+    const [searchText, setSearchText] = useState("");
+    const [selectedBranch, setSelectedBranch] = useState(null);
+    const [showInactive, setShowInactive] = useState(false);
+    const [tableParams, setTableParams] = useState({
+        pagination: {
+            current: 1,
+            pageSize: 10,
+            showSizeChanger: true,
+            showTotal: (total) => `Tổng số ${total} khu vực`,
+        },
+        sorter: {
+            field: "name",
+            order: "ascend",
+        },
+    });
+
+    // Fetch branches
+    const fetchBranches = useCallback(async () => {
+        try {
+            const response = await getRestaurantBranches();
+            setBranches(response || []);
+        } catch (error) {
+            message.error("Không thể tải danh sách chi nhánh");
+            setBranches([]);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchBranches();
+    }, [fetchBranches]);
+
+    // Fetch areas
+    const fetchAreas = useCallback(async () => {
+        setLoading(true);
+        try {
+            const params = {
+                branchId: selectedBranch,
+                includeInactive: showInactive,
+            };
+            const response = await areasRestaurantApi.getAreas(params);
+            console.log("API Response:", response); // Debug log
+            setAreas(response || []);
+        } catch (error) {
+            console.error("Error fetching areas:", error); // Debug log
+            message.error("Không thể tải danh sách khu vực");
+            setAreas([]);
+        } finally {
+            setLoading(false);
+        }
+    }, [selectedBranch, showInactive]);
 
     useEffect(() => {
         fetchAreas();
-        fetchBranches();
-    }, []);
+    }, [fetchAreas]);
 
-    const fetchAreas = async () => {
+    // Filtered areas
+    const filteredAreas = useMemo(() => {
+        if (!Array.isArray(areas)) return [];
+
+        return areas.filter((area) => {
+            if (!area) return false;
+
+            const matchesSearch =
+                (area.name?.toLowerCase() || "").includes(
+                    searchText.toLowerCase()
+                ) ||
+                (area.description?.toLowerCase() || "").includes(
+                    searchText.toLowerCase()
+                );
+            return matchesSearch;
+        });
+    }, [areas, searchText]);
+
+    // Handle form submission
+    const handleSubmit = async (values) => {
         try {
-            setLoading(true);
-            const areasData = await areasRestaurantApi.getAreas();
-            setAreas(areasData);
-        } catch (error) {
-            console.error("Error fetching areas:", error);
-            message.error("Không thể tải danh sách khu vực");
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const fetchBranches = async () => {
-        try {
-            const branchesData = await getRestaurantBranches();
-            setBranches(branchesData || []);
-        } catch (error) {
-            console.error("Error fetching branches:", error);
-            message.error("Không thể tải danh sách chi nhánh");
-        }
-    };
-
-    const showModal = (record = null) => {
-        setCurrentArea(record);
-        setIsEditing(!!record);
-        setIsModalVisible(true);
-
-        if (record) {
-            form.setFieldsValue({
-                name: record.name,
-                description: record.description,
-                branchId: record.branchId,
-                isActive: record.isActive,
-            });
-        } else {
-            form.resetFields();
-        }
-    };
-
-    const handleCancel = () => {
-        setIsModalVisible(false);
-        form.resetFields();
-    };
-
-    const handleSubmit = async () => {
-        try {
-            const values = await form.validateFields();
-            setLoading(true);
-
-            if (isEditing) {
-                await areasRestaurantApi.updateArea(currentArea.id, values);
-                message.success("Khu vực đã được cập nhật!");
+            if (editingArea) {
+                await areasRestaurantApi.updateArea(editingArea.id, values);
+                message.success("Cập nhật khu vực thành công");
             } else {
                 await areasRestaurantApi.createArea(values);
-                message.success("Khu vực đã được tạo!");
+                message.success("Tạo khu vực mới thành công");
             }
+            setModalVisible(false);
+            form.resetFields();
+            fetchAreas();
+        } catch (error) {
+            message.error(error.response?.data?.message || "Có lỗi xảy ra");
+        }
+    };
 
-            setIsModalVisible(false);
+    // Handle delete
+    const handleDelete = async (id) => {
+        try {
+            await areasRestaurantApi.deleteArea(id);
+            message.success("Xóa khu vực thành công");
             fetchAreas();
         } catch (error) {
             message.error(
-                "Có lỗi xảy ra: " +
-                    (error.response?.data?.message || error.message)
+                error.response?.data?.message || "Không thể xóa khu vực"
             );
-            console.error("Error submitting area:", error);
-        } finally {
-            setLoading(false);
         }
     };
 
-    const handleDelete = async (id) => {
-        try {
-            setLoading(true);
-            await areasRestaurantApi.deleteArea(id);
-            message.success("Khu vực đã được xóa!");
-            fetchAreas();
-        } catch (error) {
-            message.error("Không thể xóa khu vực!");
-            console.error("Error deleting area:", error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
+    // Handle status change
     const handleStatusChange = async (id, isActive) => {
         try {
-            setLoading(true);
             if (isActive) {
-                await areasRestaurantApi.deactivateArea(id);
-            } else {
                 await areasRestaurantApi.activateArea(id);
+            } else {
+                await areasRestaurantApi.deactivateArea(id);
             }
-            message.success("Trạng thái đã được cập nhật!");
+            message.success("Cập nhật trạng thái thành công");
             fetchAreas();
         } catch (error) {
-            message.error("Không thể cập nhật trạng thái!");
-            console.error("Error updating area status:", error);
-        } finally {
-            setLoading(false);
+            message.error(
+                error.response?.data?.message || "Không thể cập nhật trạng thái"
+            );
         }
     };
 
+    // Handle table change
+    const handleTableChange = (pagination, filters, sorter) => {
+        setTableParams({
+            pagination,
+            filters,
+            sorter: {
+                field: sorter.field,
+                order: sorter.order,
+            },
+        });
+    };
+
+    // Table columns
     const columns = [
         {
             title: "Tên khu vực",
             dataIndex: "name",
             key: "name",
-        },
-        {
-            title: "Mô tả",
-            dataIndex: "description",
-            key: "description",
-            ellipsis: true,
+            sorter: true,
+            render: (text, record) => (
+                <Space>
+                    <Text strong>{text || "Chưa có tên"}</Text>
+                    {record?.description && (
+                        <Tooltip title={record.description}>
+                            <InfoCircleOutlined style={{ color: "#1890ff" }} />
+                        </Tooltip>
+                    )}
+                </Space>
+            ),
         },
         {
             title: "Chi nhánh",
             dataIndex: "branchId",
             key: "branchId",
             render: (branchId) => {
-                const branch = branches.find((b) => b.id === branchId);
-                return branch?.name || `ID: ${branchId}`;
+                const branch = branches.find((b) => b?.id === branchId);
+                return branch ? (
+                    <Tag color="blue">{branch.name}</Tag>
+                ) : (
+                    <Text type="secondary">Không xác định</Text>
+                );
             },
         },
         {
             title: "Trạng thái",
             dataIndex: "isActive",
             key: "isActive",
-            render: (isActive) => (
-                <Tag color={isActive ? "green" : "red"}>
-                    {isActive ? "Hoạt động" : "Không hoạt động"}
-                </Tag>
+            render: (isActive, record) => (
+                <Space>
+                    <Switch
+                        checked={isActive}
+                        onChange={(checked) =>
+                            handleStatusChange(record.id, checked)
+                        }
+                    />
+                    <Tag color={isActive ? "success" : "error"}>
+                        {isActive ? "Đang hoạt động" : "Không hoạt động"}
+                    </Tag>
+                </Space>
             ),
         },
         {
             title: "Thao tác",
             key: "action",
             render: (_, record) => (
-                <Space size="small">
-                    <Button
-                        type="primary"
-                        icon={<EditOutlined />}
-                        onClick={() => showModal(record)}
-                        size="small"
-                    >
-                        Sửa
-                    </Button>
-                    <Button
-                        type={record.isActive ? "danger" : "success"}
-                        icon={
-                            record.isActive ? (
-                                <CloseCircleOutlined />
-                            ) : (
-                                <CheckCircleOutlined />
-                            )
-                        }
-                        onClick={() =>
-                            handleStatusChange(record.id, record.isActive)
-                        }
-                        size="small"
-                    >
-                        {record.isActive ? "Vô hiệu" : "Kích hoạt"}
-                    </Button>
-                    <Popconfirm
-                        title="Bạn có chắc chắn muốn xóa khu vực này?"
-                        onConfirm={() => handleDelete(record.id)}
-                        okText="Có"
-                        cancelText="Không"
-                    >
-                        <Button danger icon={<DeleteOutlined />} size="small">
-                            Xóa
-                        </Button>
-                    </Popconfirm>
+                <Space size="middle">
+                    <Tooltip title="Sửa khu vực">
+                        <Button
+                            type="primary"
+                            icon={<EditOutlined />}
+                            onClick={() => {
+                                setEditingArea(record);
+                                form.setFieldsValue(record);
+                                setModalVisible(true);
+                            }}
+                        />
+                    </Tooltip>
+                    <Tooltip title="Xóa khu vực">
+                        <Popconfirm
+                            title="Bạn có chắc chắn muốn xóa khu vực này?"
+                            onConfirm={() => handleDelete(record.id)}
+                            okText="Có"
+                            cancelText="Không"
+                        >
+                            <Button
+                                type="primary"
+                                danger
+                                icon={<DeleteOutlined />}
+                            />
+                        </Popconfirm>
+                    </Tooltip>
                 </Space>
             ),
         },
     ];
 
-    const createDefaultAreas = async (branchId) => {
-        try {
-            setLoading(true);
-            await areasRestaurantApi.createDefaultAreas(branchId);
-            message.success("Đã tạo các khu vực mặc định!");
-            fetchAreas();
-        } catch (error) {
-            message.error("Không thể tạo khu vực mặc định!");
-            console.error("Error creating default areas:", error);
-        } finally {
-            setLoading(false);
-        }
-    };
+    console.log("Filtered Areas:", filteredAreas); // Debug log
 
     return (
-        <Card>
-            <div
-                style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    marginBottom: 16,
-                }}
-            >
-                <Title level={4}>Quản lý khu vực nhà hàng</Title>
+        <Card
+            title={
                 <Space>
-                    <Select
-                        placeholder="Tạo khu vực mặc định cho chi nhánh"
+                    <Text strong>Quản lý khu vực nhà hàng</Text>
+                    <Tooltip title="Làm mới dữ liệu">
+                        <Button
+                            icon={<ReloadOutlined />}
+                            onClick={fetchAreas}
+                            loading={loading}
+                        />
+                    </Tooltip>
+                </Space>
+            }
+        >
+            <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+                <Col>
+                    <Button
+                        type="primary"
+                        icon={<PlusOutlined />}
+                        onClick={() => {
+                            setEditingArea(null);
+                            form.resetFields();
+                            setModalVisible(true);
+                        }}
+                    >
+                        Thêm khu vực
+                    </Button>
+                </Col>
+                <Col>
+                    <AntInput
+                        placeholder="Tìm kiếm khu vực..."
+                        prefix={<SearchOutlined />}
+                        onChange={(e) => setSearchText(e.target.value)}
                         style={{ width: 250 }}
-                        onChange={createDefaultAreas}
+                        allowClear
+                    />
+                </Col>
+                <Col>
+                    <Select
+                        placeholder="Chọn chi nhánh"
+                        style={{ width: 250 }}
+                        onChange={(value) => setSelectedBranch(value)}
+                        allowClear
                     >
                         {branches.map((branch) => (
                             <Option key={branch.id} value={branch.id}>
@@ -259,56 +309,87 @@ const RestaurantAreas = () => {
                             </Option>
                         ))}
                     </Select>
-                    <Button
-                        type="primary"
-                        icon={<PlusOutlined />}
-                        onClick={() => showModal()}
-                    >
-                        Thêm khu vực
-                    </Button>
-                </Space>
-            </div>
+                </Col>
+                <Col>
+                    <Switch
+                        checkedChildren="Hiện tất cả"
+                        unCheckedChildren="Đang hoạt động"
+                        checked={showInactive}
+                        onChange={setShowInactive}
+                    />
+                </Col>
+            </Row>
 
             <Table
                 columns={columns}
-                dataSource={areas}
+                dataSource={filteredAreas}
                 rowKey="id"
                 loading={loading}
-                pagination={{ pageSize: 10 }}
+                pagination={tableParams.pagination}
+                onChange={handleTableChange}
+                scroll={{ x: "max-content" }}
+                locale={{
+                    emptyText: "Không có dữ liệu",
+                }}
             />
 
             <Modal
-                title={isEditing ? "Cập nhật khu vực" : "Thêm khu vực mới"}
-                visible={isModalVisible}
-                onOk={handleSubmit}
-                onCancel={handleCancel}
-                confirmLoading={loading}
+                title={editingArea ? "Sửa khu vực" : "Thêm khu vực mới"}
+                open={modalVisible}
+                onCancel={() => {
+                    setModalVisible(false);
+                    form.resetFields();
+                }}
+                footer={null}
+                destroyOnClose
             >
-                <Form form={form} layout="vertical">
+                <Form
+                    form={form}
+                    layout="vertical"
+                    onFinish={handleSubmit}
+                    initialValues={{ isActive: true }}
+                >
                     <Form.Item
                         name="name"
                         label="Tên khu vực"
                         rules={[
                             {
                                 required: true,
-                                message: "Vui lòng nhập tên khu vực!",
+                                message: "Vui lòng nhập tên khu vực",
+                            },
+                            {
+                                max: 100,
+                                message:
+                                    "Tên khu vực không được vượt quá 100 ký tự",
                             },
                         ]}
                     >
-                        <Input />
+                        <Input placeholder="Nhập tên khu vực" />
                     </Form.Item>
-
-                    <Form.Item name="description" label="Mô tả">
-                        <TextArea rows={4} />
+                    <Form.Item
+                        name="description"
+                        label="Mô tả"
+                        rules={[
+                            {
+                                max: 500,
+                                message: "Mô tả không được vượt quá 500 ký tự",
+                            },
+                        ]}
+                    >
+                        <Input.TextArea
+                            placeholder="Nhập mô tả khu vực"
+                            rows={4}
+                            showCount
+                            maxLength={500}
+                        />
                     </Form.Item>
-
                     <Form.Item
                         name="branchId"
                         label="Chi nhánh"
                         rules={[
                             {
                                 required: true,
-                                message: "Vui lòng chọn chi nhánh!",
+                                message: "Vui lòng chọn chi nhánh",
                             },
                         ]}
                     >
@@ -320,17 +401,30 @@ const RestaurantAreas = () => {
                             ))}
                         </Select>
                     </Form.Item>
-
                     <Form.Item
                         name="isActive"
                         label="Trạng thái"
                         valuePropName="checked"
-                        initialValue={true}
                     >
                         <Switch
                             checkedChildren="Hoạt động"
                             unCheckedChildren="Không hoạt động"
                         />
+                    </Form.Item>
+                    <Form.Item>
+                        <Space>
+                            <Button type="primary" htmlType="submit">
+                                {editingArea ? "Cập nhật" : "Thêm mới"}
+                            </Button>
+                            <Button
+                                onClick={() => {
+                                    setModalVisible(false);
+                                    form.resetFields();
+                                }}
+                            >
+                                Hủy
+                            </Button>
+                        </Space>
                     </Form.Item>
                 </Form>
             </Modal>
@@ -338,4 +432,4 @@ const RestaurantAreas = () => {
     );
 };
 
-export default RestaurantAreas;
+export default Areas;

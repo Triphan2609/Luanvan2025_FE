@@ -32,6 +32,8 @@ import {
 import { foodApi, foodCategoryApi } from "../../../../api/restaurantApi";
 import { getRestaurantBranches } from "../../../../api/branchesApi";
 import { staticUrl } from "../../../../configs/apiClient";
+import FoodModal from "./Modals/FoodModal";
+import FoodDetailDrawer from "./Drawer/FoodDetailDrawer";
 
 const { Title } = Typography;
 const { Option } = Select;
@@ -188,40 +190,17 @@ const FoodList = () => {
         setIsDrawerVisible(false);
     };
 
-    const handleCancel = () => {
+    const handleModalCancel = () => {
         setIsModalVisible(false);
-        form.resetFields();
+        setCurrentFood(null);
     };
 
-    const handleSubmit = async () => {
+    const handleModalSave = async (foodData) => {
         try {
-            const values = await form.validateFields();
             setLoading(true);
-
-            // Prepare the data object with properly typed values
-            const foodData = {
-                ...values,
-                categoryId: values.categoryId, // Keep categoryId as string (UUID)
-                branchId: Number(values.branchId), // Convert branchId to number
-            };
-
-            console.log("Submitting food data:", {
-                name: foodData.name,
-                categoryId: {
-                    value: foodData.categoryId,
-                    type: typeof foodData.categoryId,
-                },
-                categoryName:
-                    categories.find((c) => c.id === foodData.categoryId)
-                        ?.name || "Unknown",
-                branchId: {
-                    value: foodData.branchId,
-                    type: typeof foodData.branchId,
-                },
-            });
-
             let response;
-            if (isEditing) {
+
+            if (currentFood) {
                 response = await foodApi.updateFood(currentFood.id, foodData);
                 message.success("Món ăn đã được cập nhật!");
             } else {
@@ -230,48 +209,25 @@ const FoodList = () => {
             }
 
             // Upload image if there's a new one
-            if (fileList.length > 0 && fileList[0].originFileObj) {
-                const foodId = isEditing ? currentFood.id : response.id;
-                console.log("Preparing to upload image for food ID:", foodId);
-                console.log("Image file details:", {
-                    name: fileList[0].originFileObj.name,
-                    type: fileList[0].originFileObj.type,
-                    size: `${(fileList[0].originFileObj.size / 1024).toFixed(
-                        2
-                    )} KB`,
-                });
-
+            if (foodData.image) {
+                const foodId = currentFood ? currentFood.id : response.id;
                 try {
-                    const uploadResponse = await foodApi.uploadFoodImage(
-                        foodId,
-                        fileList[0].originFileObj
-                    );
-                    console.log(
-                        "Image upload complete, response:",
-                        uploadResponse
-                    );
-
-                    if (uploadResponse) {
-                        // Refresh food list to show updated data
-                        fetchFoods();
-                        message.success("Hình ảnh đã được tải lên thành công!");
-                    }
+                    await foodApi.uploadFoodImage(foodId, foodData.image);
+                    message.success("Hình ảnh đã được tải lên thành công!");
                 } catch (uploadError) {
                     console.error("Error during image upload:", uploadError);
                     message.error(
                         "Không thể tải lên hình ảnh. Vui lòng thử lại sau!"
                     );
                 }
-            } else {
-                console.log("No new image to upload");
-                // Still refresh to show updated data
-                fetchFoods();
             }
 
             setIsModalVisible(false);
+            setCurrentFood(null);
+            fetchFoods();
         } catch (error) {
             message.error("Có lỗi xảy ra!");
-            console.error("Error submitting food:", error);
+            console.error("Error saving food:", error);
         } finally {
             setLoading(false);
         }
@@ -602,309 +558,18 @@ const FoodList = () => {
                 scroll={{ x: 1000 }}
             />
 
-            <Modal
-                title={isEditing ? "Chỉnh sửa món ăn" : "Thêm món ăn mới"}
+            <FoodModal
                 open={isModalVisible}
-                onCancel={handleCancel}
-                onOk={handleSubmit}
-                confirmLoading={loading}
-                width={800}
-            >
-                <Form
-                    form={form}
-                    layout="vertical"
-                    initialValues={{
-                        status: FoodStatus.AVAILABLE,
-                    }}
-                >
-                    <Row gutter={16}>
-                        <Col span={12}>
-                            <Form.Item
-                                name="name"
-                                label="Tên món ăn"
-                                rules={[
-                                    {
-                                        required: true,
-                                        message: "Vui lòng nhập tên món ăn!",
-                                    },
-                                ]}
-                            >
-                                <Input placeholder="Nhập tên món ăn" />
-                            </Form.Item>
-                        </Col>
-                        <Col span={12}>
-                            <Form.Item
-                                name="price"
-                                label="Giá"
-                                rules={[
-                                    {
-                                        required: true,
-                                        message: "Vui lòng nhập giá!",
-                                    },
-                                ]}
-                            >
-                                <InputNumber
-                                    style={{ width: "100%" }}
-                                    min={0}
-                                    step={1000}
-                                    formatter={(value) =>
-                                        `${value}`.replace(
-                                            /\B(?=(\d{3})+(?!\d))/g,
-                                            ","
-                                        )
-                                    }
-                                    parser={(value) =>
-                                        value.replace(/\$\s?|(,*)/g, "")
-                                    }
-                                    placeholder="Nhập giá"
-                                />
-                            </Form.Item>
-                        </Col>
-                    </Row>
+                onCancel={handleModalCancel}
+                onSave={handleModalSave}
+                initialData={currentFood}
+            />
 
-                    <Row gutter={16}>
-                        <Col span={12}>
-                            <Form.Item
-                                name="categoryId"
-                                label="Danh mục"
-                                rules={[
-                                    {
-                                        required: true,
-                                        message: "Vui lòng chọn danh mục!",
-                                    },
-                                ]}
-                            >
-                                <Select
-                                    placeholder="Chọn danh mục"
-                                    optionLabelProp="label"
-                                >
-                                    {categories.map((category) => (
-                                        <Option
-                                            key={category.id}
-                                            value={category.id}
-                                            label={category.name}
-                                        >
-                                            <div
-                                                style={{
-                                                    display: "flex",
-                                                    alignItems: "center",
-                                                }}
-                                            >
-                                                {category.imageUrl && (
-                                                    <img
-                                                        src={staticUrl(
-                                                            category.imageUrl
-                                                        )}
-                                                        alt={category.name}
-                                                        style={{
-                                                            width: 20,
-                                                            height: 20,
-                                                            marginRight: 8,
-                                                            objectFit: "cover",
-                                                        }}
-                                                    />
-                                                )}
-                                                <span>{category.name}</span>
-                                            </div>
-                                        </Option>
-                                    ))}
-                                </Select>
-                            </Form.Item>
-                        </Col>
-                        <Col span={12}>
-                            <Form.Item
-                                name="status"
-                                label="Trạng thái"
-                                rules={[
-                                    {
-                                        required: true,
-                                        message: "Vui lòng chọn trạng thái!",
-                                    },
-                                ]}
-                            >
-                                <Select placeholder="Chọn trạng thái">
-                                    <Option value={FoodStatus.AVAILABLE}>
-                                        Có sẵn
-                                    </Option>
-                                    <Option value={FoodStatus.SOLD_OUT}>
-                                        Hết hàng
-                                    </Option>
-                                    <Option value={FoodStatus.INACTIVE}>
-                                        Không hoạt động
-                                    </Option>
-                                </Select>
-                            </Form.Item>
-                        </Col>
-                    </Row>
-
-                    <Form.Item name="description" label="Mô tả">
-                        <TextArea rows={3} placeholder="Mô tả về món ăn" />
-                    </Form.Item>
-
-                    <Form.Item name="ingredients" label="Thành phần">
-                        <TextArea
-                            rows={2}
-                            placeholder="Các thành phần của món ăn"
-                        />
-                    </Form.Item>
-
-                    <Form.Item
-                        name="branchId"
-                        label="Chi nhánh"
-                        rules={[
-                            {
-                                required: true,
-                                message: "Vui lòng chọn chi nhánh!",
-                            },
-                        ]}
-                    >
-                        <Select placeholder="Chọn chi nhánh">
-                            {branches.map((branch) => (
-                                <Option
-                                    key={branch.id}
-                                    value={Number(branch.id)}
-                                >
-                                    {branch.name}
-                                </Option>
-                            ))}
-                        </Select>
-                    </Form.Item>
-
-                    <Form.Item
-                        label={
-                            <span>
-                                <PictureOutlined style={{ marginRight: 8 }} />
-                                Hình ảnh món ăn
-                            </span>
-                        }
-                        extra="Hỗ trợ định dạng JPG, PNG (tối đa 2MB)"
-                    >
-                        <Upload
-                            {...uploadProps}
-                            listType="picture-card"
-                            maxCount={1}
-                            className="food-image-uploader"
-                        >
-                            {fileList.length === 0 && (
-                                <div>
-                                    <PlusOutlined />
-                                    <div style={{ marginTop: 8 }}>Tải lên</div>
-                                </div>
-                            )}
-                        </Upload>
-                        {renderImagePreview()}
-                    </Form.Item>
-                </Form>
-            </Modal>
-
-            <Drawer
-                title="Chi tiết món ăn"
-                placement="right"
-                width={500}
-                onClose={closeDrawer}
+            <FoodDetailDrawer
                 open={isDrawerVisible}
-            >
-                {selectedFood && (
-                    <>
-                        {selectedFood.imageUrl && (
-                            <div
-                                style={{
-                                    textAlign: "center",
-                                    marginBottom: 16,
-                                }}
-                            >
-                                <img
-                                    src={staticUrl(selectedFood.imageUrl)}
-                                    alt={selectedFood.name}
-                                    style={{
-                                        maxWidth: "100%",
-                                        maxHeight: "300px",
-                                        objectFit: "contain",
-                                    }}
-                                />
-                            </div>
-                        )}
-
-                        <Descriptions bordered column={1}>
-                            <Descriptions.Item label="Tên món ăn">
-                                {selectedFood.name}
-                            </Descriptions.Item>
-                            <Descriptions.Item label="Giá">
-                                {Number(selectedFood.price).toLocaleString(
-                                    "vi-VN"
-                                )}
-                                đ
-                            </Descriptions.Item>
-                            <Descriptions.Item label="Trạng thái">
-                                <Tag
-                                    color={getStatusColor(selectedFood.status)}
-                                >
-                                    {getStatusText(selectedFood.status)}
-                                </Tag>
-                            </Descriptions.Item>
-                            <Descriptions.Item label="Danh mục">
-                                {(() => {
-                                    const category = categories.find((c) => {
-                                        const recordCategoryId =
-                                            selectedFood.categoryId;
-                                        const categoryId = c.id;
-
-                                        return (
-                                            categoryId === recordCategoryId ||
-                                            parseInt(categoryId, 10) ===
-                                                recordCategoryId ||
-                                            categoryId ===
-                                                parseInt(recordCategoryId, 10)
-                                        );
-                                    });
-
-                                    return (
-                                        <div
-                                            style={{
-                                                display: "flex",
-                                                alignItems: "center",
-                                            }}
-                                        >
-                                            {category?.imageUrl && (
-                                                <img
-                                                    src={staticUrl(
-                                                        category.imageUrl
-                                                    )}
-                                                    alt={category.name}
-                                                    style={{
-                                                        width: 24,
-                                                        height: 24,
-                                                        marginRight: 8,
-                                                        objectFit: "cover",
-                                                    }}
-                                                />
-                                            )}
-                                            <span>
-                                                {category
-                                                    ? category.name
-                                                    : "Không xác định"}
-                                            </span>
-                                        </div>
-                                    );
-                                })()}
-                            </Descriptions.Item>
-                            <Descriptions.Item label="Chi nhánh">
-                                {branches.find(
-                                    (b) =>
-                                        b.id === Number(selectedFood.branchId)
-                                )?.name || "Không xác định"}
-                            </Descriptions.Item>
-                            <Descriptions.Item label="Mô tả">
-                                {selectedFood.description || "Không có mô tả"}
-                            </Descriptions.Item>
-                            <Descriptions.Item label="Thành phần">
-                                {selectedFood.ingredients ||
-                                    "Không có thông tin"}
-                            </Descriptions.Item>
-                        </Descriptions>
-                    </>
-                )}
-            </Drawer>
+                onClose={closeDrawer}
+                food={selectedFood}
+            />
         </Card>
     );
 };

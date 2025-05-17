@@ -404,6 +404,135 @@ export const reservationApi = {
     },
 };
 
+// Ingredient APIs
+export const getIngredients = () => apiClient.get("/ingredients");
+export const createIngredient = (data) => apiClient.post("/ingredients", data);
+export const updateIngredient = (id, data) =>
+    apiClient.put(`/ingredients/${id}`, data);
+export const deleteIngredient = (id) => apiClient.delete(`/ingredients/${id}`);
+
+// FoodIngredient APIs
+export const getFoodIngredients = (foodId) =>
+    apiClient.get(`/food-ingredients/food/${foodId}`);
+export const addFoodIngredient = (data) =>
+    apiClient.post("/food-ingredients", data);
+export const updateFoodIngredient = (id, data) =>
+    apiClient.put(`/food-ingredients/${id}`, data);
+export const deleteFoodIngredient = (id) =>
+    apiClient.delete(`/food-ingredients/${id}`);
+
+// Unit APIs
+export const getUnits = () => apiClient.get("/units");
+export const createUnit = (data) => apiClient.post("/units", data);
+export const updateUnit = (id, data) => apiClient.put(`/units/${id}`, data);
+export const deleteUnit = (id) => apiClient.delete(`/units/${id}`);
+
+// Kitchen Order Management API
+export const kitchenOrderApi = {
+    // Get all orders
+    getAllOrders: async (params = {}) => {
+        try {
+            const response = await apiClient.get("/restaurant/kitchen-orders", {
+                params,
+            });
+            return response.data;
+        } catch (error) {
+            console.error("Error fetching kitchen orders:", error);
+            throw error;
+        }
+    },
+
+    // Get order by ID
+    getOrderById: async (id) => {
+        try {
+            const response = await apiClient.get(
+                `/restaurant/kitchen-orders/${id}`
+            );
+            return response.data;
+        } catch (error) {
+            console.error(`Error fetching kitchen order ${id}:`, error);
+            throw error;
+        }
+    },
+
+    // Update order status
+    updateOrderStatus: async (id, status) => {
+        try {
+            const response = await apiClient.patch(
+                `/restaurant/kitchen-orders/${id}/status`,
+                { status }
+            );
+            return response.data;
+        } catch (error) {
+            console.error(`Error updating kitchen order ${id} status:`, error);
+            throw error;
+        }
+    },
+
+    // Update item status within an order
+    updateItemStatus: async (orderId, itemId, status) => {
+        try {
+            const response = await apiClient.patch(
+                `/restaurant/kitchen-orders/${orderId}/items/${itemId}/status`,
+                { status }
+            );
+            return response.data;
+        } catch (error) {
+            console.error(
+                `Error updating item ${itemId} status in order ${orderId}:`,
+                error
+            );
+            throw error;
+        }
+    },
+
+    // Add notes to an order
+    addOrderNote: async (id, note) => {
+        try {
+            const response = await apiClient.post(
+                `/restaurant/kitchen-orders/${id}/notes`,
+                { note }
+            );
+            return response.data;
+        } catch (error) {
+            console.error(`Error adding note to kitchen order ${id}:`, error);
+            throw error;
+        }
+    },
+
+    // Get orders by status
+    getOrdersByStatus: async (status) => {
+        try {
+            const response = await apiClient.get(
+                `/restaurant/kitchen-orders/by-status/${status}`
+            );
+            return response.data;
+        } catch (error) {
+            console.error(
+                `Error fetching kitchen orders with status ${status}:`,
+                error
+            );
+            throw error;
+        }
+    },
+
+    // Get orders by priority
+    getOrdersByPriority: async (priority) => {
+        try {
+            const response = await apiClient.get(
+                `/restaurant/kitchen-orders/by-priority/${priority}`
+            );
+            return response.data;
+        } catch (error) {
+            console.error(
+                `Error fetching kitchen orders with priority ${priority}:`,
+                error
+            );
+            throw error;
+        }
+    },
+};
+
 // Export all APIs together
 export default {
     menu: menuApi,
@@ -411,4 +540,8 @@ export default {
     food: foodApi,
     table: tableApi,
     reservation: reservationApi,
+    kitchenOrder: kitchenOrderApi,
 };
+
+export const setIngredientsForFood = (foodId, ingredients) =>
+    apiClient.put(`/food-ingredients/set-for-food/${foodId}`, { ingredients });

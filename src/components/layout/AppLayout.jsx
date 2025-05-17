@@ -22,6 +22,7 @@ import {
     AuditOutlined,
     AreaChartOutlined,
     LayoutOutlined,
+    FireOutlined,
 } from "@ant-design/icons";
 import { TbGps } from "react-icons/tb";
 import { IoRestaurantOutline } from "react-icons/io5";
@@ -49,18 +50,6 @@ const items = [
                 icon: <HomeOutlined />,
                 label: <Link to="/info/branches">Quản lý chi nhánh</Link>,
             },
-            {
-                key: "services",
-                icon: <OrderedListOutlined />,
-                label: (
-                    <Link to="/info/services"> Quản lý dịch vụ tiện ích</Link>
-                ),
-            },
-            {
-                key: "areas",
-                icon: <TbGps />,
-                label: <Link to="/info/areas"> Quản lý khu vực</Link>,
-            },
         ],
     },
     {
@@ -72,6 +61,13 @@ const items = [
                 type: "group",
                 label: "Quản lý bàn & khu vực",
                 children: [
+                    {
+                        key: "restaurant-areas",
+                        icon: <LayoutOutlined />,
+                        label: (
+                            <Link to="/restaurant/areas">Khu vực nhà hàng</Link>
+                        ),
+                    },
                     {
                         key: "tables",
                         icon: <MdOutlineTableRestaurant />,
@@ -86,13 +82,7 @@ const items = [
                             </Link>
                         ),
                     },
-                    {
-                        key: "restaurant-areas",
-                        icon: <LayoutOutlined />,
-                        label: (
-                            <Link to="/restaurant/areas">Khu vực nhà hàng</Link>
-                        ),
-                    },
+
                     {
                         key: "reservations",
                         icon: <ScheduleOutlined />,
@@ -100,6 +90,24 @@ const items = [
                             <Link to="/restaurant/reservations">
                                 Quản lý đặt bàn
                             </Link>
+                        ),
+                    },
+                ],
+            },
+            {
+                type: "group",
+                label: "Gọi món",
+                children: [
+                    {
+                        key: "order-management",
+                        icon: <OrderedListOutlined />,
+                        label: <Link to="/restaurant/order">Gọi món</Link>,
+                    },
+                    {
+                        key: "kitchen-order",
+                        icon: <FireOutlined />,
+                        label: (
+                            <Link to="/restaurant/kitchen">Quản lý bếp</Link>
                         ),
                     },
                 ],
@@ -115,30 +123,32 @@ const items = [
                             <Link to="/restaurant/foods">Danh sách món ăn</Link>
                         ),
                     },
-                    {
-                        key: "foods-services",
-                        icon: <OrderedListOutlined />,
-                        label: (
-                            <Link to="/restaurant/table-services">
-                                Dịch vụ bàn
-                            </Link>
-                        ),
-                    },
+
                     {
                         key: "menu-main",
                         icon: <AppstoreOutlined />,
                         label: (
                             <Link to="/restaurant/menus-main">
-                                Thực đơn chính
+                                Quản lý thực đơn
+                            </Link>
+                        ),
+                    },
+
+                    {
+                        key: "ingredients",
+                        icon: <OrderedListOutlined />,
+                        label: (
+                            <Link to="/restaurant/ingredients">
+                                Quản lý nguyên liệu
                             </Link>
                         ),
                     },
                     {
-                        key: "menu-seasonal",
-                        icon: <StarOutlined />,
+                        key: "services",
+                        icon: <OrderedListOutlined />,
                         label: (
-                            <Link to="/restaurant/menus-seasonal">
-                                Thực đơn theo mùa
+                            <Link to="/restaurant/services">
+                                Quản lý dịch vụ
                             </Link>
                         ),
                     },
@@ -158,6 +168,15 @@ const items = [
                         ),
                     },
                 ],
+            },
+            {
+                key: "restaurant-payment-management",
+                icon: <DollarOutlined />,
+                label: (
+                    <Link to="/restaurant/payment-management">
+                        Quản lý hóa đơn
+                    </Link>
+                ),
             },
         ],
     },

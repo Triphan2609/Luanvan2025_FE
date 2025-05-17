@@ -1,0 +1,216 @@
+.restaurant-invoice-management {
+    margin: 24px;
+
+    .invoice-card {
+        margin-bottom: 24px;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+
+        .ant-card-head {
+            background-color: #fafafa;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .ant-card-head-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+    }
+
+    .statistics-section {
+        margin-bottom: 20px;
+
+        .statistic-card {
+            height: 100%;
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s ease;
+
+            &:hover {
+                transform: translateY(-3px);
+                box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            }
+
+            .ant-statistic-title {
+                font-size: 14px;
+                color: rgba(0, 0, 0, 0.65);
+                margin-bottom: 8px;
+            }
+
+            .ant-statistic-content {
+                font-size: 22px;
+                font-weight: 600;
+            }
+        }
+
+        .revenue-card {
+            .ant-statistic-content {
+                color: #3f8600;
+            }
+        }
+    }
+
+    .filter-section {
+        margin-bottom: 20px;
+        padding: 16px;
+        background-color: #f9f9f9;
+        border-radius: 4px;
+
+        .ant-space {
+            width: 100%;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-start;
+
+            @media (max-width: 768px) {
+                gap: 8px !important;
+            }
+        }
+    }
+
+    .invoice-table {
+        margin-top: 16px;
+
+        .ant-table-thead > tr > th {
+            background-color: #f5f5f5;
+            font-weight: 600;
+            color: rgba(0, 0, 0, 0.85);
+        }
+
+        .ant-table-row {
+            transition: background-color 0.3s;
+
+            &:hover {
+                cursor: pointer;
+                background-color: #f0f7ff !important;
+            }
+        }
+
+        .ant-table-cell {
+            vertical-align: middle;
+        }
+    }
+
+    // Styles for the date time display
+    .time-display {
+        color: rgba(0, 0, 0, 0.45);
+        font-size: 12px;
+    }
+
+    // Status badge colors
+    .status-badge {
+        &.pending {
+            background-color: #faad14;
+        }
+
+        &.paid {
+            background-color: #52c41a;
+        }
+
+        &.overdue {
+            background-color: #ff4d4f;
+        }
+
+        &.cancelled {
+            background-color: #8c8c8c;
+        }
+    }
+
+    // Styles for the invoice detail modal
+    .invoice-detail {
+        .ant-descriptions {
+            margin-bottom: 16px;
+
+            .ant-descriptions-title {
+                font-size: 16px;
+                margin-bottom: 12px;
+                position: relative;
+                padding-left: 12px;
+
+                &::before {
+                    content: "";
+                    position: absolute;
+                    left: 0;
+                    top: 0;
+                    height: 100%;
+                    width: 4px;
+                    background-color: #1890ff;
+                    border-radius: 2px;
+                }
+            }
+
+            .ant-descriptions-item-label {
+                font-weight: 500;
+                color: rgba(0, 0, 0, 0.65);
+                background-color: #fafafa;
+            }
+        }
+
+        .payment-details {
+            .ant-descriptions-item-label {
+                width: 30%;
+            }
+
+            .final-amount {
+                .ant-descriptions-item-label,
+                .ant-descriptions-item-content {
+                    background-color: #f0f7ff;
+                    font-weight: 600;
+                }
+            }
+        }
+
+        .notes-section {
+            padding: 12px;
+            background-color: #fafafa;
+            border-radius: 4px;
+
+            h5 {
+                margin-top: 0;
+                margin-bottom: 8px;
+                color: rgba(0, 0, 0, 0.85);
+            }
+        }
+    }
+
+    .loading-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 300px;
+    }
+
+    .no-data {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 200px;
+        background-color: #fafafa;
+        border-radius: 4px;
+        color: rgba(0, 0, 0, 0.45);
+    }
+
+    // Thẻ tag thời gian lưu trú
+    .ant-tag {
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-weight: 500;
+    }
+
+    // In-page PDF viewer
+    .pdf-preview-container {
+        position: relative;
+        border: 1px solid #d9d9d9;
+        border-radius: 4px;
+        padding: 16px;
+        margin-top: 16px;
+        background-color: #fff;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+
+        .pdf-controls {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            z-index: 1;
+        }
+    }
+}

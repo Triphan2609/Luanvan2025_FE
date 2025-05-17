@@ -2,18 +2,20 @@ import { configureStore } from "@reduxjs/toolkit";
 import { persistStore, persistReducer } from "redux-persist";
 import storage from "redux-persist/lib/storage"; // Sử dụng localStorage
 import authReducer from "./authSlice";
+import orderReducer from "./orderSlice";
 import { combineReducers } from "redux";
 
 // Cấu hình redux-persist
 const persistConfig = {
     key: "root", // Key để lưu trữ trong localStorage
     storage, // Sử dụng localStorage
-    whitelist: ["auth"], // Chỉ lưu trữ slice "auth"
+    whitelist: ["auth", "order"], // Lưu trữ slice "auth" và "order"
 };
 
 // Kết hợp các reducer
 const rootReducer = combineReducers({
     auth: authReducer,
+    order: orderReducer,
 });
 
 // Tạo persist reducer

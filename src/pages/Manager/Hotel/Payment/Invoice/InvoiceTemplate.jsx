@@ -77,8 +77,9 @@ export default function InvoiceTemplate({ booking, paymentInfo }) {
                 return "Tiền mặt";
             case "bank_transfer":
                 return "Chuyển khoản";
-            case "vnpay":
-                return "VNPay";
+            case "zalo_pay":
+            case "zalopay":
+                return "ZaloPay";
             default:
                 return "Không xác định";
         }

@@ -1,10 +1,38 @@
 import React, { useState, useEffect } from "react";
-import { Card, Table, Button, Space, Typography, Row, Col, Tree, Tag, Tooltip, message, Drawer, Popconfirm, Input, Spin } from "antd";
-import { TeamOutlined, KeyOutlined, PlusOutlined, EditOutlined, DeleteOutlined, SaveOutlined } from "@ant-design/icons";
+import {
+    Card,
+    Table,
+    Button,
+    Space,
+    Typography,
+    Row,
+    Col,
+    Tree,
+    Tag,
+    Tooltip,
+    message,
+    Drawer,
+    Popconfirm,
+    Input,
+    Spin,
+    Tabs,
+    Modal,
+    Form,
+    Select,
+} from "antd";
+import {
+    TeamOutlined,
+    KeyOutlined,
+    PlusOutlined,
+    EditOutlined,
+    DeleteOutlined,
+    SaveOutlined,
+} from "@ant-design/icons";
 import RoleForm from "./components/RoleForm";
 import apiClient from "../../../configs/apiClient"; // Đảm bảo bạn đã cấu hình axios
 
 const { Title, Text } = Typography;
+const { TabPane } = Tabs;
 
 // Constants
 const PERMISSIONS = {
@@ -155,7 +183,11 @@ export default function PermissionManagement() {
             dataIndex: "permissions",
             key: "permissions",
             render: (permissions) => (
-                <Tooltip title={permissions.map((perm) => perm.description).join(", ")}>
+                <Tooltip
+                    title={permissions
+                        .map((perm) => perm.description)
+                        .join(", ")}
+                >
                     <Tag color="green">{permissions.length}</Tag>
                 </Tooltip>
             ),
@@ -167,7 +199,11 @@ export default function PermissionManagement() {
             render: (_, record) => (
                 <Space>
                     <Tooltip title="Chỉnh sửa quyền">
-                        <Button type="primary" icon={<EditOutlined />} onClick={() => handleEditPermissions(record)} />
+                        <Button
+                            type="primary"
+                            icon={<EditOutlined />}
+                            onClick={() => handleEditPermissions(record)}
+                        />
                     </Tooltip>
                     <Tooltip title="Xóa vai trò">
                         <Popconfirm
@@ -196,8 +232,15 @@ export default function PermissionManagement() {
                 ...selectedRole,
                 permissions: checkedKeys,
             };
-            const response = await apiClient.patch(`/roles/${selectedRole.id}`, updatedRole);
-            setRoles(roles.map((role) => (role.id === selectedRole.id ? response.data : role)));
+            const response = await apiClient.patch(
+                `/roles/${selectedRole.id}`,
+                updatedRole
+            );
+            setRoles(
+                roles.map((role) =>
+                    role.id === selectedRole.id ? response.data : role
+                )
+            );
             message.success("Cập nhật quyền thành công!");
             setIsDrawerVisible(false);
         } catch (error) {
@@ -220,86 +263,309 @@ export default function PermissionManagement() {
         }
     };
 
-    return (
-        <div style={{ padding: 24 }}>
+    // Permission CRUD Tab
+    function PermissionsTab() {
+        const [permissions, setPermissions] = useState([]);
+        const [loading, setLoading] = useState(false);
+        const [modalVisible, setModalVisible] = useState(false);
+        const [editing, setEditing] = useState(null);
+        const [form] = Form.useForm();
+
+        const fetchPermissions = async () => {
+            setLoading(true);
+            try {
+                const res = await apiClient.get("/permissions");
+                setPermissions(res.data);
+            } catch (e) {
+                message.error("Không thể tải danh sách quyền");
+            }
+            setLoading(false);
+        };
+
+        useEffect(() => {
+            fetchPermissions();
+        }, []);
+
+        const handleAdd = () => {
+            setEditing(null);
+            setModalVisible(true);
+            form.resetFields();
+        };
+
+        const handleEdit = (record) => {
+            setEditing(record);
+            setModalVisible(true);
+            form.setFieldsValue(record);
+        };
+
+        const handleDelete = async (id) => {
+            try {
+                await apiClient.delete(`/permissions/${id}`);
+                message.success("Đã xóa quyền");
+                fetchPermissions();
+            } catch {
+                message.error("Xóa thất bại");
+            }
+        };
+
+        const handleModalOk = async () => {
+            try {
+                const values = await form.validateFields();
+                if (editing) {
+                    await apiClient.put(`/permissions/${editing.id}`, values);
+                    message.success("Đã cập nhật quyền");
+                } else {
+                    await apiClient.post("/permissions", values);
+                    message.success("Đã thêm quyền mới");
+                }
+                setModalVisible(false);
+                fetchPermissions();
+            } catch {
+                message.error("Lưu thất bại");
+            }
+        };
+
+        const columns = [
+            {
+                title: "Route/Code",
+                dataIndex: "code",
+                key: "code",
+                render: (code) => (
+                    <Tag color="blue" icon={<KeyOutlined />}>
+                        {code}
+                    </Tag>
+                ),
+            },
+            { title: "Tên quyền", dataIndex: "name", key: "name" },
+            { title: "Mô tả", dataIndex: "description", key: "description" },
+            {
+                title: "Thao tác",
+                key: "action",
+                align: "center",
+                render: (_, record) => (
+                    <Space>
+                        <Tooltip title="Chỉnh sửa">
+                            <Button
+                                icon={<EditOutlined />}
+                                onClick={() => handleEdit(record)}
+                            />
+                        </Tooltip>
+                        <Popconfirm
+                            title="Xác nhận xóa quyền này?"
+                            onConfirm={() => handleDelete(record.id)}
+                        >
+                            <Button icon={<DeleteOutlined />} danger />
+                        </Popconfirm>
+                    </Space>
+                ),
+            },
+        ];
+
+        return (
             <Card>
-                <Space direction="vertical" style={{ width: "100%" }} size="large">
+                <Space
+                    direction="vertical"
+                    style={{ width: "100%" }}
+                    size="large"
+                >
                     <Row justify="space-between" align="middle">
                         <Col>
                             <Space align="center">
                                 <KeyOutlined style={{ fontSize: 24 }} />
                                 <Title level={3} style={{ margin: 0 }}>
-                                    Quản lý Phân quyền
+                                    Quản lý Quyền
                                 </Title>
                             </Space>
                         </Col>
                         <Col>
-                            <Space>
-                                <Input.Search
-                                    placeholder="Tìm kiếm vai trò"
-                                    onSearch={(value) =>
-                                        setRoles(roles.filter((role) => role.name.toLowerCase().includes(value.toLowerCase())))
-                                    }
-                                    allowClear
-                                    style={{ width: 300 }}
-                                />
-                                <Button type="primary" icon={<PlusOutlined />} onClick={() => setIsModalVisible(true)}>
-                                    Thêm vai trò
-                                </Button>
-                            </Space>
+                            <Button
+                                type="primary"
+                                icon={<PlusOutlined />}
+                                onClick={handleAdd}
+                            >
+                                Thêm quyền
+                            </Button>
                         </Col>
                     </Row>
-
                     <Table
                         columns={columns}
-                        dataSource={roles}
+                        dataSource={permissions}
                         rowKey="id"
-                        bordered
-                        loading={loading} // Trạng thái loading được truyền vào đây
+                        loading={loading}
                         pagination={{ pageSize: 10 }}
+                        bordered
                     />
                 </Space>
-            </Card>
-
-            <Drawer
-                title={`Phân quyền - ${selectedRole?.name}`}
-                placement="right"
-                width={650}
-                onClose={() => setIsDrawerVisible(false)}
-                open={isDrawerVisible}
-                extra={
-                    <Space wrap={true}>
-                        <Button
-                            onClick={() =>
-                                setSelectedRole({
-                                    ...selectedRole,
-                                    permissions: permissionTree.flatMap((group) => group.children.map((child) => child.key)),
-                                })
-                            }
+                <Modal
+                    open={modalVisible}
+                    title={editing ? "Sửa quyền" : "Thêm quyền"}
+                    onCancel={() => setModalVisible(false)}
+                    onOk={handleModalOk}
+                    destroyOnClose
+                >
+                    <Form form={form} layout="vertical">
+                        <Form.Item
+                            name="code"
+                            label="Route/Code"
+                            rules={[{ required: true, message: "Bắt buộc!" }]}
                         >
-                            Chọn tất cả
-                        </Button>
-                        <Button onClick={() => setSelectedRole({ ...selectedRole, permissions: [] })}>Bỏ chọn tất cả</Button>
-                        <Button type="primary" icon={<SaveOutlined />} onClick={() => handlePermissionChange(selectedRole.permissions)}>
-                            Lưu thay đổi
-                        </Button>
-                    </Space>
-                }
-            >
-                {selectedRole ? (
-                    <Tree
-                        checkable
-                        defaultExpandAll
-                        checkedKeys={selectedRole.permissions}
-                        onCheck={(checkedKeys) => setSelectedRole({ ...selectedRole, permissions: checkedKeys })}
-                        treeData={permissionTree}
-                    />
-                ) : (
-                    <Spin tip="Đang tải dữ liệu..." />
-                )}
-            </Drawer>
+                            {" "}
+                            <Input />{" "}
+                        </Form.Item>
+                        <Form.Item
+                            name="name"
+                            label="Tên quyền"
+                            rules={[{ required: true, message: "Bắt buộc!" }]}
+                        >
+                            {" "}
+                            <Input />{" "}
+                        </Form.Item>
+                        <Form.Item name="description" label="Mô tả">
+                            {" "}
+                            <Input.TextArea />{" "}
+                        </Form.Item>
+                    </Form>
+                </Modal>
+            </Card>
+        );
+    }
 
-            <RoleForm open={isModalVisible} onCancel={() => setIsModalVisible(false)} onSubmit={handleAddRole} />
+    return (
+        <div style={{ padding: 24 }}>
+            <Tabs defaultActiveKey="roles">
+                <TabPane tab="Quản lý Vai trò" key="roles">
+                    <Card>
+                        <Space
+                            direction="vertical"
+                            style={{ width: "100%" }}
+                            size="large"
+                        >
+                            <Row justify="space-between" align="middle">
+                                <Col>
+                                    <Space align="center">
+                                        <KeyOutlined style={{ fontSize: 24 }} />
+                                        <Title level={3} style={{ margin: 0 }}>
+                                            Quản lý Vài trò
+                                        </Title>
+                                    </Space>
+                                </Col>
+                                <Col>
+                                    <Space>
+                                        <Input.Search
+                                            placeholder="Tìm kiếm vai trò"
+                                            onSearch={(value) =>
+                                                setRoles(
+                                                    roles.filter((role) =>
+                                                        role.name
+                                                            .toLowerCase()
+                                                            .includes(
+                                                                value.toLowerCase()
+                                                            )
+                                                    )
+                                                )
+                                            }
+                                            allowClear
+                                            style={{ width: 300 }}
+                                        />
+                                        <Button
+                                            type="primary"
+                                            icon={<PlusOutlined />}
+                                            onClick={() =>
+                                                setIsModalVisible(true)
+                                            }
+                                        >
+                                            Thêm vai trò
+                                        </Button>
+                                    </Space>
+                                </Col>
+                            </Row>
+
+                            <Table
+                                columns={columns}
+                                dataSource={roles}
+                                rowKey="id"
+                                bordered
+                                loading={loading} // Trạng thái loading được truyền vào đây
+                                pagination={{ pageSize: 10 }}
+                            />
+                        </Space>
+                    </Card>
+
+                    <Drawer
+                        title={`Phân quyền - ${selectedRole?.name}`}
+                        placement="right"
+                        width={650}
+                        onClose={() => setIsDrawerVisible(false)}
+                        open={isDrawerVisible}
+                        extra={
+                            <Space wrap={true}>
+                                <Button
+                                    onClick={() =>
+                                        setSelectedRole({
+                                            ...selectedRole,
+                                            permissions: permissionTree.flatMap(
+                                                (group) =>
+                                                    group.children.map(
+                                                        (child) => child.key
+                                                    )
+                                            ),
+                                        })
+                                    }
+                                >
+                                    Chọn tất cả
+                                </Button>
+                                <Button
+                                    onClick={() =>
+                                        setSelectedRole({
+                                            ...selectedRole,
+                                            permissions: [],
+                                        })
+                                    }
+                                >
+                                    Bỏ chọn tất cả
+                                </Button>
+                                <Button
+                                    type="primary"
+                                    icon={<SaveOutlined />}
+                                    onClick={() =>
+                                        handlePermissionChange(
+                                            selectedRole.permissions
+                                        )
+                                    }
+                                >
+                                    Lưu thay đổi
+                                </Button>
+                            </Space>
+                        }
+                    >
+                        {selectedRole ? (
+                            <Tree
+                                checkable
+                                defaultExpandAll
+                                checkedKeys={selectedRole.permissions}
+                                onCheck={(checkedKeys) =>
+                                    setSelectedRole({
+                                        ...selectedRole,
+                                        permissions: checkedKeys,
+                                    })
+                                }
+                                treeData={permissionTree}
+                            />
+                        ) : (
+                            <Spin tip="Đang tải dữ liệu..." />
+                        )}
+                    </Drawer>
+
+                    <RoleForm
+                        open={isModalVisible}
+                        onCancel={() => setIsModalVisible(false)}
+                        onSubmit={handleAddRole}
+                    />
+                </TabPane>
+                <TabPane tab="Quản lý Quyền" key="permissions">
+                    <PermissionsTab />
+                </TabPane>
+            </Tabs>
         </div>
     );
 }

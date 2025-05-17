@@ -253,7 +253,7 @@ const TableLayout = ({ tables, onUpdateTable, refreshTables }) => {
         const isReserved = table.status === TableStatus.RESERVED;
         const isMaintenance = table.status === TableStatus.MAINTENANCE;
 
-        return (
+        const cardContent = (
             <Card
                 key={table.id}
                 className="table-layout-card"
@@ -262,15 +262,16 @@ const TableLayout = ({ tables, onUpdateTable, refreshTables }) => {
                 }}
                 hoverable
             >
-                <div className="table-layout-header">
-                    <Badge.Ribbon
-                        text={table.isVIP ? "VIP" : ""}
-                        color={table.isVIP ? "purple" : ""}
-                    >
-                        <div className="table-number">
-                            <TableOutlined /> <b>{table.tableNumber}</b>
-                        </div>
-                    </Badge.Ribbon>
+                <div
+                    className={
+                        isOccupied
+                            ? "table-layout-header--vertical"
+                            : "table-layout-header"
+                    }
+                >
+                    <div className="table-number">
+                        <TableOutlined /> <b>{table.tableNumber}</b>
+                    </div>
                     <Tag color={getStatusColor(table.status)}>
                         {getStatusText(table.status)}
                     </Tag>
@@ -288,8 +289,14 @@ const TableLayout = ({ tables, onUpdateTable, refreshTables }) => {
 
                 <Divider style={{ margin: "8px 0" }} />
 
-                <div className="table-layout-actions">
-                    <Space size="small">
+                <div
+                    className="table-layout-actions"
+                    style={{ flexDirection: "column", alignItems: "stretch" }}
+                >
+                    <Space
+                        size="small"
+                        style={{ width: "100%", justifyContent: "center" }}
+                    >
                         <Button
                             type="primary"
                             size="small"
@@ -298,18 +305,6 @@ const TableLayout = ({ tables, onUpdateTable, refreshTables }) => {
                         >
                             Sửa
                         </Button>
-
-                        {isOccupied && (
-                            <Button
-                                type="primary"
-                                size="small"
-                                icon={<SwapOutlined />}
-                                onClick={() => startTableSwap(table)}
-                            >
-                                Chuyển bàn
-                            </Button>
-                        )}
-
                         <Popconfirm
                             title="Đổi trạng thái bàn?"
                             okText="Đồng ý"
@@ -372,8 +367,27 @@ const TableLayout = ({ tables, onUpdateTable, refreshTables }) => {
                             </Dropdown>
                         </Popconfirm>
                     </Space>
+                    {isOccupied && (
+                        <Button
+                            type="primary"
+                            size="small"
+                            icon={<SwapOutlined />}
+                            onClick={() => startTableSwap(table)}
+                            style={{ marginTop: 8, width: "100%" }}
+                        >
+                            Chuyển bàn
+                        </Button>
+                    )}
                 </div>
             </Card>
+        );
+
+        return table.isVIP ? (
+            <Badge.Ribbon text="VIP" color="purple" style={{ zIndex: 1 }}>
+                {cardContent}
+            </Badge.Ribbon>
+        ) : (
+            cardContent
         );
     };
 

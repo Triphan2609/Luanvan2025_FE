@@ -42,22 +42,38 @@ import {
     updatePaymentStatusAndSetAvailable,
 } from "../../../../api/bookingsApi";
 import {
+    getHotelInvoiceByBookingId,
+    createHotelInvoice,
     createPayment,
+    getPaymentsByHotelInvoiceId,
+    sendHotelInvoiceByEmail,
     getPaymentMethods,
-    getPaymentsByBookingId,
-    generateAndSendInvoice,
     getPaymentDataByType,
-    sendInvoiceByEmail,
+    getBankAccounts,
+    getActiveBankAccounts,
+    updatePaymentStatus,
 } from "../../../../api/paymentsApi";
 import { getHotelBranches } from "../../../../api/branchesApi";
 
 const formatCurrency = (value) => {
+    const number = Number(value);
+    if (isNaN(number) || value === null || value === undefined) return "0 ₫";
     return new Intl.NumberFormat("vi-VN", {
         style: "currency",
         currency: "VND",
         minimumFractionDigits: 0,
         maximumFractionDigits: 0,
-    }).format(value);
+    }).format(number);
+};
+
+// Map icon động theo type
+const paymentMethodIcons = {
+    cash: <MoneyCollectOutlined style={{ fontSize: "20px" }} />,
+    bank_transfer: <BankOutlined style={{ fontSize: "20px" }} />,
+    zalo_pay: <QrcodeOutlined style={{ fontSize: "20px", color: "#00b3ff" }} />,
+    zalopay: <QrcodeOutlined style={{ fontSize: "20px", color: "#00b3ff" }} />,
+    card: <CreditCardOutlined style={{ fontSize: "20px" }} />,
+    // Thêm các type khác nếu backend có
 };
 
 export default function Payment() {
@@ -69,6 +85,7 @@ export default function Payment() {
     const [receivedAmount, setReceivedAmount] = useState(0);
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [booking, setBooking] = useState(null);
+    const [hotelInvoice, setHotelInvoice] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [paymentMethods, setPaymentMethods] = useState([]);
@@ -94,59 +111,114 @@ export default function Payment() {
         const fetchData = async () => {
             try {
                 setLoading(true);
-
+                console.log("[LOG] Bắt đầu fetch dữ liệu Payment");
                 if (!bookingId) {
                     throw new Error("Không tìm thấy mã đặt phòng");
                 }
-
                 const bookingData = await getBookingById(bookingId);
                 setBooking(bookingData);
+                console.log("[LOG] bookingData:", bookingData);
+                let invoice = await getHotelInvoiceByBookingId(bookingId);
+                console.log("[LOG] hotelInvoice lấy từ API:", invoice);
+
+                if (!invoice || !invoice.id) {
+                    // Không có hóa đơn, tạo mới
+                    const checkIn = dayjs(
+                        bookingData?.checkIn || bookingData?.checkin
+                    ).format("YYYY-MM-DD");
+                    const checkOut = dayjs(
+                        bookingData?.checkOut || bookingData?.checkout
+                    ).format("YYYY-MM-DD");
+                    // Tính tổng tiền phòng + dịch vụ
+                    let nights = dayjs(checkOut).diff(dayjs(checkIn), "day");
+                    if (nights <= 0) nights = 1;
+                    let totalAmount =
+                        (Number(bookingData.room?.price) || 0) * nights;
+                    if (
+                        bookingData.services &&
+                        Array.isArray(bookingData.services)
+                    ) {
+                        bookingData.services.forEach((service) => {
+                            totalAmount += Number(service.price) || 0;
+                        });
+                    }
+                    if (bookingData.discount) {
+                        totalAmount =
+                            totalAmount * (1 - bookingData.discount / 100);
+                    }
+                    const finalAmount = totalAmount;
+                    invoice = await createHotelInvoice({
+                        bookingId,
+                        branchId: bookingData.branchId,
+                        checkIn,
+                        checkOut,
+                        invoiceNumber: `INV-${bookingId}-${Date.now()}`,
+                        totalAmount,
+                        finalAmount,
+                        issueDate: new Date(),
+                    });
+                    console.log("[LOG] hotelInvoice vừa tạo:", invoice);
+                    // Gọi lại lấy từ DB để đảm bảo đồng bộ
+                    invoice = await getHotelInvoiceByBookingId(bookingId);
+                    console.log(
+                        "[LOG] hotelInvoice lấy lại sau khi tạo:",
+                        invoice
+                    );
+                }
+                setHotelInvoice(invoice);
+                console.log("[LOG] setHotelInvoice:", invoice);
 
                 try {
                     const methods = await getPaymentMethods();
-
-                    const defaultMethods = [
-                        { id: 1, name: "Tiền mặt", type: "cash" },
-                        { id: 2, name: "Chuyển khoản", type: "bank_transfer" },
-                        { id: 3, name: "Thanh toán VNPay", type: "vnpay" },
-                    ];
-
-                    setPaymentMethods(defaultMethods);
-
-                    const defaultMethod = defaultMethods[0];
-                    setMethodId(defaultMethod.id);
-                    setPaymentMethod(defaultMethod.type);
-
-                    if (defaultMethod.type === "bank_transfer") {
-                        const paymentData = await getPaymentDataByType(
-                            "bank_transfer"
-                        );
-                        setBankAccounts(paymentData.accounts || []);
+                    if (Array.isArray(methods) && methods.length > 0) {
+                        setPaymentMethods(methods);
+                        const defaultMethod = methods[0];
+                        setMethodId(defaultMethod.id);
+                        setPaymentMethod(defaultMethod.type);
+                        if (defaultMethod.type === "bank_transfer") {
+                            const paymentData = await getPaymentDataByType(
+                                "bank_transfer"
+                            );
+                            setBankAccounts(paymentData.accounts || []);
+                        }
+                    } else {
+                        throw new Error("No payment methods found");
                     }
                 } catch (error) {
-                    console.error("Error fetching payment methods:", error);
+                    message.warning(
+                        "Không tìm thấy phương thức thanh toán từ backend, sử dụng mặc định!"
+                    );
                     const defaultMethods = [
                         { id: 1, name: "Tiền mặt", type: "cash" },
                         { id: 2, name: "Chuyển khoản", type: "bank_transfer" },
-                        { id: 3, name: "Thanh toán VNPay", type: "vnpay" },
+                        { id: 3, name: "Thanh toán ZaloPay", type: "zalo_pay" },
                     ];
                     setPaymentMethods(defaultMethods);
                     setMethodId(defaultMethods[0].id);
                     setPaymentMethod(defaultMethods[0].type);
                 }
 
-                const payments = await getPaymentsByBookingId(bookingId);
-                setPreviousPayments(payments || []);
+                if (invoice && invoice.id) {
+                    const payments = await getPaymentsByHotelInvoiceId(
+                        invoice.id
+                    );
+                    setPreviousPayments(payments || []);
+                } else {
+                    setPreviousPayments([]);
+                }
 
                 setLoading(false);
-            } catch (err) {
-                console.error("Error fetching data:", err);
-                setError(err.message || "Đã xảy ra lỗi khi tải dữ liệu");
+            } catch (error) {
+                message.error(
+                    error.message || "Lỗi khi lấy dữ liệu thanh toán"
+                );
+                console.log("[LOG] Lỗi fetchData:", error);
+                setError(error.message || "Đã xảy ra lỗi khi tải dữ liệu");
                 setLoading(false);
             }
         };
-
         fetchData();
+        // eslint-disable-next-line
     }, [bookingId]);
 
     useEffect(() => {
@@ -154,7 +226,6 @@ export default function Payment() {
             try {
                 const branchList = await getHotelBranches();
                 setBranches(branchList);
-
                 if (booking && booking.branch && booking.branch.id) {
                     setSelectedBranchId(booking.branch.id);
                 } else if (branchList.length > 0) {
@@ -165,7 +236,6 @@ export default function Payment() {
                 message.error("Không thể tải danh sách chi nhánh");
             }
         };
-
         if (booking) {
             fetchBranches();
         }
@@ -173,69 +243,51 @@ export default function Payment() {
 
     const calculateTotal = () => {
         if (!booking) {
-            console.log("No booking data, returning 0");
             return 0;
         }
-
         const checkIn = dayjs(booking.checkIn || booking.checkInDate);
         const checkOut = dayjs(booking.checkOut || booking.checkOutDate);
-        const nights = checkOut.diff(checkIn, "day");
-        console.log("Nights:", nights);
-
-        let total = (booking.room?.price || 0) * nights;
-        console.log(
-            "Room price calculation:",
-            booking.room?.price,
-            "x",
-            nights,
-            "=",
-            total
-        );
-
+        let nights = checkOut.diff(checkIn, "day");
+        if (nights <= 0) nights = 1;
+        let total = Number(booking.room?.price) || 0;
+        total = total * nights;
         if (booking.services && Array.isArray(booking.services)) {
             let servicesTotal = 0;
             booking.services.forEach((service) => {
-                servicesTotal += service.price || 0;
+                servicesTotal += Number(service.price) || 0;
             });
-            console.log("Services total:", servicesTotal);
             total += servicesTotal;
         }
-
         if (booking.discount) {
-            const discountAmount = total * (booking.discount / 100);
-            console.log("Discount:", booking.discount, "% =", discountAmount);
             total = total * (1 - booking.discount / 100);
         }
-
-        console.log("Total before previous payments:", total);
-
         const previousPaymentsTotal = previousPayments.reduce(
             (sum, payment) => {
-                return sum + (payment.amount || 0);
+                return sum + (Number(payment.amount) || 0);
             },
             0
         );
-        console.log("Previous payments total:", previousPaymentsTotal);
-
         const finalTotal = Math.max(0, total - previousPaymentsTotal);
-        console.log("Final total to pay:", finalTotal);
-
-        return finalTotal;
+        return isNaN(finalTotal) ? 0 : finalTotal;
     };
 
-    const total = calculateTotal();
-    console.log("Calculated total payment amount:", total);
-
-    const change = receivedAmount - total;
+    const total =
+        hotelInvoice && hotelInvoice.finalAmount != null
+            ? Number(hotelInvoice.finalAmount)
+            : calculateTotal();
+    const safeTotal = isNaN(total) ? 0 : total;
+    const safeReceivedAmount = isNaN(Number(receivedAmount))
+        ? 0
+        : Number(receivedAmount);
+    const change = safeReceivedAmount - safeTotal;
 
     const calculateTotalDeposit = () => {
         if (!previousPayments || !Array.isArray(previousPayments)) {
             return 0;
         }
-
         return previousPayments.reduce((total, payment) => {
             if (payment.type === "DEPOSIT") {
-                return total + (payment.amount || 0);
+                return total + (Number(payment.amount) || 0);
             }
             return total;
         }, 0);
@@ -269,122 +321,65 @@ export default function Payment() {
             );
             return;
         }
-
         if (!selectedBranchId) {
             message.error("Vui lòng chọn chi nhánh thanh toán");
             return;
         }
-
         if (paymentMethod === "cash" && receivedAmount < total) {
             message.error(
                 "Số tiền khách đưa không đủ để thanh toán tổng số tiền cần thanh toán"
             );
             return;
         }
-
+        if (!hotelInvoice || !hotelInvoice.id) {
+            message.error("Không tìm thấy hóa đơn khách sạn để thanh toán");
+            console.log("[LOG] hotelInvoice object:", hotelInvoice);
+            return;
+        }
         try {
-            console.log("Processing payment...");
             setProcessingPayment(true);
-
-            const paymentData = {
-                bookingId: booking.id,
-                methodId: methodId,
+            console.log("[LOG] Gọi createPayment với:", {
+                hotelInvoiceId: hotelInvoice.id,
+                methodId,
                 amount: total,
-                notes: notes,
-                target: "hotel",
+                notes,
                 branchId: selectedBranchId,
-            };
-
-            if (paymentMethod === "cash") {
-                paymentData.receivedAmount = receivedAmount;
-            }
-
-            console.log("Payment data:", paymentData);
-            const paymentResult = await createPayment(paymentData);
-            console.log("Payment created successfully:", paymentResult);
-
-            const paymentInfo = {
-                method: paymentMethod,
-                receivedAmount: receivedAmount,
-                change: change,
-                notes: notes,
-                methodId: methodId,
+                receivedAmount,
+                paymentMethod,
+            });
+            const payment = await createPayment({
+                hotelInvoiceId: hotelInvoice.id,
+                methodId,
                 amount: total,
-                date: new Date().toISOString(),
-            };
-
-            const formattedBooking = {
-                id: booking.id,
-                customerName: booking.customer?.name || "Khách hàng",
-                phone: booking.customer?.phone || "",
-                email: booking.customer?.email || "",
-                roomNumber: booking.room?.roomCode || "",
-                roomType: booking.room?.roomType?.name || "",
-                checkIn: new Date(booking.checkInDate).toLocaleDateString(
-                    "vi-VN"
-                ),
-                checkOut: new Date(booking.checkOutDate).toLocaleDateString(
-                    "vi-VN"
-                ),
-                services: [
-                    {
-                        name: `${booking.room.roomCode} - ${
-                            booking.room.roomType?.name || "Phòng"
-                        }`,
-                        pricePerNight: booking.room.price,
-                        nights: Math.ceil(
-                            (new Date(booking.checkOutDate) -
-                                new Date(booking.checkInDate)) /
-                                (1000 * 60 * 60 * 24)
-                        ),
-                        quantity: 1,
-                    },
-                    ...(booking.services || []).map((service) => ({
-                        name: service.name,
-                        price: service.price,
-                        quantity: service.quantity || 1,
-                    })),
-                ],
-                totalAmount: booking.totalAmount,
-                discount: booking.discount || 0,
-                paymentStatus: "paid",
-                branch: {
-                    id: booking.branch?.id,
-                    name: booking.branch?.name || "KHÁCH SẠN ABC",
-                    address:
-                        booking.branch?.address ||
-                        "123 Đường XYZ, Quận 1, TP.HCM",
-                    phone: booking.branch?.phone || "1900 1234",
-                    email: booking.branch?.email || "info@abchotel.com",
-                    website: booking.branch?.website || "www.abchotel.com",
-                },
-            };
-
-            localStorage.setItem(
-                `payment_${booking.id}`,
-                JSON.stringify({
-                    booking: formattedBooking,
-                    paymentInfo: paymentInfo,
-                    paymentResult: paymentResult,
-                })
-            );
-
-            await updatePaymentStatusAndSetAvailable(booking.id, "paid");
-            console.log(
-                "Payment status updated successfully and room set to available if applicable"
-            );
-
+                notes,
+                branchId: selectedBranchId,
+                ...(paymentMethod === "cash" ? { receivedAmount } : {}),
+            });
+            // Cập nhật trạng thái payment thành công
+            if (payment && payment.id) {
+                await updatePaymentStatus(payment.id, "confirmed");
+            }
             message.success("Thanh toán thành công!");
-            setShowPrintModal(true);
-            setProcessingPayment(false);
+            await updateBookingPaymentStatus(bookingId, "paid");
+            fetchPayments();
+            navigate(`/hotel/invoice/${bookingId}`);
         } catch (error) {
-            console.error("Lỗi khi xử lý thanh toán:", error);
-            const errorMsg =
-                error.response?.data?.message ||
-                error.message ||
-                "Lỗi không xác định";
-            message.error("Có lỗi xảy ra khi xử lý thanh toán: " + errorMsg);
+            message.error("Có lỗi khi thanh toán: " + (error.message || ""));
+        } finally {
             setProcessingPayment(false);
+        }
+    };
+
+    const fetchPayments = async () => {
+        if (!hotelInvoice || !hotelInvoice.id) {
+            setPreviousPayments([]);
+            return;
+        }
+        try {
+            const payments = await getPaymentsByHotelInvoiceId(hotelInvoice.id);
+            setPreviousPayments(payments || []);
+        } catch (error) {
+            setPreviousPayments([]);
         }
     };
 
@@ -471,39 +466,24 @@ export default function Payment() {
         try {
             setSendingEmail(true);
             const { email } = values;
-
             if (!email) {
                 message.error("Email là bắt buộc");
                 setSendingEmail(false);
                 return;
             }
-
-            let invoiceCreated = false;
-            try {
-                await generateAndSendInvoice(booking.id);
-                invoiceCreated = true;
-            } catch (error) {
-                console.log("Hóa đơn có thể đã được tạo trước đó:", error);
+            if (!hotelInvoice || !hotelInvoice.id) {
+                message.error("Không tìm thấy hóa đơn khách sạn để gửi email");
+                setSendingEmail(false);
+                return;
             }
-
-            const result = await sendInvoiceByEmail(booking.id, email);
-
-            message.success(
-                <div>
-                    <p>Hóa đơn đã được gửi thành công đến {email}</p>
-                    {!invoiceCreated && <p>Hóa đơn đã được tạo trước đó</p>}
-                </div>
-            );
-
+            await sendHotelInvoiceByEmail(hotelInvoice.id, email);
+            message.success(`Đã gửi hóa đơn thành công đến: ${email}`);
             setShowEmailModal(false);
             emailForm.resetFields();
         } catch (error) {
-            console.error("Error sending invoice email:", error);
             message.error(
-                "Gửi email thất bại: " +
-                    (error.response?.data?.message ||
-                        error.message ||
-                        "Lỗi không xác định")
+                "Không thể gửi email: " +
+                    (error.message || "Lỗi không xác định")
             );
         } finally {
             setSendingEmail(false);
@@ -561,7 +541,8 @@ export default function Payment() {
         if (booking.room) {
             const checkIn = dayjs(booking.checkIn || booking.checkInDate);
             const checkOut = dayjs(booking.checkOut || booking.checkOutDate);
-            const nights = checkOut.diff(checkIn, "day");
+            let nights = checkOut.diff(checkIn, "day");
+            if (nights <= 0) nights = 1;
 
             services.push({
                 key: "room",
@@ -1018,47 +999,15 @@ export default function Payment() {
                                             }}
                                         >
                                             <Space>
-                                                {method.type === "cash" && (
-                                                    <MoneyCollectOutlined
+                                                {paymentMethodIcons[
+                                                    method.type
+                                                ] || (
+                                                    <DollarOutlined
                                                         style={{
                                                             fontSize: "20px",
                                                         }}
                                                     />
                                                 )}
-                                                {method.type === "card" && (
-                                                    <CreditCardOutlined
-                                                        style={{
-                                                            fontSize: "20px",
-                                                        }}
-                                                    />
-                                                )}
-                                                {method.type ===
-                                                    "bank_transfer" && (
-                                                    <BankOutlined
-                                                        style={{
-                                                            fontSize: "20px",
-                                                        }}
-                                                    />
-                                                )}
-                                                {method.type === "vnpay" && (
-                                                    <QrcodeOutlined
-                                                        style={{
-                                                            fontSize: "20px",
-                                                        }}
-                                                    />
-                                                )}
-                                                {method.type !== "cash" &&
-                                                    method.type !== "card" &&
-                                                    method.type !==
-                                                        "bank_transfer" &&
-                                                    method.type !== "vnpay" && (
-                                                        <DollarOutlined
-                                                            style={{
-                                                                fontSize:
-                                                                    "20px",
-                                                            }}
-                                                        />
-                                                    )}
                                                 <span
                                                     style={{
                                                         fontWeight: "bold",
@@ -1068,6 +1017,17 @@ export default function Payment() {
                                                     {method.name}
                                                 </span>
                                             </Space>
+                                            {method.description && (
+                                                <div
+                                                    style={{
+                                                        fontSize: "12px",
+                                                        color: "#888",
+                                                        marginLeft: 36,
+                                                    }}
+                                                >
+                                                    {method.description}
+                                                </div>
+                                            )}
                                         </Radio.Button>
                                     ))}
                                 </Space>
@@ -1246,9 +1206,9 @@ export default function Payment() {
                         {paymentMethod === "bank_transfer" &&
                             renderBankTransferSection()}
 
-                        {paymentMethod === "vnpay" && (
+                        {paymentMethod === "zalo_pay" && (
                             <div style={{ marginTop: 16 }}>
-                                <h4>Thanh toán qua VNPay:</h4>
+                                <h4>Thanh toán qua ZaloPay:</h4>
                                 <div
                                     style={{
                                         textAlign: "center",
@@ -1292,7 +1252,7 @@ export default function Payment() {
                                             <QrcodeOutlined
                                                 style={{
                                                     fontSize: "30px",
-                                                    color: "#003d99",
+                                                    color: "#00b3ff",
                                                 }}
                                             />
                                         </div>
@@ -1358,7 +1318,7 @@ export default function Payment() {
                                             fontWeight: "bold",
                                         }}
                                     >
-                                        Quét mã QR để thanh toán qua VNPay
+                                        Quét mã QR để thanh toán qua ZaloPay
                                     </div>
                                     <div
                                         style={{
@@ -1440,18 +1400,20 @@ export default function Payment() {
                             {paymentMethod === "bank_transfer" && (
                                 <BankOutlined />
                             )}
-                            {paymentMethod === "vnpay" && <QrcodeOutlined />}
+                            {paymentMethod === "zalo_pay" && <QrcodeOutlined />}
                             {paymentMethod !== "cash" &&
                                 paymentMethod !== "bank_transfer" &&
-                                paymentMethod !== "vnpay" && <DollarOutlined />}
+                                paymentMethod !== "zalo_pay" && (
+                                    <DollarOutlined />
+                                )}
                             <span>
                                 Xác nhận thanh toán
                                 {paymentMethod === "cash"
                                     ? " tiền mặt"
                                     : paymentMethod === "bank_transfer"
                                     ? " chuyển khoản"
-                                    : paymentMethod === "vnpay"
-                                    ? " VNPay"
+                                    : paymentMethod === "zalo_pay"
+                                    ? " ZaloPay"
                                     : ""}
                             </span>
                         </Space>
@@ -1474,8 +1436,8 @@ export default function Payment() {
                                 ? "Thẻ"
                                 : paymentMethod === "bank_transfer"
                                 ? "Chuyển khoản"
-                                : paymentMethod === "vnpay"
-                                ? "Thanh toán trực tuyến (VNPay)"
+                                : paymentMethod === "zalo_pay"
+                                ? "Thanh toán trực tuyến (ZaloPay)"
                                 : paymentMethods.find((m) => m.id === methodId)
                                       ?.name || "Khác"}
                         </Descriptions.Item>
@@ -1494,9 +1456,9 @@ export default function Payment() {
                                 Khách hàng đã chuyển khoản đúng số tiền
                             </Descriptions.Item>
                         )}
-                        {paymentMethod === "vnpay" && (
+                        {paymentMethod === "zalo_pay" && (
                             <Descriptions.Item label="Xác nhận">
-                                Giao dịch VNPay đã hoàn tất
+                                Giao dịch ZaloPay đã hoàn tất
                             </Descriptions.Item>
                         )}
                         {notes && (
